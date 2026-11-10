@@ -3,7 +3,6 @@ import { AuthRequest } from '../middleware/auth'
 import Calendar, { CALENDAR_COLORS, CalendarColor } from '../models/Calendar'
 import Event from '../models/Event'
 import { ensureDefaultCalendar } from '../lib/calendars'
-import IcalFeed from '../models/IcalFeed'
 
 function isColor(value: unknown): value is CalendarColor {
     return typeof value === 'string' && (CALENDAR_COLORS as readonly string[]).includes(value)
@@ -98,11 +97,6 @@ export async function deleteCalendar(req: AuthRequest, res: Response) {
         res.status(400).json({ message: 'The default calendar cannot be deleted' })
         return
     }
-
-    // Imported meetings aren't the user's to keep — they'd come back on the next
-    // sync anyway — so dropping their layer drops them and the feed with it.
-    await Event.deleteMany({ user: req.userId, calendar: calendar._id, source: { $exists: true } })
-    await IcalFeed.deleteOne({ user: req.userId, calendar: calendar._id })
 
     const fallback = await ensureDefaultCalendar(req.userId!)
     const { modifiedCount } = await Event.updateMany(

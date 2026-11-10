@@ -6,7 +6,9 @@ import DashboardDateNav from '../components/dashboard/DashboardDateNav'
 import YourDayWidget from '../components/dashboard/YourDayWidget'
 import TomorrowWidget, { useTomorrowVisible } from '../components/dashboard/TomorrowWidget'
 import TimelineWidget from '../components/dashboard/TimelineWidget'
-import StepsWidget from '../components/dashboard/StepsWidget'
+import StepsWidget, { StepsGlance } from '../components/dashboard/StepsWidget'
+import { useSteps } from '../components/dashboard/useSteps'
+import CaloriesOutWidget from '../components/dashboard/CaloriesOutWidget'
 import WeatherWidget from '../components/dashboard/WeatherWidget'
 import CountdownsWidget from '../components/dashboard/CountdownsWidget'
 import BirthdaysWidget from '../components/dashboard/BirthdaysWidget'
@@ -15,13 +17,15 @@ import { todayKey } from '../lib/calendar'
 /**
  * The day on one page, most important first. A greeting; Your day's score and
  * targets in one strip; then the plan — what's happening now and the day in
- * order — with steps and the weather beside it, since they shape the day. Then,
- * quieter, a row of things to glance at: the timeline, countdowns, and
- * birthdays when one is close. Every section sits on its own card.
+ * order — with the weather beside it, since it shapes the day. Then steps and
+ * calories burned side by side, and, quieter, a row of things to glance
+ * at: the timeline, countdowns, and birthdays when one is close. Every section sits on its own card.
  */
 export default function Home() {
     const [date, setDate] = useState(todayKey())
     const { show: showTomorrow } = useTomorrowVisible(date)
+    // Read once here: the summary strip and the steps card both show them.
+    const steps = useSteps(todayKey())
 
     return (
         <Container as="main" wide className="pb-20 pt-8 sm:pt-12">
@@ -34,12 +38,8 @@ export default function Home() {
                 <div className="mt-8 sm:mt-10">
                     <YourDayWidget
                         date={date}
-                        aside={
-                            <>
-                                <StepsWidget />
-                                <WeatherWidget />
-                            </>
-                        }
+                        glance={date === todayKey() ? <StepsGlance data={steps} /> : undefined}
+                        aside={<WeatherWidget />}
                     />
                 </div>
 
@@ -50,9 +50,16 @@ export default function Home() {
                     </div>
                 )}
 
+                {/* Activity from the watch, side by side so neither pushes the page down. */}
+                <div className="mt-5 grid items-start gap-5 md:grid-cols-2">
+                    <StepsWidget data={steps} />
+                    <CaloriesOutWidget />
+                </div>
+
                 <div className="mt-5 grid items-start gap-5 md:grid-cols-2 lg:grid-cols-3">
                     <TimelineWidget />
-                    <CountdownsWidget />
+                    <CountdownsWidget show="until" />
+                    <CountdownsWidget show="since" />
                     <BirthdaysWidget date={date} />
                 </div>
             </DashCards>

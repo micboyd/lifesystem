@@ -1,14 +1,14 @@
 import { Response } from 'express'
-import { Types } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
 import IcalFeed from '../models/IcalFeed'
+import Timebox from '../models/Timebox'
 import { normaliseFeedUrl } from '../lib/icalMeetings'
 import {
     FeedError,
     applyFeed,
+    clearLegacyCalendarMeetings,
     describe,
     downloadFeed,
-    ensureMeetingsCalendar,
     feedStatus,
     removeUserFeed,
     syncUserFeed,
@@ -40,17 +40,13 @@ export async function setFeed(req: AuthRequest, res: Response) {
         throw err
     }
 
-    const existing = await IcalFeed.findOne({ user: req.userId })
-    const calendar = await ensureMeetingsCalendar(req.userId!, existing?.calendar)
-    const calendarId = calendar._id as Types.ObjectId
-    const result = await applyFeed(req.userId!, calendarId, ics)
+    const result = await applyFeed(req.userId!, ics)
     const now = new Date()
     const feed = await IcalFeed.findOneAndUpdate(
         { user: req.userId },
         {
             $set: {
                 url,
-                calendar: calendarId,
                 lastSyncedAt: now,
                 lastAttemptAt: now,
                 lastError: null,
@@ -59,6 +55,8 @@ export async function setFeed(req: AuthRequest, res: Response) {
         },
         { upsert: true, new: true }
     ).select('+url')
+    await clearLegacyCalendarMeetings(feed!)
+    await feed!.save()
     res.json({ message: 'Saved', data: { status: describe(feed!), result } })
 }
 
@@ -73,4 +71,23 @@ export async function syncFeed(req: AuthRequest, res: Response) {
 export async function deleteFeed(req: AuthRequest, res: Response) {
     const out = await removeUserFeed(req.userId!)
     res.json({ message: 'Removed', data: out })
+}
+
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * GET /api/ical/meetings?from=YYYY-MM-DD&to=YYYY-MM-DD — the imported meetings
+ * in a range, for the Fitness planner's slot-clash warnings.
+ */
+export async function listMeetings(req: AuthRequest, res: Response) {
+    const { from, to } = req.query
+    if (typeof from !== 'string' || typeof to !== 'string' || !DATE_KEY.test(from) || !DATE_KEY.test(to)) {
+        res.status(400).json({ message: 'from and to must both be YYYY-MM-DD dates' })
+        return
+    }
+    const meetings = await Timebox.find({ user: req.userId, source: 'ical', date: { $gte: from, $lte: to } })
+        .select('date title startTime endTime location notes')
+        .sort({ date: 1, startTime: 1 })
+        .lean()
+    res.json({ message: 'OK', data: meetings })
 }

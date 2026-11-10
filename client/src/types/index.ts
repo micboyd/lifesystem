@@ -32,6 +32,9 @@ export interface UserSettings {
     bedTime?: string
     workStart?: string
     workEnd?: string
+    /** Lunch break inside the working day; splits work on the Timebox. */
+    lunchStart?: string
+    lunchEnd?: string
     showTotals?: boolean
     workDays?: number[]
     /** YYYY-MM-DD — all finance data before this date is hidden. */
@@ -1179,15 +1182,8 @@ export interface Event {
     recurrence?: Recurrence
     /** YYYY-MM-DD occurrence dates removed from a recurring series. */
     exdates?: string[]
-    /** 'ical' for meetings imported from Google Calendar — read-only here. */
-    source?: 'ical'
     createdAt: string
     updatedAt: string
-}
-
-/** Whether an event was imported from a calendar feed (and so can't be edited here). */
-export function isImportedEvent(event: Pick<Event, 'source'> | null | undefined): boolean {
-    return !!event?.source
 }
 
 export const DAY_STATUSES = [
@@ -1231,9 +1227,9 @@ export const DAY_STATUS_OPTIONS: DayStatusOption[] = [
     {
         value: 'christmas_new_year',
         label: 'Christmas & New Year',
-        bg: 'bg-red-100',
-        text: 'text-red-700',
-        hover: 'hover:bg-red-200',
+        bg: 'bg-green-100',
+        text: 'text-green-700',
+        hover: 'hover:bg-green-200',
     },
 ]
 
@@ -1732,4 +1728,38 @@ export interface ShoppingList {
     groups: ShoppingGroup[]
     /** Lines in the basket, by lower-cased name. */
     ticked: string[]
+}
+
+export const TIMEBOX_CATEGORIES = ['work', 'personal', 'health', 'learning', 'social'] as const
+export type TimeboxCategory = (typeof TIMEBOX_CATEGORIES)[number]
+
+export const TIMEBOX_REPEATS = ['daily', 'weekdays', 'weekly', 'custom'] as const
+export type TimeboxRepeat = (typeof TIMEBOX_REPEATS)[number]
+
+/**
+ * One block of time on the Timebox page. With `recurrence` it repeats from its
+ * series start; the list API returns each repeat already placed on the asked-for
+ * day, flagged `isRecurringInstance`.
+ */
+export interface Timebox {
+    _id: string
+    /** "YYYY-MM-DD" — the day shown (a repeat's own day, not its series start). */
+    date: string
+    title: string
+    notes?: string
+    category?: TimeboxCategory
+    /** "HH:MM". */
+    startTime: string
+    /** "HH:MM", after startTime. */
+    endTime: string
+    recurrence?: { freq: TimeboxRepeat; days?: number[]; until?: string }
+    exceptions: string[]
+    isRecurringInstance?: boolean
+    /** For a repeat: the day the series began. */
+    seriesStart?: string
+    /** 'ical' on meetings imported from Google Calendar — read-only here. */
+    source?: 'ical'
+    location?: string
+    createdAt: string
+    updatedAt: string
 }

@@ -1,5 +1,6 @@
 import api from './api'
 import type { ApiResponse } from '../types'
+import type { MeetingBlock } from '../lib/meetingClashes'
 
 /** The Google Calendar feed as the server describes it — the address only ever masked. */
 export interface MeetingsFeed {
@@ -50,4 +51,10 @@ export async function syncMeetingsFeed(
 
 export async function deleteMeetingsFeed(): Promise<void> {
     await api.delete('/ical')
+}
+
+/** Imported meetings in a range — the Fitness planner counts them as clashes. */
+export async function listMeetings(from: string, to: string): Promise<MeetingBlock[]> {
+    const res = await api.get<ApiResponse<MeetingBlock[]>>('/ical/meetings', { params: { from, to } })
+    return res.data.data
 }

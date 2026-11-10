@@ -8,8 +8,11 @@ import { Schema, model, Document, Types } from 'mongoose'
 export interface IIcalFeed extends Document {
     user: Types.ObjectId
     url: string
-    /** The calendar (layer) imported meetings land on. */
-    calendar: Types.ObjectId
+    /**
+     * Legacy: the "Meetings" calendar meetings used to land on before they moved
+     * to Timebox. Cleared once the next sync has removed it.
+     */
+    calendar?: Types.ObjectId | null
     lastSyncedAt?: Date | null
     /** When the last attempt ran, successful or not — throttles the sync-on-open. */
     lastAttemptAt?: Date | null
@@ -24,7 +27,7 @@ const icalFeedSchema = new Schema<IIcalFeed>(
     {
         user: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
         url: { type: String, required: true, select: false },
-        calendar: { type: Schema.Types.ObjectId, ref: 'Calendar', required: true },
+        calendar: { type: Schema.Types.ObjectId, ref: 'Calendar', default: null },
         lastSyncedAt: { type: Date, default: null },
         lastAttemptAt: { type: Date, default: null },
         lastError: { type: String, default: null },

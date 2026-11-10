@@ -110,13 +110,13 @@ export default function WeatherWidget() {
                             <span className={`block ${DASH.note}`}>at {hourLabel(now.hour)}</span>
                         </span>
                     </div>
-                    <div className="grid grid-cols-5 border-y border-neutral-200 py-4">
-                        {hours.map((h) => {
+                    <div className="grid grid-cols-5 gap-1.5">
+                        {hours.map((h, i) => {
                             const info = weatherInfo(h.code, h.hour >= 6 && h.hour < 20)
                             return (
                                 <div
                                     key={`${h.date}-${h.hour}`}
-                                    className="flex flex-col items-center gap-2"
+                                    className={`flex flex-col items-center gap-1.5 rounded-xl py-3 ${i === 0 ? 'bg-sky-50' : 'bg-neutral-50'}`}
                                     title={info.label}
                                 >
                                     <span className={DASH.note}>{hourLabel(h.hour)}</span>

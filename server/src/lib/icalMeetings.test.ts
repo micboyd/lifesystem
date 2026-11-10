@@ -4,7 +4,6 @@ import {
     meetingsFromIcs,
     normaliseFeedUrl,
     occurrenceFrom,
-    partForHour,
     syncWindow,
 } from './icalMeetings'
 
@@ -44,67 +43,64 @@ const ME_DECLINED = 'ATTENDEE;CN=me@example.com;PARTSTAT=DECLINED:mailto:me@exam
 
 const WINDOW = { from: new Date('2026-10-20T00:00:00Z'), to: new Date('2027-01-20T00:00:00Z') }
 
-describe('partForHour', () => {
-    it('splits the day at 12:00 and 17:00', () => {
-        expect(partForHour(0)).toBe('morning')
-        expect(partForHour(11)).toBe('morning')
-        expect(partForHour(12)).toBe('afternoon')
-        expect(partForHour(16)).toBe('afternoon')
-        expect(partForHour(17)).toBe('evening')
-        expect(partForHour(23)).toBe('evening')
-    })
-})
-
 describe('occurrenceFrom', () => {
-    const base = { uid: 'u', title: 't', allDay: false }
+    const base = { uid: 'u', title: 't' }
+    const at = (iso: string) => new Date(iso)
 
-    it('keeps a meeting ending on the hour inside the part it ran in', () => {
-        const start = new Date('2026-11-12T09:00:00Z')
+    it('keeps start and end as London wall-clock times', () => {
+        const start = at('2026-11-12T09:00:00Z')
         const occ = occurrenceFrom({
             ...base,
             originalStart: start,
             start,
-            end: new Date('2026-11-12T12:00:00Z'),
+            end: at('2026-11-12T10:30:00Z'),
         })
-        expect(occ).toMatchObject({ time: '09:00', startPart: 'morning', endPart: 'morning' })
-    })
-
-    it('spans parts when a meeting crosses noon', () => {
-        const start = new Date('2026-11-12T11:30:00Z')
-        const occ = occurrenceFrom({
-            ...base,
-            originalStart: start,
-            start,
-            end: new Date('2026-11-12T13:00:00Z'),
-        })
-        expect(occ).toMatchObject({
-            startPart: 'morning',
-            endPart: 'afternoon',
-            endDate: '2026-11-12',
-        })
+        expect(occ).toMatchObject({ date: '2026-11-12', startTime: '09:00', endTime: '10:30' })
     })
 
     it('converts summer UTC times to British Summer Time', () => {
-        // 16:30 UTC in July is 17:30 in London — evening, not afternoon.
-        const start = new Date('2026-07-01T16:30:00Z')
+        const start = at('2026-07-01T16:30:00Z')
         const occ = occurrenceFrom({
             ...base,
             originalStart: start,
             start,
-            end: new Date('2026-07-01T17:00:00Z'),
+            end: at('2026-07-01T17:00:00Z'),
         })
-        expect(occ).toMatchObject({ startDate: '2026-07-01', time: '17:30', startPart: 'evening' })
+        expect(occ).toMatchObject({ date: '2026-07-01', startTime: '17:30', endTime: '18:00' })
     })
 
     it('moves the date when BST pushes a late-UTC meeting past midnight', () => {
-        const start = new Date('2026-07-01T23:30:00Z')
+        const start = at('2026-07-01T23:30:00Z')
         const occ = occurrenceFrom({
             ...base,
             originalStart: start,
             start,
-            end: new Date('2026-07-02T00:30:00Z'),
+            end: at('2026-07-02T00:30:00Z'),
         })
-        expect(occ).toMatchObject({ startDate: '2026-07-02', time: '00:30', startPart: 'morning' })
+        expect(occ).toMatchObject({ date: '2026-07-02', startTime: '00:30', endTime: '01:30' })
+    })
+
+    it('clips a meeting that runs past midnight to the end of its first day', () => {
+        const start = at('2026-11-12T22:00:00Z')
+        const occ = occurrenceFrom({
+            ...base,
+            originalStart: start,
+            start,
+            end: at('2026-11-13T01:00:00Z'),
+        })
+        expect(occ).toMatchObject({ date: '2026-11-12', startTime: '22:00', endTime: '23:59' })
+    })
+
+    it('gives a zero-length meeting fifteen minutes', () => {
+        const start = at('2026-11-12T14:00:00Z')
+        expect(occurrenceFrom({ ...base, originalStart: start, start, end: start })).toMatchObject({
+            startTime: '14:00',
+            endTime: '14:15',
+        })
+        const late = at('2026-11-12T23:59:00Z')
+        expect(
+            occurrenceFrom({ ...base, originalStart: late, start: late, end: late }).endTime
+        ).toBe('23:59')
     })
 })
 
@@ -135,11 +131,11 @@ describe('meetingsFromIcs', () => {
             ].join('\r\n')
         )
         const out = meetingsFromIcs(ics, WINDOW)
-        expect(out.map((o) => [o.startDate, o.time, o.startPart, o.title])).toEqual([
-            ['2026-11-02', '09:30', 'morning', 'Standup'],
-            ['2026-11-16', '14:00', 'afternoon', 'Standup (moved)'],
-            ['2026-11-23', '09:30', 'morning', 'Standup'],
-            ['2026-11-30', '09:30', 'morning', 'Standup'],
+        expect(out.map((o) => [o.date, o.startTime, o.endTime, o.title])).toEqual([
+            ['2026-11-02', '09:30', '10:00', 'Standup'],
+            ['2026-11-16', '14:00', '15:00', 'Standup (moved)'],
+            ['2026-11-23', '09:30', '10:00', 'Standup'],
+            ['2026-11-30', '09:30', '10:00', 'Standup'],
         ])
         // The moved one keeps its original date as identity, so re-syncs update it in place.
         expect(out[1]).toMatchObject({ uid: 'standup@google.com', occurrenceDate: '2026-11-16' })
@@ -160,7 +156,7 @@ describe('meetingsFromIcs', () => {
             ].join('\r\n')
         )
         const out = meetingsFromIcs(ics, WINDOW)
-        expect(out.map((o) => `${o.startDate} ${o.time}`)).toEqual([
+        expect(out.map((o) => `${o.date} ${o.startTime}`)).toEqual([
             '2026-10-21 10:00',
             '2026-10-28 10:00',
             '2026-11-04 10:00',
@@ -209,15 +205,14 @@ describe('meetingsFromIcs', () => {
             ].join('\r\n')
         )
         const out = meetingsFromIcs(ics, WINDOW)
-        expect(out.map((o) => `${o.title} ${o.startDate}`)).toEqual([
+        expect(out.map((o) => `${o.title} ${o.date}`)).toEqual([
             'Daily 2026-11-03',
             'Daily 2026-11-05',
         ])
-        // 16:00–17:00 stays in the afternoon.
-        expect(out[0]).toMatchObject({ startPart: 'afternoon', endPart: 'afternoon' })
+        expect(out[0]).toMatchObject({ startTime: '16:00', endTime: '17:00' })
     })
 
-    it('stores all-day meetings with an inclusive end date', () => {
+    it('skips all-day meetings — Timebox only holds timed blocks', () => {
         const ics = feed(
             [
                 'BEGIN:VEVENT',
@@ -228,17 +223,7 @@ describe('meetingsFromIcs', () => {
                 'END:VEVENT',
             ].join('\r\n')
         )
-        expect(meetingsFromIcs(ics, WINDOW)).toEqual([
-            expect.objectContaining({
-                allDay: true,
-                startDate: '2026-11-20',
-                endDate: '2026-11-21',
-                startPart: 'morning',
-                endPart: 'evening',
-                occurrenceDate: '2026-11-20',
-            }),
-        ])
-        expect(meetingsFromIcs(ics, WINDOW)[0].time).toBeUndefined()
+        expect(meetingsFromIcs(ics, WINDOW)).toEqual([])
     })
 
     it('leaves out meetings outside the window', () => {
@@ -262,7 +247,7 @@ describe('meetingsFromIcs', () => {
             ].join('\r\n')
         )
         const out = meetingsFromIcs(ics, WINDOW)
-        expect(out.map((o) => o.startDate)).toEqual(['2026-12-01', '2027-01-01'])
+        expect(out.map((o) => o.date)).toEqual(['2026-12-01', '2027-01-01'])
     })
 })
 

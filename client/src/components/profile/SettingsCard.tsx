@@ -25,6 +25,8 @@ export default function SettingsCard() {
     const [bedTime, setBedTime] = useState<string | null>(s.bedTime ?? null)
     const [workStart, setWorkStart] = useState<string | null>(s.workStart ?? null)
     const [workEnd, setWorkEnd] = useState<string | null>(s.workEnd ?? null)
+    const [lunchStart, setLunchStart] = useState<string | null>(s.lunchStart ?? null)
+    const [lunchEnd, setLunchEnd] = useState<string | null>(s.lunchEnd ?? null)
     const [showTotals, setShowTotals] = useState<boolean>(s.showTotals ?? false)
     const [financeStartDate, setFinanceStartDate] = useState<string>(s.financeStartDate ?? '')
     const [workDays, setWorkDays] = useState<number[]>(s.workDays ?? [1, 2, 3, 4, 5])
@@ -67,6 +69,8 @@ export default function SettingsCard() {
                 bedTime: bedTime ?? '',
                 workStart: workStart ?? '',
                 workEnd: workEnd ?? '',
+                lunchStart: lunchStart ?? '',
+                lunchEnd: lunchEnd ?? '',
                 showTotals,
                 workDays,
                 financeStartDate: financeStartDate || undefined,
@@ -148,6 +152,38 @@ export default function SettingsCard() {
                                 />
                             </Field>
                         </div>
+                        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                            <Field label="Lunch from">
+                                <TimePicker
+                                    value={lunchStart}
+                                    onChange={setLunchStart}
+                                    minTime={workStart ?? undefined}
+                                    maxTime={lunchEnd ?? workEnd ?? undefined}
+                                    placeholder="No lunch break"
+                                />
+                            </Field>
+                            <Field label="Lunch until">
+                                <TimePicker
+                                    value={lunchEnd}
+                                    onChange={setLunchEnd}
+                                    minTime={lunchStart ?? workStart ?? undefined}
+                                    maxTime={workEnd ?? undefined}
+                                    placeholder="No lunch break"
+                                />
+                            </Field>
+                        </div>
+                        {(lunchStart || lunchEnd) && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setLunchStart(null)
+                                    setLunchEnd(null)
+                                }}
+                                className="mt-2 text-xs font-medium text-neutral-500 hover:text-neutral-800"
+                            >
+                                No lunch break
+                            </button>
+                        )}
                         <div className="mt-4">
                             <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">Working days</p>
                             <div className="flex gap-1.5">

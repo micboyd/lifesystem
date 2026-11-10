@@ -135,9 +135,9 @@ export default function MeetingsFeedDrawer({ open, onClose, feed, onChanged }: P
         >
             <div className="flex flex-col gap-6">
                 <p className="text-sm text-neutral-500">
-                    Meetings from your Google Calendar show on a Meetings calendar here, read-only,
-                    and count as clashes in the Fitness planner. It syncs when you open the calendar
-                    (at most every 15 minutes) and covers a week back to 90 days ahead.
+                    Meetings from your Google Calendar show here as read-only blocks, so the rest of
+                    the day plans around them. It syncs when you open Timebox (at most every 15
+                    minutes) and covers a week back to 90 days ahead. All-day events are left out.
                 </p>
 
                 {connected && feed && (

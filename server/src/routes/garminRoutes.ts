@@ -12,6 +12,7 @@ import {
     linkRun,
     unlinkRun,
     pullCalories,
+    caloriesToday,
     listSteps,
     pullSteps,
 } from '../controllers/garminController'
@@ -35,6 +36,7 @@ router.post('/activities/entry/:id/link', linkRun)
 router.post('/activities/entry/:id/unlink', unlinkRun)
 
 router.post('/daily-energy/pull', pullCalories)
+router.get('/daily-energy/today', caloriesToday)
 
 router.get('/steps', listSteps)
 router.post('/steps/pull', pullSteps)

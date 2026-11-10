@@ -1,0 +1,4673 @@
+{
+  "email": "michael_boyd@live.co.uk",
+  "takenAt": "2026-11-10T20:42:03.063Z",
+  "exercises": [
+    {
+      "_id": "6af0ec7f3d82109e50110346",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Back Squat",
+      "description": "Primary lower-body strength lift for leg strength, trunk strength and scrum force.",
+      "muscleGroup": "",
+      "equipment": "",
+      "videoUrl": "https://www.youtube.com/watch?v=8060FZiT5TA",
+      "order": 0,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:19.421Z",
+      "updatedAt": "2026-11-08T21:41:19.430Z"
+    },
+    {
+      "_id": "6af0ec7f3d82109e50110347",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Romanian Deadlift",
+      "description": "Posterior-chain strength for hamstrings, glutes and hip extension.",
+      "muscleGroup": "",
+      "equipment": "",
+      "videoUrl": "https://www.youtube.com/watch?v=kJUP3O-_MJ4",
+      "order": 1,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:19.421Z",
+      "updatedAt": "2026-11-08T21:41:19.436Z"
+    },
+    {
+      "_id": "6af0ec7f3d82109e50110348",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Barbell Bench Press",
+      "description": "Primary horizontal pressing strength for chest, shoulders and triceps.",
+      "muscleGroup": "Chest",
+      "equipment": "Barbell",
+      "videoUrl": "https://www.youtube.com/watch?v=yDLCHaVE_ek",
+      "order": 2,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:19.421Z",
+      "updatedAt": "2026-11-08T21:41:19.441Z"
+    },
+    {
+      "_id": "6af0ec7f3d82109e50110349",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Trap-bar deadlift",
+      "description": "Brace and stand smoothly; keep handle height consistent.",
+      "muscleGroup": "Glutes and quadriceps",
+      "equipment": "Trap bar",
+      "videoUrl": "",
+      "order": 3,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:19.421Z",
+      "updatedAt": "2026-11-08T21:41:19.421Z"
+    },
+    {
+      "_id": "6af0ec7f3d82109e5011034a",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Bent-over barbell row",
+      "description": "Pull towards torso while maintaining a stable hinge.",
+      "muscleGroup": "Back",
+      "equipment": "Barbell",
+      "videoUrl": "",
+      "order": 4,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:19.421Z",
+      "updatedAt": "2026-11-08T21:41:19.421Z"
+    },
+    {
+      "_id": "6af0ec7f3d82109e5011034b",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Barbell overhead press",
+      "description": "Controlled overhead press without excessive back extension.",
+      "muscleGroup": "Shoulders",
+      "equipment": "Barbell",
+      "videoUrl": "",
+      "order": 5,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:19.421Z",
+      "updatedAt": "2026-11-08T21:41:19.421Z"
+    },
+    {
+      "_id": "6af0ec7f3d82109e5011034c",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Lat pulldown",
+      "description": "Pull towards upper chest with a comfortable grip and controlled return.",
+      "muscleGroup": "Back",
+      "equipment": "Cable machine",
+      "videoUrl": "",
+      "order": 6,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:19.421Z",
+      "updatedAt": "2026-11-08T21:41:19.421Z"
+    },
+    {
+      "_id": "6af0ec7f3d82109e5011034d",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Leg curl",
+      "description": "Knee flexion on a seated or lying machine; keep the chosen variation consistent.",
+      "muscleGroup": "Hamstrings",
+      "equipment": "Machine",
+      "videoUrl": "",
+      "order": 7,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:19.421Z",
+      "updatedAt": "2026-11-08T21:41:19.421Z"
+    },
+    {
+      "_id": "6af0ec7f3d82109e5011034e",
+      "user": "6a21752b799de48151c0e715",
+      "name": "General preparation",
+      "description": "",
+      "muscleGroup": "",
+      "equipment": "",
+      "videoUrl": "",
+      "order": 8,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:19.421Z",
+      "updatedAt": "2026-11-08T21:41:19.421Z"
+    },
+    {
+      "_id": "6af0ec7f3d82109e5011034f",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Finish and record",
+      "description": "",
+      "muscleGroup": "",
+      "equipment": "",
+      "videoUrl": "",
+      "order": 9,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:19.421Z",
+      "updatedAt": "2026-11-08T21:41:19.421Z"
+    }
+  ],
+  "workouts": [
+    {
+      "_id": "6af0ec7f3d82109e50110356",
+      "user": "6a21752b799de48151c0e715",
+      "name": "A - Bench and moderate squat",
+      "description": "Lunchtime. Challenging strength and muscle-retention training with progressive repetitions and loads. Allow 75-80 minutes plus travel/shower. Working sets exclude warm-ups. Apply introductory and deload set rules manually.",
+      "duration": 75,
+      "showInPlanner": false,
+      "bring": [
+        "Gym shoes",
+        "Water bottle",
+        "Towel",
+        "Lifting belt or straps only if normally used"
+      ],
+      "warmUp": [
+        {
+          "exercise": "6af0ec7f3d82109e5011034e",
+          "steps": [
+            "5 minutes easy bike or walking, comfortable and pain-free.",
+            "5-8 unloaded squats and hip hinges in a comfortable range; arm circles.",
+            "Before the first main lift, perform 3-4 progressively heavier warm-up sets without fatigue.",
+            "Before later compound lifts, add 1-3 specific warm-up sets as needed."
+          ]
+        }
+      ],
+      "main": [
+        {
+          "exercise": "6af0ec7f3d82109e50110348",
+          "sets": 4,
+          "reps": "5-8",
+          "rest": "2-3 min",
+          "notes": "Usually keep 1-2 good reps in reserve; no forced repetitions. Choose starting load from current ability and the prescribed rep range; no invented kg target. Use the introductory and deload set rules when applicable. Track separately from Saturday bench."
+        },
+        {
+          "exercise": "6af0ec7f3d82109e50110346",
+          "sets": 3,
+          "reps": "6-8",
+          "rest": "2-3 min",
+          "notes": "Keep 2-3 good reps in reserve; no grinding. Choose starting load from current ability and the prescribed rep range; no invented kg target. Use the introductory and deload set rules when applicable. Moderate load; keep about 3 reps in reserve before Wednesday running."
+        },
+        {
+          "exercise": "6af0ec7f3d82109e5011034a",
+          "sets": 4,
+          "reps": "8-10",
+          "rest": "2 min",
+          "notes": "Usually keep 1-2 good reps in reserve; no forced repetitions. Choose starting load from current ability and the prescribed rep range; no invented kg target. Use the introductory and deload set rules when applicable. Brace, keep a stable torso and use controlled pain-free range."
+        },
+        {
+          "exercise": "6af0ec7f3d82109e5011034d",
+          "sets": 2,
+          "reps": "10-15",
+          "rest": "60-90 s",
+          "notes": "Usually keep 1-2 good reps in reserve; no forced repetitions. Choose starting load from current ability and the prescribed rep range; no invented kg target. Use the introductory and deload set rules when applicable."
+        }
+      ],
+      "coolDown": [
+        {
+          "exercise": "6af0ec7f3d82109e5011034f",
+          "steps": [
+            "Walk easily for 2-3 minutes.",
+            "Record loads, repetitions, reps in reserve and any symptoms."
+          ]
+        }
+      ],
+      "order": 0,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:19.452Z",
+      "updatedAt": "2026-11-08T21:41:19.452Z"
+    },
+    {
+      "_id": "6af0ec7f3d82109e50110357",
+      "user": "6a21752b799de48151c0e715",
+      "name": "B - Trap bar and overhead press",
+      "description": "Lunchtime. Challenging strength and muscle-retention training with progressive repetitions and loads. Allow 75-80 minutes plus travel/shower. Working sets exclude warm-ups. Apply introductory and deload set rules manually.",
+      "duration": 75,
+      "showInPlanner": false,
+      "bring": [
+        "Gym shoes",
+        "Water bottle",
+        "Towel",
+        "Lifting belt or straps only if normally used"
+      ],
+      "warmUp": [
+        {
+          "exercise": "6af0ec7f3d82109e5011034e",
+          "steps": [
+            "5 minutes easy bike or walking, comfortable and pain-free.",
+            "5-8 unloaded squats and hip hinges in a comfortable range; arm circles.",
+            "Before the first main lift, perform 3-4 progressively heavier warm-up sets without fatigue.",
+            "Before later compound lifts, add 1-3 specific warm-up sets as needed."
+          ]
+        }
+      ],
+      "main": [
+        {
+          "exercise": "6af0ec7f3d82109e50110349",
+          "sets": 3,
+          "reps": "4-6",
+          "rest": "3 min",
+          "notes": "Keep 2-3 good reps in reserve; no grinding. Choose starting load from current ability and the prescribed rep range; no invented kg target. Use the introductory and deload set rules when applicable."
+        },
+        {
+          "exercise": "6af0ec7f3d82109e5011034b",
+          "sets": 4,
+          "reps": "6-8",
+          "rest": "2-3 min",
+          "notes": "Usually keep 1-2 good reps in reserve; no forced repetitions. Choose starting load from current ability and the prescribed rep range; no invented kg target. Use the introductory and deload set rules when applicable."
+        },
+        {
+          "exercise": "6af0ec7f3d82109e5011034c",
+          "sets": 3,
+          "reps": "8-12",
+          "rest": "90-120 s",
+          "notes": "Usually keep 1-2 good reps in reserve; no forced repetitions. Choose starting load from current ability and the prescribed rep range; no invented kg target. Use the introductory and deload set rules when applicable."
+        },
+        {
+          "exercise": "6af0ec7f3d82109e5011034d",
+          "sets": 3,
+          "reps": "10-15",
+          "rest": "60-90 s",
+          "notes": "Usually keep 1-2 good reps in reserve; no forced repetitions. Choose starting load from current ability and the prescribed rep range; no invented kg target. Use the introductory and deload set rules when applicable."
+        }
+      ],
+      "coolDown": [
+        {
+          "exercise": "6af0ec7f3d82109e5011034f",
+          "steps": [
+            "Walk easily for 2-3 minutes.",
+            "Record loads, repetitions, reps in reserve and any symptoms."
+          ]
+        }
+      ],
+      "order": 1,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:19.453Z",
+      "updatedAt": "2026-11-08T21:41:19.453Z"
+    },
+    {
+      "_id": "6af0ec7f3d82109e50110358",
+      "user": "6a21752b799de48151c0e715",
+      "name": "C - Squat and second bench",
+      "description": "Saturday morning. Challenging strength and muscle-retention training with progressive repetitions and loads. Allow 75-80 minutes plus travel/shower. Working sets exclude warm-ups. Apply introductory and deload set rules manually.",
+      "duration": 80,
+      "showInPlanner": false,
+      "bring": [
+        "Gym shoes",
+        "Water bottle",
+        "Towel",
+        "Lifting belt or straps only if normally used"
+      ],
+      "warmUp": [
+        {
+          "exercise": "6af0ec7f3d82109e5011034e",
+          "steps": [
+            "5 minutes easy bike or walking, comfortable and pain-free.",
+            "5-8 unloaded squats and hip hinges in a comfortable range; arm circles.",
+            "Before the first main lift, perform 3-4 progressively heavier warm-up sets without fatigue.",
+            "Before later compound lifts, add 1-3 specific warm-up sets as needed."
+          ]
+        }
+      ],
+      "main": [
+        {
+          "exercise": "6af0ec7f3d82109e50110346",
+          "sets": 4,
+          "reps": "4-6",
+          "rest": "3 min",
+          "notes": "Keep 2-3 good reps in reserve; no grinding. Choose starting load from current ability and the prescribed rep range; no invented kg target. Use the introductory and deload set rules when applicable. Heavier than Tuesday, tracked separately."
+        },
+        {
+          "exercise": "6af0ec7f3d82109e50110348",
+          "sets": 4,
+          "reps": "8-10",
+          "rest": "2-3 min",
+          "notes": "Usually keep 1-2 good reps in reserve; no forced repetitions. Choose starting load from current ability and the prescribed rep range; no invented kg target. Use the introductory and deload set rules when applicable. Lighter than Tuesday; track this rep range separately."
+        },
+        {
+          "exercise": "6af0ec7f3d82109e50110347",
+          "sets": 3,
+          "reps": "8-10",
+          "rest": "2-3 min",
+          "notes": "Keep 2-3 good reps in reserve; no grinding. Choose starting load from current ability and the prescribed rep range; no invented kg target. Use the introductory and deload set rules when applicable. Brace, keep a stable torso and use controlled pain-free range."
+        },
+        {
+          "exercise": "6af0ec7f3d82109e5011034c",
+          "sets": 3,
+          "reps": "8-12",
+          "rest": "90-120 s",
+          "notes": "Usually keep 1-2 good reps in reserve; no forced repetitions. Choose starting load from current ability and the prescribed rep range; no invented kg target. Use the introductory and deload set rules when applicable."
+        }
+      ],
+      "coolDown": [
+        {
+          "exercise": "6af0ec7f3d82109e5011034f",
+          "steps": [
+            "Walk easily for 2-3 minutes.",
+            "Record loads, repetitions, reps in reserve and any symptoms."
+          ]
+        }
+      ],
+      "order": 2,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:19.453Z",
+      "updatedAt": "2026-11-08T21:41:19.453Z"
+    }
+  ],
+  "conditioning": [],
+  "planEntries": [
+    {
+      "_id": "6ad519d290942b6159a728b4",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-10-19",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6ad5198890942b6159a72861",
+      "session": null,
+      "recovery": null,
+      "mobility": null,
+      "plan": null,
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": true,
+      "done": false,
+      "__v": 0,
+      "createdAt": "2026-10-18T19:11:14.082Z",
+      "updatedAt": "2026-10-19T16:30:23.551Z"
+    },
+    {
+      "_id": "6ad64dbf7ff3945ff9e486d7",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-10-26",
+      "part": "evening",
+      "kind": "conditioning",
+      "workout": null,
+      "session": "6ad64dae7ff3945ff9e486a2",
+      "plan": null,
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "__v": 0,
+      "createdAt": "2026-10-19T17:05:03.280Z",
+      "updatedAt": "2026-11-02T12:57:21.543Z"
+    },
+    {
+      "_id": "6ad64dbf7ff3945ff9e486d5",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-10-23",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6ad64dae7ff3945ff9e4869e",
+      "session": null,
+      "plan": null,
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "__v": 0,
+      "createdAt": "2026-10-19T17:05:03.280Z",
+      "updatedAt": "2026-11-02T12:57:21.543Z"
+    },
+    {
+      "_id": "6ad64dbf7ff3945ff9e486d9",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-10-28",
+      "part": "evening",
+      "kind": "conditioning",
+      "workout": null,
+      "session": "6ad64dae7ff3945ff9e486a3",
+      "plan": null,
+      "order": 0,
+      "ignoreClash": true,
+      "ignoreOverload": false,
+      "__v": 0,
+      "createdAt": "2026-10-19T17:05:03.280Z",
+      "updatedAt": "2026-11-02T12:57:21.543Z",
+      "skipReason": "",
+      "skipped": false
+    },
+    {
+      "_id": "6ad64dbf7ff3945ff9e486d8",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-10-27",
+      "part": "evening",
+      "kind": "workout",
+      "workout": "6ad64dae7ff3945ff9e4869d",
+      "session": null,
+      "plan": null,
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "__v": 0,
+      "createdAt": "2026-10-19T17:05:03.280Z",
+      "updatedAt": "2026-11-02T12:57:21.543Z"
+    },
+    {
+      "_id": "6ad64dbf7ff3945ff9e486d4",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-10-22",
+      "part": "evening",
+      "kind": "conditioning",
+      "workout": null,
+      "session": "6ad64dae7ff3945ff9e486a2",
+      "plan": null,
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "__v": 0,
+      "createdAt": "2026-10-19T17:05:03.280Z",
+      "updatedAt": "2026-11-02T12:57:21.543Z"
+    },
+    {
+      "_id": "6ad64ea27ff3945ff9e48799",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-10-20",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6ad64e607ff3945ff9e4876f",
+      "session": null,
+      "plan": null,
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "createdAt": "2026-10-19T17:08:50.348Z",
+      "updatedAt": "2026-10-19T17:08:50.348Z",
+      "__v": 0
+    },
+    {
+      "_id": "6ae88ac7d0d9bcc4cb3f32fc",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-11-04",
+      "part": "evening",
+      "kind": "workout",
+      "workout": "6ad64dae7ff3945ff9e4869d",
+      "session": null,
+      "plan": null,
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "__v": 0,
+      "createdAt": "2026-11-02T13:06:15.721Z",
+      "updatedAt": "2026-11-05T22:40:06.560Z"
+    },
+    {
+      "_id": "6ae88ac7d0d9bcc4cb3f32fb",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-11-04",
+      "part": "afternoon",
+      "kind": "conditioning",
+      "workout": null,
+      "session": "6ae88abed0d9bcc4cb3f32be",
+      "plan": null,
+      "order": 0,
+      "ignoreClash": true,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "__v": 0,
+      "createdAt": "2026-11-02T13:06:15.721Z",
+      "updatedAt": "2026-11-05T22:40:06.560Z",
+      "garmin": {
+        "workoutId": "1751738831",
+        "scheduleId": "1830722936",
+        "scheduledDate": "2026-11-04",
+        "stepsHash": "e022f2c90bb3d88d",
+        "lastSentAt": "2026-11-04T12:35:20.421Z"
+      }
+    },
+    {
+      "_id": "6af0ec883d82109e501103b6",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-11-12",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": true,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.343Z",
+      "updatedAt": "2026-11-09T22:45:47.492Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103b8",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-11-14",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103ba",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-11-17",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103bc",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-11-19",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103be",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-11-21",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103c0",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-11-24",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103c2",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-11-26",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103c4",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-11-28",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103c7",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-12-05",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103c8",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-12-08",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103ca",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-12-10",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103cc",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-12-12",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103ce",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-12-15",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103d0",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-12-17",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103d2",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-12-19",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103d4",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-12-22",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103d6",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-12-24",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103d7",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-12-26",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103d9",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-12-29",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103db",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-12-31",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103dd",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-01-02",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103df",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-01-05",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103e1",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-01-07",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103e3",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-01-09",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103e5",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-01-12",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103e7",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-01-14",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103e9",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-01-16",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103eb",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-01-19",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103ed",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-01-21",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103ef",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-01-23",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103f1",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-01-26",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103f3",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-01-28",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103f5",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-01-30",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103f7",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-02-02",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103f9",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-02-04",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103fb",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-02-06",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103fd",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-02-09",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e501103ff",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-02-11",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110401",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-02-13",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110403",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-02-16",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110405",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-02-18",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110407",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-02-20",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110409",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-02-23",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e5011040b",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-02-25",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e5011040d",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-02-27",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e5011040f",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-03-02",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110411",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-03-04",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110413",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-03-06",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110415",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-03-09",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110417",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-03-11",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110419",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-03-13",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e5011041b",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-03-16",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e5011041d",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-03-18",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e5011041f",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-03-20",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110421",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-03-23",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110423",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-03-25",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110425",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-03-27",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110427",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-03-30",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110429",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-04-01",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.344Z",
+      "updatedAt": "2026-11-08T21:41:28.344Z"
+    },
+    {
+      "_id": "6af0ec883d82109e5011042b",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-04-03",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.345Z",
+      "updatedAt": "2026-11-08T21:41:28.345Z"
+    },
+    {
+      "_id": "6af0ec883d82109e5011042d",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-04-06",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.345Z",
+      "updatedAt": "2026-11-08T21:41:28.345Z"
+    },
+    {
+      "_id": "6af0ec883d82109e5011042f",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-04-08",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.345Z",
+      "updatedAt": "2026-11-08T21:41:28.345Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110431",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-04-10",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.345Z",
+      "updatedAt": "2026-11-08T21:41:28.345Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110433",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-04-13",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.345Z",
+      "updatedAt": "2026-11-08T21:41:28.345Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110435",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-04-15",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.345Z",
+      "updatedAt": "2026-11-08T21:41:28.345Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110437",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-04-17",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.345Z",
+      "updatedAt": "2026-11-08T21:41:28.345Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110439",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-04-20",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.345Z",
+      "updatedAt": "2026-11-08T21:41:28.345Z"
+    },
+    {
+      "_id": "6af0ec883d82109e5011043b",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-04-22",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.345Z",
+      "updatedAt": "2026-11-08T21:41:28.345Z"
+    },
+    {
+      "_id": "6af0ec883d82109e5011043d",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-04-24",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.345Z",
+      "updatedAt": "2026-11-08T21:41:28.345Z"
+    },
+    {
+      "_id": "6af0ec883d82109e5011043f",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-04-27",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.345Z",
+      "updatedAt": "2026-11-08T21:41:28.345Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110441",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-04-29",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.345Z",
+      "updatedAt": "2026-11-08T21:41:28.345Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110443",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-05-01",
+      "part": "morning",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110358",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.345Z",
+      "updatedAt": "2026-11-08T21:41:28.345Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110445",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-05-04",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110356",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.345Z",
+      "updatedAt": "2026-11-08T21:41:28.345Z"
+    },
+    {
+      "_id": "6af0ec883d82109e50110447",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2027-05-06",
+      "part": "afternoon",
+      "kind": "workout",
+      "workout": "6af0ec7f3d82109e50110357",
+      "session": null,
+      "plan": "6af0ec7f3d82109e501103ab",
+      "order": 0,
+      "ignoreClash": false,
+      "ignoreOverload": false,
+      "skipped": false,
+      "skipReason": "",
+      "garmin": null,
+      "__v": 0,
+      "createdAt": "2026-11-08T21:41:28.345Z",
+      "updatedAt": "2026-11-08T21:41:28.345Z"
+    }
+  ],
+  "planNotes": [],
+  "trainingPlans": [
+    {
+      "_id": "6af0ec7f3d82109e501103ab",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Lunchtime Strength and Outdoor Running - November to May",
+      "source": "Ambitious conditional treadmill progression rebuilt on 8 November 2026 using the user-estimated baseline of 3 x 5 minutes at 7.0 km/h. First week verifies tolerance. All steps are time-based with explicit km/h. Original planName retained for replacement-import identity; strength workouts, dates and exclusions retained. Targets are coaching estimates, not promised outcomes; progression requires successful prior stages.",
+      "generatedAt": "2026-11-08",
+      "planStart": "2026-11-09",
+      "planEnd": "2027-05-06",
+      "goal": {
+        "primaryGoal": "Build from 3 x 5 minutes at 7.0 km/h towards comfortable continuous running, a roughly 10 km treadmill long run by late March, and a conditional sub-30-minute 5K attempt by early May. Optional endurance route towards 12-13 km replaces some speed emphasis. Preserve muscle and pursue strength alongside the separate nutrition plan.",
+        "scheduling": "Tuesday and Thursday gym at lunchtime (Afternoon); Saturday gym Morning. Monday/Wednesday/Friday runs at lunchtime through 26 March, then Evening from Monday 29 March 2027. Sunday rest. No exact clock time is encoded.",
+        "timeBudget": "Default sessions: maximum 95.0 minutes including walking. Optional longest: 105 minutes. Early sessions fit lunchtime; longer sessions move to Evening on 29 March as already scheduled.",
+        "nutritionContext": "Separate nutrition phase: 2700 kcal, protein 200 g, carbs 295 g, fat 80 g initially; use actual trends to adjust. Do not automatically eat back watch calories.",
+        "calendarPolicy": "Only trip and worktrip events block the actual session slot. Other appointments, social events, birthdays and leave labels are ignored. Christmas Day is explicitly off. Saturday 5 December morning gym fits before the afternoon trip. Calendar export is a snapshot, not a live connection.",
+        "checkpoints": [
+          {
+            "date": "2026-11-13",
+            "target": "Confirm 3 x 5 minutes at 7.0 km/h with 2-minute walking recoveries between reps."
+          },
+          {
+            "date": "2027-01-04",
+            "target": "Aim for 30 continuous minutes at 7.0 km/h; about 3.5 km, not yet 5 km."
+          },
+          {
+            "date": "2027-02-01",
+            "target": "Conditional 45 minutes at 7.5 km/h, approximately 5.6 km; lower belt speed if needed."
+          },
+          {
+            "date": "2027-03-29",
+            "target": "Conditional 75 minutes at 8.0 km/h, approximately 10 km; runs switch to Evening."
+          },
+          {
+            "date": "2027-04-26",
+            "target": "Speed route: 85-minute easy long run and later 3 x 8-minute reps at 10.1 km/h. Endurance alternative: 95-minute long run and easy Wednesday."
+          },
+          {
+            "date": "2027-05-05",
+            "target": "Optional 30 minutes at 10.1 km/h after meeting readiness checks; sub-30 5K is a stretch goal, not an expected result. Otherwise run easy and reassess."
+          }
+        ],
+        "weeklyRunningOverview": [
+          {
+            "week": 1,
+            "weekStarting": "2026-11-09",
+            "scheduledRuns": 3,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 45
+          },
+          {
+            "week": 2,
+            "weekStarting": "2026-11-16",
+            "scheduledRuns": 3,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 51
+          },
+          {
+            "week": 3,
+            "weekStarting": "2026-11-23",
+            "scheduledRuns": 3,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 59
+          },
+          {
+            "week": 4,
+            "weekStarting": "2026-11-30",
+            "scheduledRuns": 2,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 38
+          },
+          {
+            "week": 5,
+            "weekStarting": "2026-12-07",
+            "scheduledRuns": 2,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 38
+          },
+          {
+            "week": 6,
+            "weekStarting": "2026-12-14",
+            "scheduledRuns": 3,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 68
+          },
+          {
+            "week": 7,
+            "weekStarting": "2026-12-21",
+            "scheduledRuns": 2,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 49
+          },
+          {
+            "week": 8,
+            "weekStarting": "2026-12-28",
+            "scheduledRuns": 3,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 77
+          },
+          {
+            "week": 9,
+            "weekStarting": "2027-01-04",
+            "scheduledRuns": 3,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 83
+          },
+          {
+            "week": 10,
+            "weekStarting": "2027-01-11",
+            "scheduledRuns": 3,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 79
+          },
+          {
+            "week": 11,
+            "weekStarting": "2027-01-18",
+            "scheduledRuns": 3,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 86
+          },
+          {
+            "week": 12,
+            "weekStarting": "2027-01-25",
+            "scheduledRuns": 3,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 80
+          },
+          {
+            "week": 13,
+            "weekStarting": "2027-02-01",
+            "scheduledRuns": 3,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 95
+          },
+          {
+            "week": 14,
+            "weekStarting": "2027-02-08",
+            "scheduledRuns": 3,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 100
+          },
+          {
+            "week": 15,
+            "weekStarting": "2027-02-15",
+            "scheduledRuns": 3,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 113
+          },
+          {
+            "week": 16,
+            "weekStarting": "2027-02-22",
+            "scheduledRuns": 3,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 90
+          },
+          {
+            "week": 17,
+            "weekStarting": "2027-03-01",
+            "scheduledRuns": 3,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 121
+          },
+          {
+            "week": 18,
+            "weekStarting": "2027-03-08",
+            "scheduledRuns": 3,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 95
+          },
+          {
+            "week": 19,
+            "weekStarting": "2027-03-15",
+            "scheduledRuns": 3,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 128
+          },
+          {
+            "week": 20,
+            "weekStarting": "2027-03-22",
+            "scheduledRuns": 3,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 131
+          },
+          {
+            "week": 21,
+            "weekStarting": "2027-03-29",
+            "scheduledRuns": 3,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 138
+          },
+          {
+            "week": 22,
+            "weekStarting": "2027-04-05",
+            "scheduledRuns": 3,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 143
+          },
+          {
+            "week": 23,
+            "weekStarting": "2027-04-12",
+            "scheduledRuns": 3,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 149
+          },
+          {
+            "week": 24,
+            "weekStarting": "2027-04-19",
+            "scheduledRuns": 3,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 110
+          },
+          {
+            "week": 25,
+            "weekStarting": "2027-04-26",
+            "scheduledRuns": 3,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 147
+          },
+          {
+            "week": 26,
+            "weekStarting": "2027-05-03",
+            "scheduledRuns": 2,
+            "notes": "Conditional default progression; walking excluded. Repeat stages if needed; calendar does not adapt automatically.",
+            "runningMinutes": 68
+          }
+        ],
+        "optionalStretchProgression": {
+          "eligibility": "Choose endurance emphasis only after comfortable preceding long runs and normal next-day recovery. Replace Monday, make Wednesday easy, and defer the final speed test. Keep 19 April as a cutback. Do not combine maximum distance and speed targets.",
+          "replacementSequence": [
+            {
+              "date": "2027-04-05",
+              "replacementSession": "Optional endurance - 85 min at 8.0 km/h - replaces 2027-04-05",
+              "runningMinutes": 85
+            },
+            {
+              "date": "2027-04-12",
+              "replacementSession": "Optional endurance - 90 min at 8.0 km/h - replaces 2027-04-12",
+              "runningMinutes": 90
+            },
+            {
+              "date": "2027-04-26",
+              "replacementSession": "Optional endurance - 95 min at 8.0 km/h - replaces 2027-04-26",
+              "runningMinutes": 95
+            }
+          ],
+          "upperStretchGoal": "95 minutes at 8.0 km/h is approximately 12.7 km. End on time, not distance; lower belt speed if needed."
+        },
+        "manualAdjustments": "Introductory lifting volume, deload set reductions and optional running replacements are instructions, not automatic logic. Apply while logging or editing sessions.",
+        "treadmillSettings": {
+          "initialEasySpeedKmh": 7,
+          "laterEasySpeedKmh": "7.0-8.0, conditional on conversational effort",
+          "qualitySpeedKmh": "8.0-10.2, as specified in each session",
+          "walkRecoverySpeedKmh": 5,
+          "cooldownSpeedKmh": 4.5,
+          "inclinePct": 0,
+          "timing": "All endpoints are seconds; displayed speeds are km/h. No distance endpoints."
+        },
+        "baseline": {
+          "reported": "Estimated current ability: 3 x 5 minutes at 7.0 km/h.",
+          "recoveryAssumption": "2-minute walking breaks at 5.0 km/h; user has not confirmed current effort or pain-free status.",
+          "validation": "First week checks this estimate. Start only if treadmill running is comfortable; shorten reps if needed."
+        }
+      },
+      "phases": [
+        {
+          "name": "Build treadmill tolerance and lifting workload",
+          "dates": "2026-11-09 to 2026-12-06",
+          "focus": "Confirm baseline and extend run/walk reps at 7.0 km/h; travel weeks consolidate.",
+          "conditioning": "Confirm baseline and extend run/walk reps at 7.0 km/h; travel weeks consolidate.",
+          "strength": "Two-week set-volume ramp, then full working sets if recovery supports it. London trip removes 1 and 3 December gym; 5 December Morning gym remains.",
+          "recoveryPriority": "Do not increase loads, sets and running duration sharply at the same time."
+        },
+        {
+          "name": "Continuous running and initial speed development",
+          "dates": "2026-12-07 to 2027-01-31",
+          "focus": "Build 25-30 minutes continuous, then cautiously introduce short quicker reps from mid-January if ready.",
+          "conditioning": "Build 25-30 minutes continuous, then cautiously introduce short quicker reps from mid-January if ready.",
+          "strength": "Normal progressive lifting; reduced-volume weeks 14-19 December and 25-30 January.",
+          "recoveryPriority": "Continuous running milestones depend on symptoms and recovery, not dates."
+        },
+        {
+          "name": "Extend endurance and controlled quality",
+          "dates": "2027-02-01 to 2027-03-28",
+          "focus": "Build 45-70-minute easy runs; gradually extend controlled Wednesday intervals.",
+          "conditioning": "Build 45-70-minute easy runs; gradually extend controlled Wednesday intervals.",
+          "strength": "Keep progressing repetitions and loads, with a lighter week 8-13 March.",
+          "recoveryPriority": "If fatigue rises, make Wednesday entirely easy before adding more workload."
+        },
+        {
+          "name": "10 km endurance and conditional 5K speed goal",
+          "dates": "2027-03-29 to 2027-05-06",
+          "focus": "Aim for 75-85-minute easy runs and conditional early-May speed benchmark; optional endurance route trades speed work for longer Monday runs.",
+          "conditioning": "Aim for 75-85-minute easy runs and conditional early-May speed benchmark; optional endurance route trades speed work for longer Monday runs.",
+          "strength": "Saturday Morning; Tuesday/Thursday lunchtime. Lighter week 19-24 April.",
+          "recoveryPriority": "Protect Saturday lifting after Friday evening running; no forced 15 km test."
+        }
+      ],
+      "weeklyTemplate": [
+        {
+          "day": "Monday",
+          "conditioning": "Treadmill running: Afternoon (lunchtime) through 26 March; Evening from 29 March. Actual slot is on each dated conditioning session."
+        },
+        {
+          "day": "Tuesday",
+          "strength": "A - Bench and moderate squat"
+        },
+        {
+          "day": "Wednesday",
+          "conditioning": "Treadmill running: Afternoon (lunchtime) through 26 March; Evening from 29 March. Actual slot is on each dated conditioning session."
+        },
+        {
+          "day": "Thursday",
+          "strength": "B - Trap bar and overhead press"
+        },
+        {
+          "day": "Friday",
+          "conditioning": "Treadmill running: Afternoon (lunchtime) through 26 March; Evening from 29 March. Actual slot is on each dated conditioning session."
+        },
+        {
+          "day": "Saturday",
+          "strength": "C - Squat and second bench"
+        },
+        {
+          "day": "Sunday",
+          "conditioning": "Rest day; no structured training."
+        }
+      ],
+      "strengthProgression": {
+        "startingLoads": "Current working loads were not provided. Choose weights that allow the lower end of the rep range with the specified repetitions in reserve. Do not use old personal bests to prescribe load.",
+        "introductoryVolume": "9-15 November: on each workout use 3 sets where 4 are prescribed and 2 where 3 are prescribed; keep 2-set exercises at 2. 16-22 November: restore full upper-body sets if recovered; retain 2 sets for trap-bar deadlift and RDL. From 23 November use the full listed volume if recovery supports it. These are manual adjustments.",
+        "effortTarget": "Upper-body lifts and accessories generally 1-2 reps in reserve; squat/deadlift/RDL 2-3. Tuesday squats around 3. No planned failure sets or maximal tests.",
+        "progression": "When every working set reaches the upper rep limit with the target reps in reserve and controlled form, add the smallest practical increment, usually 1-2.5 kg for upper body and 2.5-5 kg for lower body. Return towards the low end of the rep range. Track each bench and squat day separately. Maintain rather than force progression when fatigue is high.",
+        "deloadRule": "Manual lighter weeks: 14-19 December, 25-30 January, 8-13 March and 19-24 April. Change 4 sets to 2, 3 sets to 2 and 2 sets to 1; lower loads about 10% as needed and keep 4 reps in reserve. These instructions do not automatically alter imported set counts.",
+        "travelReturn": "After missed travel sessions, resume with the last successful load rather than making up sets. Saturday 5 December can use reduced sets if travel fatigue warrants it.",
+        "runningInteraction": "If lower-body soreness affects running form, remove one squat/hinge working set or make the run easier. After Monday long runs, Tuesday squats stay moderate. Friday evening runs stay short and easy before Saturday morning lifting.",
+        "timeLimit": "If a lunch session must be shorter, omit the final accessory before shortening compound-lift rest. Do not rush technique. Allow longer breaks when needed.",
+        "successMeasure": "Pursue repetitions and load increases while tracking technique and effort. Maintaining absolute strength while losing weight is also a successful outcome."
+      },
+      "readinessRules": [
+        "Sunday is a full rest day. Christmas Day off. Do not make up missed travel sessions.",
+        "Only trips and work trips affect scheduling, matched to the actual session slot. Other calendar events are ignored. Check holiday gym opening hours independently.",
+        "Start treadmill running when everyday walking is comfortable. Stop if recurring calf, ankle or shin burning returns; arrange physiotherapy assessment if it recurs. Focal bone tenderness, swelling or pain at rest warrants medical review, especially with previous stress fracture.",
+        "Only advance after completing the preceding stage with controlled breathing, no pain during or after, and usual next-morning recovery. If not, repeat the last comfortable stage and shift later sessions manually. Belt speeds are conditional targets, not mandatory minimums. Easy effort must allow full sentences; lower speed if needed without extending time.",
+        "Progress after comfortable recent sessions and normal next-morning recovery. Repeat the last successful stage if needed; manually shift later sessions instead of jumping ahead. After a missed week, resume an easier tolerated stage.",
+        "Before quicker reps: complete at least two symptom-free weeks containing a continuous 25-30 minute run. Keep quicker work controlled, around 6-7/10 effort, never sprinting. If not ready, use the fallback session instead.",
+        "Optional endurance sessions replace Mondays and require an easy Wednesday; follow their ordered progression and retain the 19 April cutback. Choose endurance or the final speed test, not both.",
+        "From 29 March all runs are Evening. Friday stays short and easy before Saturday Morning squats; shorten or omit Friday if recovery is inadequate.",
+        "Use lighter lifting weeks and lower-running-volume weeks. Persistent fatigue, poor sleep or strength decline calls for reviewing training and energy intake, not automatically adding work.",
+        "All running sessions use a treadmill at 0% incline. Use the safety clip, water and suitable running shoes.",
+        "All watch steps use time endpoints in seconds. Belt speeds are explicit in labels and speedKmh. Minute fields match the timed steps exactly. Introductory strength volume, deload changes and optional replacements require manual application.",
+        "If travel, illness or symptoms interrupt progression, resume the last comfortable stage rather than jumping to the calendar target. Week 1 is a baseline check, not a fitness test. Target dates may move."
+      ],
+      "items": [
+        {
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat",
+          "created": true
+        },
+        {
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press",
+          "created": true
+        },
+        {
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011035c",
+          "label": "W01 Longer easy treadmill run - 2026-11-09",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011035d",
+          "label": "W01 Treadmill development - 2026-11-11",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011035e",
+          "label": "W01 Short easy treadmill run - 2026-11-13",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011035f",
+          "label": "W02 Longer easy treadmill run - 2026-11-16",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110360",
+          "label": "W02 Treadmill development - 2026-11-18",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110361",
+          "label": "W02 Short easy treadmill run - 2026-11-20",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110362",
+          "label": "W03 Longer easy treadmill run - 2026-11-23",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110363",
+          "label": "W03 Treadmill development - 2026-11-25",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110364",
+          "label": "W03 Short easy treadmill run - 2026-11-27",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110365",
+          "label": "W04 Longer easy treadmill run - 2026-11-30",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110366",
+          "label": "W04 Short easy treadmill run - 2026-12-04",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110367",
+          "label": "W05 Treadmill development - 2026-12-09",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110368",
+          "label": "W05 Short easy treadmill run - 2026-12-11",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110369",
+          "label": "W06 Longer easy treadmill run - 2026-12-14",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011036a",
+          "label": "W06 Treadmill development - 2026-12-16",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011036b",
+          "label": "W06 Short easy treadmill run - 2026-12-18",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011036c",
+          "label": "W07 Longer easy treadmill run - 2026-12-21",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011036d",
+          "label": "W07 Treadmill development - 2026-12-23",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011036e",
+          "label": "W08 Longer easy treadmill run - 2026-12-28",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011036f",
+          "label": "W08 Treadmill development - 2026-12-30",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110370",
+          "label": "W08 Short easy treadmill run - 2027-01-01",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110371",
+          "label": "W09 Longer easy treadmill run - 2027-01-04",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110372",
+          "label": "W09 Treadmill development - 2027-01-06",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110373",
+          "label": "W09 Short easy treadmill run - 2027-01-08",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110374",
+          "label": "W10 Longer easy treadmill run - 2027-01-11",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110375",
+          "label": "W10 Treadmill development - 2027-01-13",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110376",
+          "label": "W10 Short easy treadmill run - 2027-01-15",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110377",
+          "label": "W11 Longer easy treadmill run - 2027-01-18",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110378",
+          "label": "W11 Treadmill development - 2027-01-20",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110379",
+          "label": "W11 Short easy treadmill run - 2027-01-22",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011037a",
+          "label": "W12 Longer easy treadmill run - 2027-01-25",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011037b",
+          "label": "W12 Treadmill development - 2027-01-27",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011037c",
+          "label": "W12 Short easy treadmill run - 2027-01-29",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011037d",
+          "label": "W13 Longer easy treadmill run - 2027-02-01",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011037e",
+          "label": "W13 Treadmill development - 2027-02-03",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011037f",
+          "label": "W13 Short easy treadmill run - 2027-02-05",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110380",
+          "label": "W14 Longer easy treadmill run - 2027-02-08",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110381",
+          "label": "W14 Treadmill development - 2027-02-10",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110382",
+          "label": "W14 Short easy treadmill run - 2027-02-12",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110383",
+          "label": "W15 Longer easy treadmill run - 2027-02-15",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110384",
+          "label": "W15 Treadmill development - 2027-02-17",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110385",
+          "label": "W15 Short easy treadmill run - 2027-02-19",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110386",
+          "label": "W16 Longer easy treadmill run - 2027-02-22",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110387",
+          "label": "W16 Treadmill development - 2027-02-24",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110388",
+          "label": "W16 Short easy treadmill run - 2027-02-26",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110389",
+          "label": "W17 Longer easy treadmill run - 2027-03-01",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011038a",
+          "label": "W17 Treadmill development - 2027-03-03",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011038b",
+          "label": "W17 Short easy treadmill run - 2027-03-05",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011038c",
+          "label": "W18 Longer easy treadmill run - 2027-03-08",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011038d",
+          "label": "W18 Treadmill development - 2027-03-10",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011038e",
+          "label": "W18 Short easy treadmill run - 2027-03-12",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011038f",
+          "label": "W19 Longer easy treadmill run - 2027-03-15",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110390",
+          "label": "W19 Treadmill development - 2027-03-17",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110391",
+          "label": "W19 Short easy treadmill run - 2027-03-19",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110392",
+          "label": "W20 Longer easy treadmill run - 2027-03-22",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110393",
+          "label": "W20 Treadmill development - 2027-03-24",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110394",
+          "label": "W20 Short easy treadmill run - 2027-03-26",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110395",
+          "label": "W21 Longer easy treadmill run - 2027-03-29",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110396",
+          "label": "W21 Treadmill development - 2027-03-31",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110397",
+          "label": "W21 Short easy treadmill run - 2027-04-02",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110398",
+          "label": "W22 Longer easy treadmill run - 2027-04-05",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110399",
+          "label": "W22 Treadmill development - 2027-04-07",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011039a",
+          "label": "W22 Short easy treadmill run - 2027-04-09",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011039b",
+          "label": "W23 Longer easy treadmill run - 2027-04-12",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011039c",
+          "label": "W23 Treadmill development - 2027-04-14",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011039d",
+          "label": "W23 Short easy treadmill run - 2027-04-16",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011039e",
+          "label": "W24 Longer easy treadmill run - 2027-04-19",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011039f",
+          "label": "W24 Treadmill development - 2027-04-21",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e501103a0",
+          "label": "W24 Short easy treadmill run - 2027-04-23",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e501103a1",
+          "label": "W25 Longer easy treadmill run - 2027-04-26",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e501103a2",
+          "label": "W25 Treadmill development - 2027-04-28",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e501103a3",
+          "label": "W25 Short easy treadmill run - 2027-04-30",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e501103a4",
+          "label": "W26 Longer easy treadmill run - 2027-05-03",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e501103a5",
+          "label": "W26 Conditional 30-minute speed benchmark - 2027-05-05",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "conditioning",
+          "item": "6af0ec7f3d82109e501103a6",
+          "label": "Optional endurance - 85 min at 8.0 km/h - replaces 2027-04-05",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "conditioning",
+          "item": "6af0ec7f3d82109e501103a7",
+          "label": "Optional endurance - 90 min at 8.0 km/h - replaces 2027-04-12",
+          "created": true
+        },
+        {
+          "kind": "conditioning",
+          "role": "conditioning",
+          "item": "6af0ec7f3d82109e501103a8",
+          "label": "Optional endurance - 95 min at 8.0 km/h - replaces 2027-04-26",
+          "created": true
+        }
+      ],
+      "createdExercises": [
+        "6af0ec7f3d82109e50110346",
+        "6af0ec7f3d82109e50110347",
+        "6af0ec7f3d82109e50110348",
+        "6af0ec7f3d82109e50110349",
+        "6af0ec7f3d82109e5011034a",
+        "6af0ec7f3d82109e5011034b",
+        "6af0ec7f3d82109e5011034c",
+        "6af0ec7f3d82109e5011034d",
+        "6af0ec7f3d82109e5011034e",
+        "6af0ec7f3d82109e5011034f"
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-09",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011035c",
+          "label": "W01 Longer easy treadmill run - 2026-11-09",
+          "notes": "Lunchtime. Foundation: 7.0 km/h running, 2 minutes at 5.0 km/h BETWEEN repetitions only. Week 1 confirms the estimated baseline; shorten to 3-minute reps if 5 minutes is too hard. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2026-11-10",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2026-11-11",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011035d",
+          "label": "W01 Treadmill development - 2026-11-11",
+          "notes": "Lunchtime. Foundation: 7.0 km/h running, 2 minutes at 5.0 km/h BETWEEN repetitions only. Week 1 confirms the estimated baseline; shorten to 3-minute reps if 5 minutes is too hard. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2026-11-12",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2026-11-13",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011035e",
+          "label": "W01 Short easy treadmill run - 2026-11-13",
+          "notes": "Lunchtime. Foundation: 7.0 km/h running, 2 minutes at 5.0 km/h BETWEEN repetitions only. Week 1 confirms the estimated baseline; shorten to 3-minute reps if 5 minutes is too hard. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2026-11-14",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2026-11-16",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011035f",
+          "label": "W02 Longer easy treadmill run - 2026-11-16",
+          "notes": "Lunchtime. Foundation: 7.0 km/h running, 2 minutes at 5.0 km/h BETWEEN repetitions only. Week 1 confirms the estimated baseline; shorten to 3-minute reps if 5 minutes is too hard. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2026-11-17",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2026-11-18",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110360",
+          "label": "W02 Treadmill development - 2026-11-18",
+          "notes": "Lunchtime. Foundation: 7.0 km/h running, 2 minutes at 5.0 km/h BETWEEN repetitions only. Week 1 confirms the estimated baseline; shorten to 3-minute reps if 5 minutes is too hard. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2026-11-19",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2026-11-20",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110361",
+          "label": "W02 Short easy treadmill run - 2026-11-20",
+          "notes": "Lunchtime. Foundation: 7.0 km/h running, 2 minutes at 5.0 km/h BETWEEN repetitions only. Week 1 confirms the estimated baseline; shorten to 3-minute reps if 5 minutes is too hard. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2026-11-21",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2026-11-23",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110362",
+          "label": "W03 Longer easy treadmill run - 2026-11-23",
+          "notes": "Lunchtime. Foundation: 7.0 km/h running, 2 minutes at 5.0 km/h BETWEEN repetitions only. Week 1 confirms the estimated baseline; shorten to 3-minute reps if 5 minutes is too hard. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2026-11-24",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2026-11-25",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110363",
+          "label": "W03 Treadmill development - 2026-11-25",
+          "notes": "Lunchtime. Foundation: 7.0 km/h running, 2 minutes at 5.0 km/h BETWEEN repetitions only. Week 1 confirms the estimated baseline; shorten to 3-minute reps if 5 minutes is too hard. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2026-11-26",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2026-11-27",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110364",
+          "label": "W03 Short easy treadmill run - 2026-11-27",
+          "notes": "Lunchtime. Foundation: 7.0 km/h running, 2 minutes at 5.0 km/h BETWEEN repetitions only. Week 1 confirms the estimated baseline; shorten to 3-minute reps if 5 minutes is too hard. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2026-11-28",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2026-11-30",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110365",
+          "label": "W04 Longer easy treadmill run - 2026-11-30",
+          "notes": "Lunchtime. Foundation: 7.0 km/h running, 2 minutes at 5.0 km/h BETWEEN repetitions only. Week 1 confirms the estimated baseline; shorten to 3-minute reps if 5 minutes is too hard. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2026-12-04",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110366",
+          "label": "W04 Short easy treadmill run - 2026-12-04",
+          "notes": "Lunchtime. Foundation: 7.0 km/h running, 2 minutes at 5.0 km/h BETWEEN repetitions only. Week 1 confirms the estimated baseline; shorten to 3-minute reps if 5 minutes is too hard. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2026-12-05",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2026-12-08",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2026-12-09",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110367",
+          "label": "W05 Treadmill development - 2026-12-09",
+          "notes": "Lunchtime. Foundation: 7.0 km/h running, 2 minutes at 5.0 km/h BETWEEN repetitions only. Week 1 confirms the estimated baseline; shorten to 3-minute reps if 5 minutes is too hard. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2026-12-10",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2026-12-11",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110368",
+          "label": "W05 Short easy treadmill run - 2026-12-11",
+          "notes": "Lunchtime. Foundation: 7.0 km/h running, 2 minutes at 5.0 km/h BETWEEN repetitions only. Week 1 confirms the estimated baseline; shorten to 3-minute reps if 5 minutes is too hard. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2026-12-12",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2026-12-14",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110369",
+          "label": "W06 Longer easy treadmill run - 2026-12-14",
+          "notes": "Lunchtime. Foundation: 7.0 km/h running, 2 minutes at 5.0 km/h BETWEEN repetitions only. Week 1 confirms the estimated baseline; shorten to 3-minute reps if 5 minutes is too hard. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2026-12-15",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2026-12-16",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011036a",
+          "label": "W06 Treadmill development - 2026-12-16",
+          "notes": "Lunchtime. Foundation: 7.0 km/h running, 2 minutes at 5.0 km/h BETWEEN repetitions only. Week 1 confirms the estimated baseline; shorten to 3-minute reps if 5 minutes is too hard. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2026-12-17",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2026-12-18",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011036b",
+          "label": "W06 Short easy treadmill run - 2026-12-18",
+          "notes": "Lunchtime. Foundation: 7.0 km/h running, 2 minutes at 5.0 km/h BETWEEN repetitions only. Week 1 confirms the estimated baseline; shorten to 3-minute reps if 5 minutes is too hard. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2026-12-19",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2026-12-21",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011036c",
+          "label": "W07 Longer easy treadmill run - 2026-12-21",
+          "notes": "Lunchtime. Foundation: 7.0 km/h running, 2 minutes at 5.0 km/h BETWEEN repetitions only. Week 1 confirms the estimated baseline; shorten to 3-minute reps if 5 minutes is too hard. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2026-12-22",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2026-12-23",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011036d",
+          "label": "W07 Treadmill development - 2026-12-23",
+          "notes": "Lunchtime. Foundation: 7.0 km/h running, 2 minutes at 5.0 km/h BETWEEN repetitions only. Week 1 confirms the estimated baseline; shorten to 3-minute reps if 5 minutes is too hard. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2026-12-24",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2026-12-26",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2026-12-28",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011036e",
+          "label": "W08 Longer easy treadmill run - 2026-12-28",
+          "notes": "Lunchtime. Foundation: 7.0 km/h running, 2 minutes at 5.0 km/h BETWEEN repetitions only. Week 1 confirms the estimated baseline; shorten to 3-minute reps if 5 minutes is too hard. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2026-12-29",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2026-12-30",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011036f",
+          "label": "W08 Treadmill development - 2026-12-30",
+          "notes": "Lunchtime. Foundation: 7.0 km/h running, 2 minutes at 5.0 km/h BETWEEN repetitions only. Week 1 confirms the estimated baseline; shorten to 3-minute reps if 5 minutes is too hard. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2026-12-31",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2027-01-01",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110370",
+          "label": "W08 Short easy treadmill run - 2027-01-01",
+          "notes": "Lunchtime. Foundation: 7.0 km/h running, 2 minutes at 5.0 km/h BETWEEN repetitions only. Week 1 confirms the estimated baseline; shorten to 3-minute reps if 5 minutes is too hard. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-01-02",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2027-01-04",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110371",
+          "label": "W09 Longer easy treadmill run - 2027-01-04",
+          "notes": "Lunchtime. Long easy run. Increase duration only if the previous long run was comfortable. If this week raises easy speed, keep the previous speed unless it still feels easy. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-01-05",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2027-01-06",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110372",
+          "label": "W09 Treadmill development - 2027-01-06",
+          "notes": "Lunchtime. Easy consolidation or cutback; no quicker running this week. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-01-07",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2027-01-08",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110373",
+          "label": "W09 Short easy treadmill run - 2027-01-08",
+          "notes": "Lunchtime. Short easy run before Saturday strength; shorten if legs are not recovered. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-01-09",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2027-01-11",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110374",
+          "label": "W10 Longer easy treadmill run - 2027-01-11",
+          "notes": "Lunchtime. Long easy run. Increase duration only if the previous long run was comfortable. If this week raises easy speed, keep the previous speed unless it still feels easy. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-01-12",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2027-01-13",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110375",
+          "label": "W10 Treadmill development - 2027-01-13",
+          "notes": "Lunchtime. Before quicker reps: complete at least two symptom-free weeks containing a continuous 25-30 minute run. Keep quicker work controlled, around 6-7/10 effort, never sprinting. If not ready, use the fallback session instead. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed. If not ready: replace the main session with 30 minutes easy at 7 km/h, or your last tolerated stage."
+        },
+        {
+          "date": "2027-01-14",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2027-01-15",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110376",
+          "label": "W10 Short easy treadmill run - 2027-01-15",
+          "notes": "Lunchtime. Short easy run before Saturday strength; shorten if legs are not recovered. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-01-16",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2027-01-18",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110377",
+          "label": "W11 Longer easy treadmill run - 2027-01-18",
+          "notes": "Lunchtime. Long easy run. Increase duration only if the previous long run was comfortable. If this week raises easy speed, keep the previous speed unless it still feels easy. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-01-19",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2027-01-20",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110378",
+          "label": "W11 Treadmill development - 2027-01-20",
+          "notes": "Lunchtime. Before quicker reps: complete at least two symptom-free weeks containing a continuous 25-30 minute run. Keep quicker work controlled, around 6-7/10 effort, never sprinting. If not ready, use the fallback session instead. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed. If not ready: replace the main session with 30 minutes easy at 7 km/h, or your last tolerated stage."
+        },
+        {
+          "date": "2027-01-21",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2027-01-22",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110379",
+          "label": "W11 Short easy treadmill run - 2027-01-22",
+          "notes": "Lunchtime. Short easy run before Saturday strength; shorten if legs are not recovered. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-01-23",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2027-01-25",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011037a",
+          "label": "W12 Longer easy treadmill run - 2027-01-25",
+          "notes": "Lunchtime. Long easy run. Increase duration only if the previous long run was comfortable. If this week raises easy speed, keep the previous speed unless it still feels easy. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-01-26",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2027-01-27",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011037b",
+          "label": "W12 Treadmill development - 2027-01-27",
+          "notes": "Lunchtime. Easy consolidation or cutback; no quicker running this week. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-01-28",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2027-01-29",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011037c",
+          "label": "W12 Short easy treadmill run - 2027-01-29",
+          "notes": "Lunchtime. Short easy run before Saturday strength; shorten if legs are not recovered. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-01-30",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2027-02-01",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011037d",
+          "label": "W13 Longer easy treadmill run - 2027-02-01",
+          "notes": "Lunchtime. Long easy run. Increase duration only if the previous long run was comfortable. If this week raises easy speed, keep the previous speed unless it still feels easy. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-02-02",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2027-02-03",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011037e",
+          "label": "W13 Treadmill development - 2027-02-03",
+          "notes": "Lunchtime. Before quicker reps: complete at least two symptom-free weeks containing a continuous 25-30 minute run. Keep quicker work controlled, around 6-7/10 effort, never sprinting. If not ready, use the fallback session instead. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed. If not ready: replace the main session with 30 minutes easy at 7 km/h, or your last tolerated stage."
+        },
+        {
+          "date": "2027-02-04",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2027-02-05",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011037f",
+          "label": "W13 Short easy treadmill run - 2027-02-05",
+          "notes": "Lunchtime. Short easy run before Saturday strength; shorten if legs are not recovered. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-02-06",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2027-02-08",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110380",
+          "label": "W14 Longer easy treadmill run - 2027-02-08",
+          "notes": "Lunchtime. Long easy run. Increase duration only if the previous long run was comfortable. If this week raises easy speed, keep the previous speed unless it still feels easy. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-02-09",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2027-02-10",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110381",
+          "label": "W14 Treadmill development - 2027-02-10",
+          "notes": "Lunchtime. Before quicker reps: complete at least two symptom-free weeks containing a continuous 25-30 minute run. Keep quicker work controlled, around 6-7/10 effort, never sprinting. If not ready, use the fallback session instead. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed. If not ready: replace the main session with 30 minutes easy at 7 km/h, or your last tolerated stage."
+        },
+        {
+          "date": "2027-02-11",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2027-02-12",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110382",
+          "label": "W14 Short easy treadmill run - 2027-02-12",
+          "notes": "Lunchtime. Short easy run before Saturday strength; shorten if legs are not recovered. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-02-13",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2027-02-15",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110383",
+          "label": "W15 Longer easy treadmill run - 2027-02-15",
+          "notes": "Lunchtime. Long easy run. Increase duration only if the previous long run was comfortable. If this week raises easy speed, keep the previous speed unless it still feels easy. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-02-16",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2027-02-17",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110384",
+          "label": "W15 Treadmill development - 2027-02-17",
+          "notes": "Lunchtime. Before quicker reps: complete at least two symptom-free weeks containing a continuous 25-30 minute run. Keep quicker work controlled, around 6-7/10 effort, never sprinting. If not ready, use the fallback session instead. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed. If not ready: replace the main session with 30 minutes easy at 7 km/h, or your last tolerated stage."
+        },
+        {
+          "date": "2027-02-18",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2027-02-19",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110385",
+          "label": "W15 Short easy treadmill run - 2027-02-19",
+          "notes": "Lunchtime. Short easy run before Saturday strength; shorten if legs are not recovered. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-02-20",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2027-02-22",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110386",
+          "label": "W16 Longer easy treadmill run - 2027-02-22",
+          "notes": "Lunchtime. Long easy run. Increase duration only if the previous long run was comfortable. If this week raises easy speed, keep the previous speed unless it still feels easy. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-02-23",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2027-02-24",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110387",
+          "label": "W16 Treadmill development - 2027-02-24",
+          "notes": "Lunchtime. Easy consolidation or cutback; no quicker running this week. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-02-25",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2027-02-26",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110388",
+          "label": "W16 Short easy treadmill run - 2027-02-26",
+          "notes": "Lunchtime. Short easy run before Saturday strength; shorten if legs are not recovered. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-02-27",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2027-03-01",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110389",
+          "label": "W17 Longer easy treadmill run - 2027-03-01",
+          "notes": "Lunchtime. Long easy run. Increase duration only if the previous long run was comfortable. If this week raises easy speed, keep the previous speed unless it still feels easy. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-03-02",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2027-03-03",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011038a",
+          "label": "W17 Treadmill development - 2027-03-03",
+          "notes": "Lunchtime. Before quicker reps: complete at least two symptom-free weeks containing a continuous 25-30 minute run. Keep quicker work controlled, around 6-7/10 effort, never sprinting. If not ready, use the fallback session instead. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed. If not ready: replace the main session with 30 minutes easy at 7 km/h, or your last tolerated stage."
+        },
+        {
+          "date": "2027-03-04",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2027-03-05",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011038b",
+          "label": "W17 Short easy treadmill run - 2027-03-05",
+          "notes": "Lunchtime. Short easy run before Saturday strength; shorten if legs are not recovered. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-03-06",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2027-03-08",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011038c",
+          "label": "W18 Longer easy treadmill run - 2027-03-08",
+          "notes": "Lunchtime. Long easy run. Increase duration only if the previous long run was comfortable. If this week raises easy speed, keep the previous speed unless it still feels easy. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-03-09",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2027-03-10",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011038d",
+          "label": "W18 Treadmill development - 2027-03-10",
+          "notes": "Lunchtime. Easy consolidation or cutback; no quicker running this week. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-03-11",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2027-03-12",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011038e",
+          "label": "W18 Short easy treadmill run - 2027-03-12",
+          "notes": "Lunchtime. Short easy run before Saturday strength; shorten if legs are not recovered. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-03-13",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2027-03-15",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011038f",
+          "label": "W19 Longer easy treadmill run - 2027-03-15",
+          "notes": "Lunchtime. Long easy run. Increase duration only if the previous long run was comfortable. If this week raises easy speed, keep the previous speed unless it still feels easy. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-03-16",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2027-03-17",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110390",
+          "label": "W19 Treadmill development - 2027-03-17",
+          "notes": "Lunchtime. Before quicker reps: complete at least two symptom-free weeks containing a continuous 25-30 minute run. Keep quicker work controlled, around 6-7/10 effort, never sprinting. If not ready, use the fallback session instead. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed. If not ready: replace the main session with 30 minutes easy at 7 km/h, or your last tolerated stage."
+        },
+        {
+          "date": "2027-03-18",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2027-03-19",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110391",
+          "label": "W19 Short easy treadmill run - 2027-03-19",
+          "notes": "Lunchtime. Short easy run before Saturday strength; shorten if legs are not recovered. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-03-20",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2027-03-22",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110392",
+          "label": "W20 Longer easy treadmill run - 2027-03-22",
+          "notes": "Lunchtime. Long easy run. Increase duration only if the previous long run was comfortable. If this week raises easy speed, keep the previous speed unless it still feels easy. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-03-23",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2027-03-24",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110393",
+          "label": "W20 Treadmill development - 2027-03-24",
+          "notes": "Lunchtime. Before quicker reps: complete at least two symptom-free weeks containing a continuous 25-30 minute run. Keep quicker work controlled, around 6-7/10 effort, never sprinting. If not ready, use the fallback session instead. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed. If not ready: replace the main session with 30 minutes easy at 7 km/h, or your last tolerated stage."
+        },
+        {
+          "date": "2027-03-25",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2027-03-26",
+          "part": "afternoon",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110394",
+          "label": "W20 Short easy treadmill run - 2027-03-26",
+          "notes": "Lunchtime. Short easy run before Saturday strength; shorten if legs are not recovered. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-03-27",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2027-03-29",
+          "part": "evening",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110395",
+          "label": "W21 Longer easy treadmill run - 2027-03-29",
+          "notes": "Evening after work. Long easy run. Increase duration only if the previous long run was comfortable. If this week raises easy speed, keep the previous speed unless it still feels easy. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-03-30",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2027-03-31",
+          "part": "evening",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110396",
+          "label": "W21 Treadmill development - 2027-03-31",
+          "notes": "Evening after work. Before quicker reps: complete at least two symptom-free weeks containing a continuous 25-30 minute run. Keep quicker work controlled, around 6-7/10 effort, never sprinting. If not ready, use the fallback session instead. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed. If not ready: replace the main session with 30 minutes easy at 7 km/h, or your last tolerated stage."
+        },
+        {
+          "date": "2027-04-01",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2027-04-02",
+          "part": "evening",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110397",
+          "label": "W21 Short easy treadmill run - 2027-04-02",
+          "notes": "Evening after work. Short easy run before Saturday strength; shorten if legs are not recovered. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-04-03",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2027-04-05",
+          "part": "evening",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110398",
+          "label": "W22 Longer easy treadmill run - 2027-04-05",
+          "notes": "Evening after work. Long easy run. Increase duration only if the previous long run was comfortable. If this week raises easy speed, keep the previous speed unless it still feels easy. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-04-06",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2027-04-07",
+          "part": "evening",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e50110399",
+          "label": "W22 Treadmill development - 2027-04-07",
+          "notes": "Evening after work. Before quicker reps: complete at least two symptom-free weeks containing a continuous 25-30 minute run. Keep quicker work controlled, around 6-7/10 effort, never sprinting. If not ready, use the fallback session instead. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed. If not ready: replace the main session with 30 minutes easy at 7 km/h, or your last tolerated stage."
+        },
+        {
+          "date": "2027-04-08",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2027-04-09",
+          "part": "evening",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011039a",
+          "label": "W22 Short easy treadmill run - 2027-04-09",
+          "notes": "Evening after work. Short easy run before Saturday strength; shorten if legs are not recovered. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-04-10",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2027-04-12",
+          "part": "evening",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011039b",
+          "label": "W23 Longer easy treadmill run - 2027-04-12",
+          "notes": "Evening after work. Long easy run. Increase duration only if the previous long run was comfortable. If this week raises easy speed, keep the previous speed unless it still feels easy. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-04-13",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2027-04-14",
+          "part": "evening",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011039c",
+          "label": "W23 Treadmill development - 2027-04-14",
+          "notes": "Evening after work. Before quicker reps: complete at least two symptom-free weeks containing a continuous 25-30 minute run. Keep quicker work controlled, around 6-7/10 effort, never sprinting. If not ready, use the fallback session instead. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed. If not ready: replace the main session with 30 minutes easy at 7 km/h, or your last tolerated stage."
+        },
+        {
+          "date": "2027-04-15",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2027-04-16",
+          "part": "evening",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011039d",
+          "label": "W23 Short easy treadmill run - 2027-04-16",
+          "notes": "Evening after work. Short easy run before Saturday strength; shorten if legs are not recovered. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-04-17",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2027-04-19",
+          "part": "evening",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011039e",
+          "label": "W24 Longer easy treadmill run - 2027-04-19",
+          "notes": "Evening after work. Long easy run. Increase duration only if the previous long run was comfortable. If this week raises easy speed, keep the previous speed unless it still feels easy. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-04-20",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2027-04-21",
+          "part": "evening",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e5011039f",
+          "label": "W24 Treadmill development - 2027-04-21",
+          "notes": "Evening after work. Easy consolidation or cutback; no quicker running this week. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-04-22",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2027-04-23",
+          "part": "evening",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e501103a0",
+          "label": "W24 Short easy treadmill run - 2027-04-23",
+          "notes": "Evening after work. Short easy run before Saturday strength; shorten if legs are not recovered. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-04-24",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2027-04-26",
+          "part": "evening",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e501103a1",
+          "label": "W25 Longer easy treadmill run - 2027-04-26",
+          "notes": "Evening after work. Long easy run. Increase duration only if the previous long run was comfortable. If this week raises easy speed, keep the previous speed unless it still feels easy. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-04-27",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2027-04-28",
+          "part": "evening",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e501103a2",
+          "label": "W25 Treadmill development - 2027-04-28",
+          "notes": "Evening after work. Before quicker reps: complete at least two symptom-free weeks containing a continuous 25-30 minute run. Keep quicker work controlled, around 6-7/10 effort, never sprinting. If not ready, use the fallback session instead. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed. If not ready: replace the main session with 30 minutes easy at 7 km/h, or your last tolerated stage."
+        },
+        {
+          "date": "2027-04-29",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        },
+        {
+          "date": "2027-04-30",
+          "part": "evening",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e501103a3",
+          "label": "W25 Short easy treadmill run - 2027-04-30",
+          "notes": "Evening after work. Short easy run before Saturday strength; shorten if legs are not recovered. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-05-01",
+          "part": "morning",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110358",
+          "label": "C - Squat and second bench"
+        },
+        {
+          "date": "2027-05-03",
+          "part": "evening",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e501103a4",
+          "label": "W26 Longer easy treadmill run - 2027-05-03",
+          "notes": "Evening after work. Long easy run. Increase duration only if the previous long run was comfortable. If this week raises easy speed, keep the previous speed unless it still feels easy. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed."
+        },
+        {
+          "date": "2027-05-04",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110356",
+          "label": "A - Bench and moderate squat"
+        },
+        {
+          "date": "2027-05-05",
+          "part": "evening",
+          "kind": "conditioning",
+          "role": "run",
+          "item": "6af0ec7f3d82109e501103a5",
+          "label": "W26 Conditional 30-minute speed benchmark - 2027-05-05",
+          "notes": "Evening after work. STRETCH TEST ONLY: attempt only after completing 3 x 8 minutes at 10.1 km/h in control, tolerating the earlier quality sessions, and recovering fully. This does not guarantee readiness for 30 continuous minutes. Lower the speed or end the test if effort becomes uncontrolled. At steady belt speed, 30 minutes at 10.1 km/h is approximately 5.05 km; transitions and treadmill calibration affect the actual distance. If not ready, defer the test. Timer includes belt transitions; use the safety clip and remain on the belt while changing speed. If not ready: replace the main session with 30 minutes easy at 7.5 km/h, or your last tolerated stage."
+        },
+        {
+          "date": "2027-05-06",
+          "part": "afternoon",
+          "kind": "workout",
+          "role": "strength",
+          "item": "6af0ec7f3d82109e50110357",
+          "label": "B - Trap bar and overhead press"
+        }
+      ],
+      "overrides": [
+        {
+          "start": "2026-12-01",
+          "end": "2026-12-03",
+          "summary": "no recurring strength",
+          "notes": "London work trip blocks lunchtime lifting; 2 December run is omitted from dated sessions."
+        },
+        {
+          "start": "2026-12-25",
+          "end": "2026-12-25",
+          "summary": "no strength; no conditioning",
+          "notes": "Christmas Day: full rest, no catch-up session."
+        }
+      ],
+      "sourceOverrides": [
+        {
+          "start": "2026-12-01",
+          "end": "2026-12-03",
+          "suppressRecurringStrength": true,
+          "notes": "London work trip blocks lunchtime lifting; 2 December run is omitted from dated sessions."
+        },
+        {
+          "date": "2026-12-25",
+          "strength": null,
+          "conditioning": null,
+          "notes": "Christmas Day: full rest, no catch-up session."
+        }
+      ],
+      "warnings": [],
+      "appliedAt": "2026-11-08T21:41:28.363Z",
+      "order": 0,
+      "createdAt": "2026-11-08T21:41:19.567Z",
+      "updatedAt": "2026-11-08T21:41:28.372Z",
+      "__v": 0
+    }
+  ],
+  "workoutLogs": [
+    {
+      "_id": "6ad5ff31d2f644345c4fe8a7",
+      "user": "6a21752b799de48151c0e715",
+      "workout": "6ad5198890942b6159a72861",
+      "name": "Lower 1",
+      "date": "2026-10-19",
+      "exercises": [
+        {
+          "name": "General lower-body warm-up",
+          "phase": "warmUp"
+        },
+        {
+          "name": "Back Squat",
+          "sets": 4,
+          "reps": "5",
+          "loggedSets": [
+            {
+              "weight": 70,
+              "reps": 8
+            },
+            {
+              "weight": 110,
+              "reps": 5
+            },
+            {
+              "weight": 110,
+              "reps": 5
+            },
+            {
+              "weight": 110,
+              "reps": 5
+            }
+          ]
+        },
+        {
+          "name": "Romanian Deadlift",
+          "sets": 3,
+          "reps": "6",
+          "loggedSets": [
+            {
+              "weight": 50,
+              "reps": 6
+            },
+            {
+              "weight": 50,
+              "reps": 6
+            },
+            {
+              "weight": 50,
+              "reps": 6
+            }
+          ]
+        },
+        {
+          "name": "Forward Lunge",
+          "sets": 2,
+          "reps": "8 each leg",
+          "loggedSets": [
+            {
+              "weight": 0,
+              "reps": 16
+            },
+            {
+              "weight": 7,
+              "reps": 16
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-10-19T11:29:53.346Z",
+      "updatedAt": "2026-10-19T12:09:22.023Z",
+      "__v": 0
+    },
+    {
+      "_id": "6ad749e4b5b88996251886d0",
+      "user": "6a21752b799de48151c0e715",
+      "workout": "6ad64e607ff3945ff9e4876f",
+      "name": "Upper 1",
+      "date": "2026-10-20",
+      "exercises": [
+        {
+          "name": "General upper-body warm-up",
+          "phase": "warmUp"
+        },
+        {
+          "name": "Barbell Bench Press",
+          "sets": 4,
+          "reps": "5",
+          "loggedSets": [
+            {
+              "weight": 70,
+              "reps": 8
+            },
+            {
+              "weight": 90,
+              "reps": 6
+            },
+            {
+              "weight": 90,
+              "reps": 6
+            },
+            {
+              "weight": 100,
+              "reps": 5
+            },
+            {
+              "weight": 70,
+              "reps": 5
+            }
+          ]
+        },
+        {
+          "name": "Barbell Row",
+          "sets": 4,
+          "reps": "6",
+          "loggedSets": [
+            {
+              "weight": 50,
+              "reps": 6
+            },
+            {
+              "weight": 50,
+              "reps": 6
+            },
+            {
+              "weight": 50,
+              "reps": 6
+            },
+            {
+              "weight": 60,
+              "reps": 6
+            }
+          ]
+        },
+        {
+          "name": "Overhead Press",
+          "sets": 4,
+          "reps": "6",
+          "loggedSets": [
+            {
+              "weight": 40,
+              "reps": 6
+            },
+            {
+              "weight": 40,
+              "reps": 6
+            },
+            {
+              "weight": 50,
+              "reps": 5
+            },
+            {
+              "weight": 50,
+              "reps": 5
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-10-20T11:00:52.091Z",
+      "updatedAt": "2026-10-20T11:37:05.614Z",
+      "__v": 0
+    },
+    {
+      "_id": "6adb4771801e89ab1e6479a9",
+      "user": "6a21752b799de48151c0e715",
+      "workout": "6ad64dae7ff3945ff9e4869e",
+      "name": "Gym B - Moderate",
+      "date": "2026-10-23",
+      "exercises": [
+        {
+          "name": "General warm-up",
+          "phase": "warmUp"
+        },
+        {
+          "name": "Back Squat",
+          "sets": 3,
+          "reps": "6",
+          "loggedSets": [
+            {
+              "weight": 70,
+              "reps": 8
+            },
+            {
+              "weight": 120,
+              "reps": 5
+            },
+            {
+              "weight": 120,
+              "reps": 5
+            },
+            {
+              "weight": 70,
+              "reps": 8
+            }
+          ]
+        },
+        {
+          "name": "Barbell Bench Press",
+          "sets": 3,
+          "reps": "6",
+          "loggedSets": [
+            {
+              "weight": 70,
+              "reps": 6
+            },
+            {
+              "weight": 100,
+              "reps": 6
+            },
+            {
+              "weight": 100,
+              "reps": 6
+            },
+            {
+              "weight": 100,
+              "reps": 6
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-10-23T11:39:29.516Z",
+      "updatedAt": "2026-10-23T12:15:46.425Z",
+      "__v": 0
+    },
+    {
+      "_id": "6ae093a5e3134add169a1fa3",
+      "user": "6a21752b799de48151c0e715",
+      "workout": "6ad64dae7ff3945ff9e4869d",
+      "name": "Gym A - Heavy",
+      "date": "2026-10-27",
+      "exercises": [
+        {
+          "name": "General warm-up",
+          "phase": "warmUp"
+        },
+        {
+          "name": "Back Squat",
+          "sets": 4,
+          "reps": "5",
+          "loggedSets": [
+            {
+              "weight": 70,
+              "reps": 8
+            },
+            {
+              "weight": 120,
+              "reps": 6
+            },
+            {
+              "weight": 120,
+              "reps": 6
+            },
+            {
+              "weight": 100,
+              "reps": 4
+            },
+            {
+              "weight": 70,
+              "reps": 8
+            }
+          ]
+        },
+        {
+          "name": "Barbell Bench Press",
+          "sets": 4,
+          "reps": "5",
+          "loggedSets": [
+            {
+              "weight": 80,
+              "reps": 6
+            },
+            {
+              "weight": 100,
+              "reps": 8
+            },
+            {
+              "weight": 100,
+              "reps": 8
+            },
+            {
+              "weight": 100,
+              "reps": 8
+            }
+          ]
+        },
+        {
+          "name": "Barbell Row",
+          "sets": 4,
+          "reps": "6",
+          "loggedSets": [
+            {
+              "weight": 60,
+              "reps": 6
+            },
+            {
+              "weight": 60,
+              "reps": 6
+            },
+            {
+              "weight": 60,
+              "reps": 6
+            },
+            {
+              "weight": 60,
+              "reps": 6
+            }
+          ]
+        },
+        {
+          "name": "Seated Leg Curl",
+          "sets": 3,
+          "reps": "10",
+          "loggedSets": [
+            {
+              "weight": 55,
+              "reps": 10
+            },
+            {
+              "weight": 45,
+              "reps": 10
+            },
+            {
+              "weight": 45,
+              "reps": 10
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-10-27T12:05:57.834Z",
+      "updatedAt": "2026-10-27T12:52:54.220Z",
+      "__v": 0
+    },
+    {
+      "_id": "6aeb7d7701c386db80dc775c",
+      "user": "6a21752b799de48151c0e715",
+      "workout": "6ad64dae7ff3945ff9e4869d",
+      "name": "Gym A - Heavy",
+      "date": "2026-11-04",
+      "exercises": [
+        {
+          "name": "General warm-up",
+          "phase": "warmUp"
+        },
+        {
+          "name": "Barbell Bench Press",
+          "sets": 4,
+          "reps": "5",
+          "loggedSets": [
+            {
+              "weight": 80,
+              "reps": 8
+            },
+            {
+              "weight": 100,
+              "reps": 8
+            },
+            {
+              "weight": 110,
+              "reps": 5
+            },
+            {
+              "weight": 110,
+              "reps": 5
+            },
+            {
+              "weight": 100,
+              "reps": 5
+            }
+          ]
+        },
+        {
+          "name": "Barbell Row",
+          "sets": 4,
+          "reps": "6",
+          "loggedSets": [
+            {
+              "weight": 60,
+              "reps": 8
+            },
+            {
+              "weight": 70,
+              "reps": 6
+            },
+            {
+              "weight": 70,
+              "reps": 5
+            },
+            {
+              "weight": 60,
+              "reps": 6
+            }
+          ]
+        },
+        {
+          "name": "Overhead Press",
+          "added": true,
+          "loggedSets": [
+            {
+              "weight": 40,
+              "reps": 8
+            },
+            {
+              "weight": 50,
+              "reps": 8
+            },
+            {
+              "weight": 50,
+              "reps": 6
+            },
+            {
+              "weight": 40,
+              "reps": 6
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-11-04T18:46:15.384Z",
+      "updatedAt": "2026-11-04T21:00:55.660Z",
+      "__v": 0
+    },
+    {
+      "_id": "6af0e5fd3d82109e50110233",
+      "user": "6a21752b799de48151c0e715",
+      "workout": "6aedecb7fe83937a9cb2e973",
+      "name": "A - Bench and moderate squat",
+      "date": "2026-11-10",
+      "exercises": [
+        {
+          "name": "General preparation",
+          "phase": "warmUp"
+        },
+        {
+          "name": "Barbell Bench Press",
+          "sets": 4,
+          "reps": "5-8"
+        },
+        {
+          "name": "Back Squat",
+          "sets": 3,
+          "reps": "6-8"
+        },
+        {
+          "name": "Bent-over barbell row",
+          "sets": 4,
+          "reps": "8-10"
+        },
+        {
+          "name": "Leg curl",
+          "sets": 2,
+          "reps": "10-15"
+        },
+        {
+          "name": "Finish and record",
+          "phase": "coolDown"
+        }
+      ],
+      "createdAt": "2026-11-08T21:13:33.575Z",
+      "updatedAt": "2026-11-08T21:14:09.432Z",
+      "__v": 0
+    }
+  ],
+  "conditioningLogs": [
+    {
+      "_id": "6aee18970f7503b19839ea8f",
+      "user": "6a21752b799de48151c0e715",
+      "session": null,
+      "name": "Friday Outdoor Run-Walk — Before the Plan",
+      "category": "Endurance",
+      "date": "2026-11-06",
+      "duration": 18,
+      "garminActivity": "6aee1897c53bfb6a3336a738",
+      "source": "garmin",
+      "createdAt": "2026-11-06T18:12:39.991Z",
+      "updatedAt": "2026-11-08T21:40:15.359Z",
+      "__v": 0
+    },
+    {
+      "_id": "6aee18a10f7503b19839ea96",
+      "user": "6a21752b799de48151c0e715",
+      "session": null,
+      "name": "Friday Outdoor Run-Walk — Before the Plan",
+      "category": "Endurance",
+      "date": "2026-11-06",
+      "duration": 6,
+      "rounds": [
+        {
+          "name": "Easy run-walk",
+          "done": 3,
+          "target": 3
+        }
+      ],
+      "checkpoints": [
+        {
+          "name": "Walking warm-up",
+          "startMin": 0,
+          "endMin": 6,
+          "completedAt": "2026-11-06T18:12:48.219Z"
+        },
+        {
+          "name": "Easy run-walk",
+          "startMin": 6,
+          "endMin": 21,
+          "completedAt": "2026-11-06T18:13:07.014Z"
+        },
+        {
+          "name": "Walking cooldown",
+          "startMin": 21,
+          "endMin": 25,
+          "completedAt": "2026-11-06T18:13:07.209Z"
+        }
+      ],
+      "garminActivity": null,
+      "source": "manual",
+      "createdAt": "2026-11-06T18:12:49.622Z",
+      "updatedAt": "2026-11-08T21:40:15.359Z",
+      "__v": 0
+    }
+  ]
+}

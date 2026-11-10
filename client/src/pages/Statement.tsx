@@ -313,7 +313,7 @@ function Hero({
                 </div>
                 <div className="min-w-0 flex-1">
                     <h1 className="truncate text-xl font-semibold tracking-tight text-white sm:text-[22px]">{nav.label}</h1>
-                    <p className="truncate text-[13px] text-neutral-500">{status}</p>
+                    <p className="truncate text-[13px] text-neutral-400">{status}</p>
                 </div>
             </div>
 
@@ -1148,7 +1148,7 @@ function Transactions({ s, eventOf }: { s: MonthStatement; eventOf: (id: string)
                                 >
                                     <i className={`fa-solid ${TAGS[x].icon} text-[11px] opacity-70`} aria-hidden="true" />
                                     {TAGS[x].label}
-                                    <span className={on ? 'text-neutral-500' : 'text-neutral-500'}>{count}</span>
+                                    <span className={on ? 'text-neutral-400' : 'text-neutral-500'}>{count}</span>
                                 </button>
                             )
                         })}

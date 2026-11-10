@@ -576,7 +576,7 @@ export default function Finances() {
                         <h1 className="truncate text-xl font-semibold tracking-tight text-white sm:text-[22px]">
                             {monthLabel}
                         </h1>
-                        <p className="truncate text-[13px] text-neutral-500">
+                        <p className="truncate text-[13px] text-neutral-400">
                             {isCurrent ? 'This month' : (
                                 <button
                                     type="button"

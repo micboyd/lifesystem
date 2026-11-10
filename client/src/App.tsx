@@ -3,6 +3,7 @@ import { Routes, Route, Outlet, Navigate, useLocation, useParams } from 'react-r
 import { documentTitleForPath } from './lib/pageTitle'
 import Sidebar from './components/Sidebar'
 import ProtectedRoute from './components/ProtectedRoute'
+import { useMediaQuery } from './components/planner/WeekPlannerUI'
 import QuickLog from './components/QuickLog'
 import Home from './pages/Home'
 import Calendar from './pages/Calendar'
@@ -21,6 +22,7 @@ import DaysSince from './pages/DaysSince'
 import DaysUntil from './pages/DaysUntil'
 import Goals from './pages/Goals'
 import Timeline from './pages/Timeline'
+import Timebox from './pages/Timebox'
 import Consistency from './pages/Consistency'
 import Walking from './pages/Walking'
 import WalkPlanner from './pages/WalkPlanner'
@@ -35,8 +37,9 @@ import NotFound from './pages/NotFound'
 /** The signed-in app shell: sidebar nav plus the matched page. */
 function AppLayout() {
     // Persist the desktop rail's collapsed state across reloads.
+    const wide = useMediaQuery('(min-width: 1024px)')
     const [collapsed, setCollapsed] = useState(
-        () => localStorage.getItem('sidebarCollapsed') !== '0'
+        () => localStorage.getItem('sidebarCollapsed') === '1'
     )
     useEffect(() => {
         localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0')
@@ -52,7 +55,8 @@ function AppLayout() {
                 <main className="flex-1">
                     <Outlet />
                 </main>
-                <QuickLog />
+                {/* Below lg the spend pill floats; on wide screens it lives in the sidebar. */}
+                {!wide && <QuickLog />}
             </div>
         </div>
     )
@@ -120,6 +124,7 @@ export default function App() {
                 <Route path="/weather" element={<Weather />} />
                 <Route path="/goals" element={<Goals />} />
                 <Route path="/timeline" element={<Timeline />} />
+                <Route path="/timebox" element={<Timebox />} />
                 <Route path="/consistency" element={<Consistency />} />
                 <Route path="/walking" element={<Walking />} />
                 <Route path="/notes" element={<Notes />} />

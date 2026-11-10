@@ -95,6 +95,9 @@ export interface IUserSettings {
     bedTime?: string
     workStart?: string
     workEnd?: string
+    /** Lunch break inside the working day. */
+    lunchStart?: string
+    lunchEnd?: string
     showTotals?: boolean
     workDays?: number[]
     /** YYYY-MM-DD — all finance data before this date is hidden. */
@@ -198,6 +201,8 @@ const settingsSchema = new Schema<IUserSettings>(
         bedTime: { type: String, match: TIME_PATTERN },
         workStart: { type: String, match: TIME_PATTERN },
         workEnd: { type: String, match: TIME_PATTERN },
+        lunchStart: { type: String, match: TIME_PATTERN },
+        lunchEnd: { type: String, match: TIME_PATTERN },
         showTotals: { type: Boolean, default: false },
         workDays: { type: [Number], default: undefined },
         financeStartDate: { type: String },

@@ -130,7 +130,7 @@ function cleanTimelineQuiz(q: unknown): ITimelineQuiz | null {
 
 /** PUT /api/users/me/settings — update general settings (times, etc.). */
 export async function updateSettings(req: AuthRequest, res: Response) {
-    const keys: (keyof IUserSettings)[] = ['wakeTime', 'bedTime', 'workStart', 'workEnd']
+    const keys: (keyof IUserSettings)[] = ['wakeTime', 'bedTime', 'workStart', 'workEnd', 'lunchStart', 'lunchEnd']
     const settings: Record<string, string | undefined> = {}
 
     for (const key of keys) {

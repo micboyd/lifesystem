@@ -55,6 +55,8 @@ import { clearDraft } from '../lib/workoutLogDraft'
 import { seedFromLog } from '../lib/workoutLogEdit'
 import { useToast } from '../context/ToastContext'
 import { listEvents } from '../services/events'
+import { listMeetings } from '../services/ical'
+import { meetingAsEvent } from '../lib/meetingClashes'
 import {
     listPlanEntries,
     addPlanEntry,
@@ -746,7 +748,13 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         Promise.all([
             listPlanEntries(range.start, range.end),
             listPlanNotes(range.start, range.end),
-            listEvents(range.start, range.end).catch(() => [] as Event[]),
+            // Google meetings live in Timebox, but still block a slot like an event does.
+            Promise.all([
+                listEvents(range.start, range.end).catch(() => [] as Event[]),
+                listMeetings(range.start, range.end)
+                    .then((ms) => ms.map(meetingAsEvent))
+                    .catch(() => [] as Event[]),
+            ]).then(([evs, meetings]) => [...evs, ...meetings]),
             listWorkoutLogs().catch(() => []),
             listConditioningLogs().catch(() => []),
         ])

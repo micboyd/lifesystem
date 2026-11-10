@@ -2,10 +2,10 @@ import ical, { type VEvent, type ParameterValue, type CalendarResponse } from 'n
 
 /**
  * Turns a Google Calendar "secret address in iCal format" feed into single
- * meeting occurrences the calendar can store as plain events.
+ * meeting occurrences Timebox can store as read-only blocks.
  *
- * Pure (no Mongo, no network) so the recurrence expansion and the part-of-day
- * mapping can be tested against a fixture feed.
+ * Pure (no Mongo, no network) so the recurrence expansion and the London-time
+ * conversion can be tested against a fixture feed.
  */
 
 export const MEETINGS_TIME_ZONE = 'Europe/London'
@@ -14,8 +14,7 @@ export const MEETINGS_TIME_ZONE = 'Europe/London'
 export const SYNC_DAYS_BACK = 7
 export const SYNC_DAYS_AHEAD = 90
 
-export type MeetingPart = 'morning' | 'afternoon' | 'evening'
-
+/** A meeting as one block on one day, in London wall-clock time. */
 export interface MeetingOccurrence {
     /** The VEVENT UID — shared by every occurrence of a recurring meeting. */
     uid: string
@@ -27,24 +26,19 @@ export interface MeetingOccurrence {
     title: string
     location?: string
     notes?: string
-    allDay: boolean
-    /** HH:mm start, London time. Absent for all-day meetings. */
-    time?: string
-    startDate: string
-    startPart: MeetingPart
-    endDate: string
-    endPart: MeetingPart
+    /** YYYY-MM-DD the block sits on. */
+    date: string
+    /** HH:MM. */
+    startTime: string
+    /** HH:MM, after startTime — clipped to 23:59 when a meeting runs past midnight. */
+    endTime: string
 }
 
 const DAY_MS = 86_400_000
 const NOTES_MAX = 2000
-
-/** Morning before 12:00, afternoon before 17:00, evening from 17:00. */
-export function partForHour(hour: number): MeetingPart {
-    if (hour < 12) return 'morning'
-    if (hour < 17) return 'afternoon'
-    return 'evening'
-}
+const LAST_MINUTE = '23:59'
+/** A zero-length meeting (a reminder, say) still gets a sliver of the day. */
+const MIN_LENGTH_MIN = 15
 
 const londonFormat = new Intl.DateTimeFormat('en-GB', {
     timeZone: MEETINGS_TIME_ZONE,
@@ -57,7 +51,7 @@ const londonFormat = new Intl.DateTimeFormat('en-GB', {
 })
 
 /** A moment as London wall-clock date + time. */
-export function toLondon(at: Date): { date: string; time: string; hour: number } {
+export function toLondon(at: Date): { date: string; time: string } {
     const parts = Object.fromEntries(
         londonFormat.formatToParts(at).map((p) => [p.type, p.value])
     ) as Record<string, string>
@@ -65,20 +59,12 @@ export function toLondon(at: Date): { date: string; time: string; hour: number }
     return {
         date: `${parts.year}-${parts.month}-${parts.day}`,
         time: `${String(hour).padStart(2, '0')}:${parts.minute}`,
-        hour,
     }
 }
 
-/**
- * Date-only values (all-day meetings) carry no time zone: node-ical builds them
- * at local midnight, so the local calendar date is the one that was written.
- */
-function dateOnlyKey(at: Date): string {
-    const y = at.getFullYear()
-    const m = String(at.getMonth() + 1).padStart(2, '0')
-    const d = String(at.getDate()).padStart(2, '0')
-    return `${y}-${m}-${d}`
-}
+const toMinutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5))
+const fromMinutes = (m: number) =>
+    `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
 
 function text(value: ParameterValue | undefined): string | undefined {
     if (value == null) return undefined
@@ -125,62 +111,44 @@ function isCancelled(event: VEvent): boolean {
     return typeof event.status === 'string' && event.status.toUpperCase() === 'CANCELLED'
 }
 
-/** Builds one stored occurrence from a start/end pair. */
+/**
+ * One timed meeting as a block on the London day it starts. A meeting that runs
+ * past midnight is clipped to 23:59 — Timebox plans one day at a time.
+ */
 export function occurrenceFrom(input: {
     uid: string
     originalStart: Date
     start: Date
     end: Date
-    allDay: boolean
     title: string
     location?: string
     notes?: string
 }): MeetingOccurrence {
-    const { uid, start, end, allDay, title, location, notes } = input
-
-    if (allDay) {
-        const startDate = dateOnlyKey(start)
-        // DTEND is exclusive for all-day meetings: Fri–Sun is written as DTEND=Mon.
-        const lastDay = end.getTime() > start.getTime() ? new Date(end.getTime() - DAY_MS) : start
-        const endDate = dateOnlyKey(lastDay)
-        return {
-            uid,
-            occurrenceDate: dateOnlyKey(input.originalStart),
-            title,
-            location,
-            notes,
-            allDay: true,
-            startDate,
-            startPart: 'morning',
-            endDate: endDate < startDate ? startDate : endDate,
-            endPart: 'evening',
-        }
-    }
-
+    const { uid, start, end, title, location, notes } = input
     const from = toLondon(start)
-    // A meeting ending on the hour belongs to the part it ran in, so judge the
-    // end by its last minute (9:00–12:00 is morning only, not morning+afternoon).
-    const lastMinute = end.getTime() > start.getTime() ? new Date(end.getTime() - 60_000) : start
-    const to = toLondon(lastMinute)
+    const to = toLondon(end.getTime() > start.getTime() ? end : start)
+    const startMin = toMinutes(from.time)
+    let endTime = to.date === from.date ? to.time : LAST_MINUTE
+    if (toMinutes(endTime) <= startMin)
+        endTime = fromMinutes(Math.min(startMin + MIN_LENGTH_MIN, 24 * 60 - 1))
+    if (toMinutes(endTime) <= startMin) endTime = LAST_MINUTE // a 23:59 start
     return {
         uid,
         occurrenceDate: toLondon(input.originalStart).date,
         title,
         location,
         notes,
-        allDay: false,
-        time: from.time,
-        startDate: from.date,
-        startPart: partForHour(from.hour),
-        endDate: to.date,
-        endPart: partForHour(to.hour),
+        date: from.date,
+        startTime: from.time,
+        endTime,
     }
 }
 
 /**
- * Every meeting occurrence in the feed that touches [from, to], with recurring
- * series expanded (RRULE), cancelled dates dropped (EXDATE), moved instances
- * applied (RECURRENCE-ID), and cancelled or declined meetings skipped.
+ * Every timed meeting occurrence in the feed that touches [from, to], with
+ * recurring series expanded (RRULE), cancelled dates dropped (EXDATE), moved
+ * instances applied (RECURRENCE-ID), and cancelled, declined and all-day
+ * meetings skipped (Timebox has no all-day blocks).
  */
 export function meetingsFromIcs(
     ics: string,
@@ -208,7 +176,7 @@ export function meetingsFromIcs(
 
         for (const inst of instances) {
             const ev = inst.event
-            if (isCancelled(ev) || isDeclined(ev, owner)) continue
+            if (inst.isFullDay || isCancelled(ev) || isDeclined(ev, owner)) continue
             const originalStart =
                 inst.isOverride && ev.recurrenceid ? (ev.recurrenceid as Date) : inst.start
             const notes = text(ev.description)
@@ -217,10 +185,10 @@ export function meetingsFromIcs(
                 originalStart,
                 start: inst.start,
                 end: inst.end ?? inst.start,
-                allDay: inst.isFullDay,
                 title: text(ev.summary) ?? '(No title)',
                 location: text(ev.location),
-                notes: notes && notes.length > NOTES_MAX ? `${notes.slice(0, NOTES_MAX)}…` : notes,
+                notes:
+                    notes && notes.length > NOTES_MAX ? `${notes.slice(0, NOTES_MAX - 1)}…` : notes,
             })
             const key = `${occ.uid}|${occ.occurrenceDate}`
             if (!out.has(key)) out.set(key, occ)
@@ -228,11 +196,7 @@ export function meetingsFromIcs(
     }
 
     return [...out.values()].sort((a, b) =>
-        a.startDate === b.startDate
-            ? (a.time ?? '').localeCompare(b.time ?? '')
-            : a.startDate < b.startDate
-              ? -1
-              : 1
+        a.date === b.date ? a.startTime.localeCompare(b.startTime) : a.date < b.date ? -1 : 1
     )
 }
 
@@ -262,7 +226,7 @@ export function normaliseFeedUrl(input: unknown): string | null {
     return url.toString()
 }
 
-/** "https://calendar.google.com/…/private-ab12…/basic.ics" → "…/private-ab••••…/basic.ics". */
+/** "https://calendar.google.com/…/private-ab12…/basic.ics" → "…/private-ab12••••/basic.ics". */
 export function maskFeedUrl(url: string): string {
     try {
         const u = new URL(url)

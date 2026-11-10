@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import Drawer from '../Drawer'
 import Button from '../Button'
 import Textarea from '../Textarea'
-import { EVENT_TYPE_LABELS, RECURRENCE_LABELS, CALENDAR_COLOR_CLASSES, isImportedEvent } from '../../types'
+import { EVENT_TYPE_LABELS, RECURRENCE_LABELS, CALENDAR_COLOR_CLASSES } from '../../types'
 import { useCalendars } from '../../context/CalendarsContext'
 import type { Event } from '../../types'
 import { StatStrip, type Stat } from '../session/SessionUI'
@@ -75,7 +75,6 @@ export default function EventDetailModal({
     }
 
     const calendar = e?.calendar ? byId.get(e.calendar) : undefined
-    const imported = isImportedEvent(e)
     const isMultiDay = !!e && e.startDate !== e.endDate
 
     const stats: Stat[] = e
@@ -123,11 +122,9 @@ export default function EventDetailModal({
                     <Button variant="ghost" onClick={onClose}>
                         Close
                     </Button>
-                    {!imported && (
-                        <Button icon="fa-solid fa-pen" onClick={onEdit}>
-                            Edit
-                        </Button>
-                    )}
+                    <Button icon="fa-solid fa-pen" onClick={onEdit}>
+                        Edit
+                    </Button>
                 </>
             }
         >
@@ -157,13 +154,8 @@ export default function EventDetailModal({
 
                     <StatStrip stats={stats} />
 
-                    {(e.location || e.recurrence || imported) && (
+                    {(e.location || e.recurrence) && (
                         <div className="flex flex-col gap-3">
-                            {imported && (
-                                <DetailRow icon="fa-solid fa-link">
-                                    From Google Calendar · change it there
-                                </DetailRow>
-                            )}
                             {e.location && <DetailRow icon="fa-solid fa-location-dot">{e.location}</DetailRow>}
                             {e.recurrence && (
                                 <DetailRow icon="fa-solid fa-repeat">

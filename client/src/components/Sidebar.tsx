@@ -2,13 +2,25 @@ import { useState, useEffect, useRef, type TouchEvent } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import Avatar from './Avatar'
+import QuickLog from './QuickLog'
+import { useMediaQuery } from './planner/WeekPlannerUI'
 import { useAuth } from '../context/AuthContext'
 import { BRAND, NAV_GROUPS, NAV_ITEMS, type NavItem } from '../lib/workspace'
 
 /** Shared row shape for nav links. */
-const rowBase =
-    'flex h-10 items-center gap-3 rounded-[10px] px-3 text-sm font-medium transition-colors'
-const rowIdle = 'text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900'
+const rowBase = 'flex h-10 items-center gap-3 rounded-xl px-2 text-sm font-medium transition-colors'
+const rowIdle = 'text-neutral-700 hover:bg-white/70 hover:text-neutral-900'
+
+/** The tinted tile each destination's icon sits in, in its life area's colour. */
+function NavTile({ icon, tone, size = 'sm' }: { icon: string; tone: string; size?: 'sm' | 'lg' }) {
+    const box =
+        size === 'lg' ? 'h-10 w-10 rounded-[12px] text-[15px]' : 'h-7 w-7 rounded-lg text-[12px]'
+    return (
+        <span className={`grid shrink-0 place-items-center ${box} ${tone}`} aria-hidden="true">
+            <i className={`fa-solid ${icon}`} />
+        </span>
+    )
+}
 
 /**
  * A link is active for its exact path and any nested route — except the root
@@ -50,20 +62,18 @@ function NavLinks({
 }) {
     return (
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
-            {items.map(({ label, to, icon }) => {
+            {items.map(({ label, to, icon, tone }) => {
                 const active = isActive(pathname, to)
                 return (
                     <Link
                         key={to}
                         to={to}
                         title={collapsed ? label : undefined}
+                        aria-current={active ? 'page' : undefined}
                         className={`${rowBase} ${collapsed ? 'justify-center px-0' : ''} ${active ? BRAND.navActiveClass : rowIdle}`}
                     >
-                        <i
-                            className={`fa-solid ${icon} w-5 shrink-0 text-center text-[0.95rem] ${active ? BRAND.navActiveIconClass : ''}`}
-                            aria-hidden="true"
-                        />
-                        {!collapsed && <span>{label}</span>}
+                        <NavTile icon={icon} tone={tone} />
+                        {!collapsed && <span className="truncate">{label}</span>}
                     </Link>
                 )
             })}
@@ -72,13 +82,7 @@ function NavLinks({
 }
 
 /** Profile chip pinned to the base of the rail. */
-function ProfileChip({
-    active,
-    collapsed = false,
-}: {
-    active: boolean
-    collapsed?: boolean
-}) {
+function ProfileChip({ active, collapsed = false }: { active: boolean; collapsed?: boolean }) {
     const { user } = useAuth()
     if (collapsed) {
         return (
@@ -109,7 +113,6 @@ function ProfileChip({
                 </p>
                 <p className="truncate text-xs text-neutral-500">View profile</p>
             </div>
-            <i className="fa-solid fa-chevron-right text-[11px] text-neutral-300" aria-hidden="true" />
         </Link>
     )
 }
@@ -123,18 +126,23 @@ export default function Sidebar({
 }) {
     const { pathname } = useLocation()
     const profileActive = isActive(pathname, '/profile')
+    const wide = useMediaQuery('(min-width: 1024px)')
 
     return (
         <>
             {/* Desktop rail */}
             <aside
-                className={`fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-black/[0.06] bg-white transition-[width] duration-200 ease-out lg:flex ${collapsed ? 'w-20' : 'w-64'}`}
+                className={`fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-black/[0.05] bg-canvas transition-[width] duration-200 ease-out lg:flex ${collapsed ? 'w-20' : 'w-64'}`}
             >
-                <div className={`flex h-16 shrink-0 items-center ${collapsed ? 'justify-center px-0' : 'px-5'}`}>
+                <div
+                    className={`flex h-16 shrink-0 items-center ${collapsed ? 'justify-center px-0' : 'px-5'}`}
+                >
                     <Brand collapsed={collapsed} />
                 </div>
                 <NavLinks pathname={pathname} items={NAV_ITEMS} collapsed={collapsed} />
-                <div className="shrink-0 border-t border-black/[0.06] p-3">
+                <div className="flex shrink-0 flex-col gap-2 p-3">
+                    {/* Safe to spend today, and where a spend is logged, on wide screens. */}
+                    {wide && <QuickLog variant="rail" collapsed={collapsed} />}
                     <ProfileChip active={profileActive} collapsed={collapsed} />
                 </div>
 
@@ -255,8 +263,13 @@ function MobileNav({ pathname }: { pathname: string }) {
                         <i className="fa-solid fa-bars-staggered text-[15px]" aria-hidden="true" />
                     </button>
                     <Link to="/" className="flex min-w-0 flex-1 items-center gap-2.5 px-1">
-                        <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-[9px] ${BRAND.markClass}`}>
-                            <i className={`fa-solid ${BRAND.icon} text-[12px]`} aria-hidden="true" />
+                        <span
+                            className={`grid h-7 w-7 shrink-0 place-items-center rounded-[9px] ${BRAND.markClass}`}
+                        >
+                            <i
+                                className={`fa-solid ${BRAND.icon} text-[12px]`}
+                                aria-hidden="true"
+                            />
                         </span>
                         <span className="truncate text-[15px] font-semibold tracking-[-0.01em] text-neutral-900">
                             {current && current.to !== '/' ? current.label : BRAND.name}
@@ -294,7 +307,9 @@ function MobileNav({ pathname }: { pathname: string }) {
                         style={{ transform: panelTransform }}
                         className={[
                             'absolute inset-0 flex flex-col bg-white pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]',
-                            dragging ? '' : 'transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]',
+                            dragging
+                                ? ''
+                                : 'transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]',
                         ].join(' ')}
                     >
                         {/* Header: who's signed in, plus close */}
@@ -303,7 +318,9 @@ function MobileNav({ pathname }: { pathname: string }) {
                                 to="/profile"
                                 className={[
                                     'flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-[14px] p-2 transition-colors',
-                                    profileActive ? BRAND.profileActiveClass : 'hover:bg-neutral-100 active:bg-neutral-100',
+                                    profileActive
+                                        ? BRAND.profileActiveClass
+                                        : 'hover:bg-neutral-100 active:bg-neutral-100',
                                 ].join(' ')}
                             >
                                 <Avatar name={user?.name} size="md" />
@@ -311,7 +328,9 @@ function MobileNav({ pathname }: { pathname: string }) {
                                     <p className="truncate text-base font-semibold text-neutral-900">
                                         {user?.name ?? 'Your profile'}
                                     </p>
-                                    <p className="truncate text-[13px] text-neutral-500">View profile</p>
+                                    <p className="truncate text-[13px] text-neutral-500">
+                                        View profile
+                                    </p>
                                 </div>
                             </Link>
                             <button
@@ -333,7 +352,7 @@ function MobileNav({ pathname }: { pathname: string }) {
                                         {group.label}
                                     </h3>
                                     <ul className="flex flex-col gap-1">
-                                        {group.items.map(({ label, to, icon }) => {
+                                        {group.items.map(({ label, to, icon, tone }) => {
                                             const active = isActive(pathname, to)
                                             return (
                                                 <li key={to}>
@@ -343,23 +362,28 @@ function MobileNav({ pathname }: { pathname: string }) {
                                                         className={[
                                                             'flex h-14 items-center gap-3.5 rounded-[14px] px-2.5 text-[17px] font-medium transition-colors',
                                                             active
-                                                                ? 'bg-coral-50 text-coral-700'
+                                                                ? 'bg-neutral-100 text-neutral-900'
                                                                 : 'text-neutral-800 hover:bg-neutral-100 active:bg-neutral-100',
                                                         ].join(' ')}
                                                     >
-                                                        <span
-                                                            className={[
-                                                                'grid h-10 w-10 shrink-0 place-items-center rounded-[12px] text-[15px]',
-                                                                active ? 'bg-coral-500 text-white' : 'bg-neutral-100 text-neutral-600',
-                                                            ].join(' ')}
-                                                        >
-                                                            <i className={`fa-solid ${icon}`} aria-hidden="true" />
+                                                        <NavTile
+                                                            icon={icon}
+                                                            tone={tone}
+                                                            size="lg"
+                                                        />
+                                                        <span className="flex-1 truncate">
+                                                            {label}
                                                         </span>
-                                                        <span className="flex-1 truncate">{label}</span>
                                                         {active ? (
-                                                            <span className="h-2 w-2 rounded-full bg-coral-500" aria-hidden="true" />
+                                                            <span
+                                                                className="h-2 w-2 rounded-full bg-coral-500"
+                                                                aria-hidden="true"
+                                                            />
                                                         ) : (
-                                                            <i className="fa-solid fa-chevron-right text-xs text-neutral-300" aria-hidden="true" />
+                                                            <i
+                                                                className="fa-solid fa-chevron-right text-xs text-neutral-300"
+                                                                aria-hidden="true"
+                                                            />
                                                         )}
                                                     </Link>
                                                 </li>

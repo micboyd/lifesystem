@@ -138,8 +138,11 @@ function useDayRecords(date: string) {
 export default function YourDayWidget({
     date,
     aside,
+    glance,
 }: {
     date: string
+    /** More figures for the summary strip, after protein and calories (Home adds steps). */
+    glance?: ReactNode
     /** Cards to sit beside the plan on wide screens (Home passes steps and weather). */
     aside?: ReactNode
 }) {
@@ -229,6 +232,7 @@ export default function YourDayWidget({
                 </div>
                 <div className="flex w-full items-end gap-5 sm:w-auto sm:gap-8">
                     <Targets day={day} nutrition={nutrition} />
+                    {glance}
                 </div>
             </div>
 
@@ -417,7 +421,7 @@ function NextUp({
     return (
         <div className={`${panel} flex flex-col gap-5 bg-neutral-900 text-white sm:flex-row sm:items-end sm:justify-between`}>
             <div className="min-w-0">
-                <p className={`${overline} flex items-center gap-2 text-neutral-500`}>
+                <p className={`${overline} flex items-center gap-2 text-neutral-400`}>
                     <span className="h-1.5 w-1.5 rounded-full bg-coral-400" aria-hidden="true" />
                     Next up · {next.part ? PART_LABEL[next.part] : 'Any time'}
                 </p>

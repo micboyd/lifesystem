@@ -14,7 +14,7 @@ import { GARMIN_ERROR_STATUS, GarminError, isGarminError } from '../garmin/provi
 import { entryGarminState, previewSession, sendEntry, type SyncSession } from '../garmin/sync'
 import GarminActivity, { type IGarminActivity } from '../models/GarminActivity'
 import { checkActivities, linkByHand, rangeIsValid, unlinkActivity } from '../garmin/activities'
-import { pullDailyCalories } from '../garmin/dailyCalories'
+import { pullDailyCalories, todayCalories } from '../garmin/dailyCalories'
 import { MAX_PULL_DAYS, MAX_STORED_DAYS, pullDailySteps, stepRangeIsValid, storedSteps } from '../garmin/dailySteps'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -212,6 +212,19 @@ export const pullCalories = handle(async (req, res) => {
         return
     }
     res.json({ message: 'OK', data: await pullDailyCalories(req.userId!, from, to, today) })
+})
+
+/**
+ * GET /api/garmin/daily-energy/today?date — calories burned so far on the
+ * browser's today, from Garmin. Read-only: nothing is stored.
+ */
+export const caloriesToday = handle(async (req, res) => {
+    const { date } = req.query
+    if (typeof date !== 'string' || !DATE_RE.test(date)) {
+        res.status(400).json({ message: 'date (YYYY-MM-DD) is required', code: 'bad_request' })
+        return
+    }
+    res.json({ message: 'OK', data: { date, kcal: await todayCalories(req.userId!, date) } })
 })
 
 function validStepRange(from: unknown, to: unknown, maxDays: number): boolean {

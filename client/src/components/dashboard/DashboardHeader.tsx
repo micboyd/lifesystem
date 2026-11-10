@@ -34,8 +34,8 @@ const STATUS_PILLS: Record<DayStatusType, Pill> = {
     bank_holiday: { label: 'Bank holiday', bg: 'bg-success-bg', text: 'text-success' },
     christmas_new_year: {
         label: 'Christmas & New Year',
-        bg: 'bg-danger-bg',
-        text: 'text-danger',
+        bg: 'bg-success-bg',
+        text: 'text-success',
     },
 }
 

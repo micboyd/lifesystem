@@ -272,3 +272,11 @@ export async function pullGarminCaloriesQuietly(from: string, to: string, today:
         setTimeout(() => pulling.delete(key), 60_000)
     }
 }
+
+/** Calories burned so far today, straight from Garmin (the server reuses it for a few minutes). */
+export async function getCaloriesToday(date: string): Promise<number | null> {
+    const res = await api.get<ApiResponse<{ date: string; kcal: number | null }>>('/garmin/daily-energy/today', {
+        params: { date },
+    })
+    return res.data.data.kcal
+}

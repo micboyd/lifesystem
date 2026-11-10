@@ -48,7 +48,8 @@ function Row({
     )
 }
 
-function Group({ title, to, children }: { title: string; to: string; children: ReactNode }) {
+function Group({ title, to, bare, children }: { title: string; to: string; bare?: boolean; children: ReactNode }) {
+    if (bare) return <ul className={DASH.list}>{children}</ul>
     return (
         <section>
             <div className="mb-2 flex items-center justify-between">
@@ -62,49 +63,71 @@ function Group({ title, to, children }: { title: string; to: string; children: R
     )
 }
 
-/** Days until the things coming up, and days since the things being kept up. */
-export default function CountdownsWidget() {
+/** "Sat 28 November" for a "YYYY-MM-DD" key. */
+function dayLabel(key: string): string {
+    const d = new Date(`${key.slice(0, 10)}T00:00:00`)
+    if (Number.isNaN(d.getTime())) return ''
+    const weekday = d.toLocaleDateString('en-GB', { weekday: 'short' })
+    const month = d.toLocaleDateString('en-GB', { month: 'long' })
+    return `${weekday} ${d.getDate()} ${month}`
+}
+
+/**
+ * Days until the things coming up, and days since the things being kept up.
+ * `show` splits them into two sections (Home gives each its own card); by
+ * default both sit in one.
+ */
+export default function CountdownsWidget({ show = 'both' }: { show?: 'both' | 'until' | 'since' } = {}) {
     const [until, setUntil] = useState<DaysUntilItem[] | null>(null)
     const [since, setSince] = useState<DaysSinceItem[] | null>(null)
     const today = todayKey()
 
+    // Only fetch the list(s) this section shows.
     useEffect(() => {
-        listDaysUntil()
-            .then(setUntil)
-            .catch(() => setUntil([]))
-        listDaysSince()
-            .then(setSince)
-            .catch(() => setSince([]))
-    }, [])
+        if (show !== 'since')
+            listDaysUntil()
+                .then(setUntil)
+                .catch(() => setUntil([]))
+        if (show !== 'until')
+            listDaysSince()
+                .then(setSince)
+                .catch(() => setSince([]))
+    }, [show])
 
-    const upcoming = (until ?? [])
+    const upcoming = (show === 'since' ? [] : (until ?? []))
         .map((item) => ({ item, days: daysUntil(item.targetDate, today) }))
         .filter(({ days }) => days >= 0)
         .sort((a, b) => a.days - b.days)
         .slice(0, SHOW)
-    const running = (since ?? [])
+    const running = (show === 'until' ? [] : (since ?? []))
         .map((item) => ({ item, days: daysBetween(item.startDate, today) }))
         .sort((a, b) => b.days - a.days)
         .slice(0, SHOW)
 
-    const loading = until === null || since === null
+    const loading = (show !== 'since' && until === null) || (show !== 'until' && since === null)
     const empty = !loading && upcoming.length === 0 && running.length === 0
 
     return (
-        <DashSection title="Countdowns" icon="fa-solid fa-hourglass-half" tone="amber">
+        <DashSection
+            title={show === 'until' ? 'Coming up' : show === 'since' ? 'Days since' : 'Countdowns'}
+            icon={show === 'since' ? 'fa-solid fa-rotate-left' : 'fa-solid fa-hourglass-half'}
+            tone={show === 'since' ? 'teal' : 'amber'}
+            to={show === 'until' ? '/days-until' : show === 'since' ? '/days-since' : undefined}
+            action={show === 'both' ? undefined : 'All'}
+        >
             {loading ? (
                 <SectionLoading />
             ) : empty ? (
                 <p className={DASH.empty}>
                     Nothing counting.{' '}
-                    <Link to="/days-until" className={DASH.emptyLink}>
-                        Add a countdown
+                    <Link to={show === 'since' ? '/days-since' : '/days-until'} className={DASH.emptyLink}>
+                        {show === 'since' ? 'Start a counter' : 'Add a countdown'}
                     </Link>
                 </p>
             ) : (
                 <div className={DASH.stack}>
                     {upcoming.length > 0 && (
-                        <Group title="Coming up" to="/days-until">
+                        <Group title="Coming up" to="/days-until" bare={show !== 'both'}>
                             {upcoming.map(({ item, days }) => {
                                 const c = DAYS_UNTIL_COLOR_CLASSES[item.color]
                                 return (
@@ -114,6 +137,7 @@ export default function CountdownsWidget() {
                                         tile={c.tile}
                                         accent={c.accent}
                                         label={item.label}
+                                        note={dayLabel(item.targetDate)}
                                         value={days === 0 ? 'Today' : `${days}d`}
                                     />
                                 )
@@ -121,7 +145,7 @@ export default function CountdownsWidget() {
                         </Group>
                     )}
                     {running.length > 0 && (
-                        <Group title="Days since" to="/days-since">
+                        <Group title="Days since" to="/days-since" bare={show !== 'both'}>
                             {running.map(({ item, days }) => {
                                 const c = DAYS_SINCE_COLOR_CLASSES[item.color]
                                 return (
@@ -131,7 +155,11 @@ export default function CountdownsWidget() {
                                         tile={c.tile}
                                         accent={c.accent}
                                         label={item.label}
-                                        note={isMilestoneDay(days) ? `${milestoneLabel(days)} today` : undefined}
+                                        note={
+                                            isMilestoneDay(days)
+                                                ? `${milestoneLabel(days)} today`
+                                                : `Since ${dayLabel(item.startDate).replace(/^\S+ /, '')}`
+                                        }
                                         value={`${days}d`}
                                     />
                                 )

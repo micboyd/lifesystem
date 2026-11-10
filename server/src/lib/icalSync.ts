@@ -1,10 +1,9 @@
 import { Types } from 'mongoose'
-import Calendar, { ICalendar } from '../models/Calendar'
+import Calendar from '../models/Calendar'
 import Event from '../models/Event'
+import Timebox from '../models/Timebox'
 import IcalFeed, { IIcalFeed } from '../models/IcalFeed'
 import { meetingsFromIcs, syncWindow, toLondon, maskFeedUrl } from './icalMeetings'
-
-export const MEETINGS_CALENDAR_NAME = 'Meetings'
 
 /** The sync-on-open skips when the last attempt is younger than this. */
 export const STALE_AFTER_MS = 15 * 60_000
@@ -50,37 +49,6 @@ export async function downloadFeed(url: string): Promise<string> {
     return body
 }
 
-/**
- * The calendar (layer) meetings land on: the feed's own when it still exists,
- * else one called "Meetings" (reused if the user already has one), else a new one.
- */
-export async function ensureMeetingsCalendar(
-    userId: string | Types.ObjectId,
-    preferred?: Types.ObjectId | null
-): Promise<ICalendar> {
-    if (preferred) {
-        const existing = await Calendar.findOne({ _id: preferred, user: userId })
-        if (existing) return existing
-    }
-    const named = await Calendar.findOne({ user: userId, name: MEETINGS_CALENDAR_NAME })
-    if (named) return named
-    const last = await Calendar.findOne({ user: userId }).sort({ order: -1 })
-    try {
-        return await Calendar.create({
-            user: userId,
-            name: MEETINGS_CALENDAR_NAME,
-            color: 'indigo',
-            isDefault: false,
-            visible: true,
-            order: (last?.order ?? -1) + 1,
-        })
-    } catch {
-        const winner = await Calendar.findOne({ user: userId, name: MEETINGS_CALENDAR_NAME })
-        if (winner) return winner
-        throw new Error('Could not create the Meetings calendar')
-    }
-}
-
 export interface SyncResult {
     added: number
     updated: number
@@ -89,14 +57,13 @@ export interface SyncResult {
 }
 
 /**
- * Writes one feed download onto the user's calendar: upserts every occurrence in
- * the window (keyed by UID + occurrence date, so re-syncs never duplicate) and
- * removes imported meetings in the window that the feed no longer has.
- * Imported meetings that ended before the window are left as history.
+ * Writes one feed download into Timebox: upserts every meeting in the window
+ * as a read-only block (keyed by UID + occurrence date, so re-syncs never
+ * duplicate) and removes imported blocks in the window that the feed no longer
+ * has. Imported blocks before the window are left as history.
  */
 export async function applyFeed(
     userId: string | Types.ObjectId,
-    calendarId: Types.ObjectId,
     ics: string,
     now = new Date()
 ): Promise<SyncResult> {
@@ -104,28 +71,24 @@ export async function applyFeed(
     const occurrences = meetingsFromIcs(ics, window)
     const windowStart = toLondon(window.from).date
 
-    const existing = await Event.find({
+    const existing = await Timebox.find({
         user: userId,
         source: 'ical',
-        endDate: { $gte: windowStart },
+        date: { $gte: windowStart },
     }).select('_id externalUid occurrenceDate')
     const existingKeys = new Set(existing.map((e) => `${e.externalUid}|${e.occurrenceDate}`))
     const freshKeys = new Set(occurrences.map((o) => `${o.uid}|${o.occurrenceDate}`))
 
     const ops = occurrences.map((o) => {
         const $set: Record<string, unknown> = {
-            calendar: calendarId,
-            title: o.title,
-            eventType: 'general',
-            allDay: o.allDay,
-            startDate: o.startDate,
-            startPart: o.startPart,
-            endDate: o.endDate,
-            endPart: o.endPart,
-            ignoreClash: false,
+            date: o.date,
+            title: o.title.slice(0, 200),
+            startTime: o.startTime,
+            endTime: o.endTime,
+            category: 'work',
         }
         const $unset: Record<string, 1> = {}
-        for (const key of ['time', 'location', 'notes'] as const) {
+        for (const key of ['location', 'notes'] as const) {
             if (o[key] !== undefined) $set[key] = o[key]
             else $unset[key] = 1
         }
@@ -137,17 +100,21 @@ export async function applyFeed(
                     externalUid: o.uid,
                     occurrenceDate: o.occurrenceDate,
                 },
-                update: { $set, ...(Object.keys($unset).length ? { $unset } : {}) },
+                update: {
+                    $set,
+                    $setOnInsert: { exceptions: [] },
+                    ...(Object.keys($unset).length ? { $unset } : {}),
+                },
                 upsert: true,
             },
         }
     })
-    if (ops.length) await Event.bulkWrite(ops, { ordered: false })
+    if (ops.length) await Timebox.bulkWrite(ops, { ordered: false })
 
     const staleIds = existing
         .filter((e) => !freshKeys.has(`${e.externalUid}|${e.occurrenceDate}`))
         .map((e) => e._id)
-    if (staleIds.length) await Event.deleteMany({ _id: { $in: staleIds }, user: userId })
+    if (staleIds.length) await Timebox.deleteMany({ _id: { $in: staleIds }, user: userId })
 
     const added = occurrences.filter(
         (o) => !existingKeys.has(`${o.uid}|${o.occurrenceDate}`)
@@ -160,10 +127,24 @@ export async function applyFeed(
     }
 }
 
+/**
+ * Meetings first landed on a "Meetings" calendar as events. They live in
+ * Timebox now, so take those events off the calendar, and the layer with them
+ * when nothing else is on it.
+ */
+export async function clearLegacyCalendarMeetings(feed: IIcalFeed): Promise<void> {
+    await Event.deleteMany({ user: feed.user, source: 'ical' })
+    if (feed.calendar) {
+        const others = await Event.countDocuments({ user: feed.user, calendar: feed.calendar })
+        if (others === 0)
+            await Calendar.deleteOne({ _id: feed.calendar, user: feed.user, isDefault: false })
+        feed.calendar = null
+    }
+}
+
 export interface FeedStatus {
     connected: boolean
     maskedUrl?: string
-    calendar?: string
     lastSyncedAt?: Date | null
     lastError?: string | null
     lastCount?: number
@@ -179,7 +160,6 @@ export function describe(feed: IIcalFeed): FeedStatus {
     return {
         connected: true,
         maskedUrl: maskFeedUrl(feed.url),
-        calendar: String(feed.calendar),
         lastSyncedAt: feed.lastSyncedAt ?? null,
         lastError: feed.lastError ?? null,
         lastCount: feed.lastCount ?? 0,
@@ -188,7 +168,7 @@ export function describe(feed: IIcalFeed): FeedStatus {
 
 /**
  * Syncs the user's feed. With `onlyIfStale`, claims the sync atomically and
- * skips when another attempt ran in the last 15 minutes — the Calendar page
+ * skips when another attempt ran in the last 15 minutes — the Timebox page
  * calls this on every open, sometimes twice at once.
  */
 export async function syncUserFeed(
@@ -211,10 +191,9 @@ export async function syncUserFeed(
     if (!feed) return { status: await feedStatus(userId), synced: false }
 
     try {
-        const calendar = await ensureMeetingsCalendar(userId, feed.calendar)
+        await clearLegacyCalendarMeetings(feed)
         const ics = await downloadFeed(feed.url)
-        const result = await applyFeed(userId, calendar._id as Types.ObjectId, ics, now)
-        feed.calendar = calendar._id as Types.ObjectId
+        const result = await applyFeed(userId, ics, now)
         feed.lastSyncedAt = new Date()
         feed.lastError = null
         feed.lastCount = result.total
@@ -229,16 +208,11 @@ export async function syncUserFeed(
     }
 }
 
-/** Removes the feed and every meeting it imported; drops the Meetings layer if nothing else is on it. */
-export async function removeUserFeed(userId: string): Promise<{ removedEvents: number }> {
+/** Removes the feed and every meeting it imported. */
+export async function removeUserFeed(userId: string): Promise<{ removedMeetings: number }> {
     const feed = await IcalFeed.findOne({ user: userId })
-    const { deletedCount } = await Event.deleteMany({ user: userId, source: 'ical' })
-    if (feed) {
-        const others = await Event.countDocuments({ user: userId, calendar: feed.calendar })
-        if (others === 0) {
-            await Calendar.deleteOne({ _id: feed.calendar, user: userId, isDefault: false })
-        }
-        await feed.deleteOne()
-    }
-    return { removedEvents: deletedCount }
+    if (feed) await clearLegacyCalendarMeetings(feed)
+    const { deletedCount } = await Timebox.deleteMany({ user: userId, source: 'ical' })
+    if (feed) await feed.deleteOne()
+    return { removedMeetings: deletedCount }
 }

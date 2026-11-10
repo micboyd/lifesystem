@@ -121,3 +121,27 @@ export async function pullDailyCalories(
     }
     return { updated, asked: true }
 }
+
+/** How long today's so-far figure is reused before Garmin is asked again. */
+const TODAY_TTL_MS = 10 * 60 * 1000
+const todayCache = new Map<string, { at: number; kcal: number | null }>()
+
+/**
+ * Today's calories burned so far, read straight from Garmin and never stored:
+ * the day is still under way, and DailyEnergy only holds finished days.
+ */
+export async function todayCalories(
+    userId: string,
+    date: string,
+    opts: { provider?: GarminWorkoutProvider; now?: number } = {}
+): Promise<number | null> {
+    const now = opts.now ?? Date.now()
+    const k = key(userId, date)
+    const hit = todayCache.get(k)
+    if (hit && now - hit.at < TODAY_TTL_MS) return hit.kcal
+    const provider = opts.provider ?? (await providerFor(userId))
+    const days = await provider.dailyCalories([date])
+    const kcal = days.find((d) => d.date === date)?.kcal ?? null
+    todayCache.set(k, { at: now, kcal })
+    return kcal
+}

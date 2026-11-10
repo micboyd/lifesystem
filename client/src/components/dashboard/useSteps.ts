@@ -13,12 +13,13 @@ const REFRESH_DAYS_BACK = 27
  * about the recent days. A failed refresh stays quiet and the stored figures
  * stand.
  */
-export function useSteps(today: string) {
+export function useSteps(today: string, enabled = true) {
     const [days, setDays] = useState<DaySteps[] | null>(null)
     const [status, setStatus] = useState<GarminStatus['status'] | null>(null)
     const [settled, setSettled] = useState(false)
 
     useEffect(() => {
+        if (!enabled) return
         let active = true
         const storedFrom = addDays(today, -STORED_DAYS_BACK)
         listSteps(storedFrom, today)
@@ -38,7 +39,9 @@ export function useSteps(today: string) {
         return () => {
             active = false
         }
-    }, [today])
+    }, [today, enabled])
 
     return { days, status, settled }
 }
+
+export type StepsData = ReturnType<typeof useSteps>

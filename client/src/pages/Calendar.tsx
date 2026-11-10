@@ -33,7 +33,7 @@ import { listRows, createRow, updateRow, deleteRow, listValues, setValue } from 
 import { useAuth } from '../context/AuthContext'
 import { useCalendars } from '../context/CalendarsContext'
 import { useCalendarFilters } from '../components/useCalendarFilters'
-import { DAY_STATUS_OPTIONS, isImportedEvent } from '../types'
+import { DAY_STATUS_OPTIONS } from '../types'
 import type { Event, Part, DayStatus, TotalRow, Reminder, MonthNote, Birthday } from '../types'
 import type { CalendarRow } from '../lib/calendarFilters'
 import Container from '../components/Container'
@@ -57,8 +57,6 @@ import CalendarFilterBar from '../components/calendar/CalendarFilterBar'
 import HiddenCalendarDots from '../components/calendar/HiddenCalendarDots'
 import Drawer from '../components/Drawer'
 import CalendarExportDrawer from '../components/calendar/CalendarExportDrawer'
-import MeetingsFeedDrawer from '../components/calendar/MeetingsFeedDrawer'
-import { syncMeetingsFeed, type MeetingsFeed } from '../services/ical'
 import DayStatusSection from '../components/calendar/DayStatusSection'
 import BirthdaysDaySection from '../components/calendar/BirthdaysDaySection'
 import DayMarkers from '../components/calendar/DayMarkers'
@@ -115,7 +113,7 @@ function relativeLabel(view: CalendarView, focusDate: string): string {
 export default function Calendar() {
     const today = new Date()
     const { user } = useAuth()
-    const { byId: calendarsById, setVisible, reload: reloadCalendars } = useCalendars()
+    const { byId: calendarsById, setVisible } = useCalendars()
     const { types: hiddenTypes, rows: hiddenRows } = useCalendarFilters()
     // ?date=YYYY-MM-DD (from the dashboard's "Open day") opens that day's month.
     const [searchParams] = useSearchParams()
@@ -154,8 +152,6 @@ export default function Calendar() {
     // Month flag being edited. `note: null` with a month set means "create one
     // starting here"; the whole thing null means the editor is closed.
     const [exportOpen, setExportOpen] = useState(false)
-    const [meetingsOpen, setMeetingsOpen] = useState(false)
-    const [meetingsFeed, setMeetingsFeed] = useState<MeetingsFeed | null>(null)
     const [noteEdit, setNoteEdit] = useState<{ note: MonthNote | null; month: string } | null>(null)
 
     // ── Totals cell selection + in-app copy buffer ──
@@ -218,28 +214,6 @@ export default function Calendar() {
     useEffect(() => {
         reload()
     }, [reload])
-
-    // Google meetings: a quiet sync on open. The server skips it when the last
-    // attempt was under 15 minutes ago, so reopening the page costs nothing.
-    useEffect(() => {
-        let active = true
-        syncMeetingsFeed(true)
-            .then(({ status, synced }) => {
-                if (!active) return
-                setMeetingsFeed(status)
-                if (synced) {
-                    void reloadCalendars()
-                    reload()
-                }
-            })
-            .catch(() => {
-                /* no feed or offline — the calendar works without it */
-            })
-        return () => {
-            active = false
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- once per page open
-    }, [])
 
     // ── Totals handlers ──
     async function handleSetValue(rowId: string, date: string, value: number | null) {
@@ -337,7 +311,6 @@ export default function Calendar() {
     // straight to the this-one / whole-series chooser; anything else asks for a
     // plain confirmation first, since a context-menu click is easy to misfire.
     function requestDeleteEvent(event: Event) {
-        if (isImportedEvent(event)) return
         if (event.recurrence) {
             setScopeEvent(event)
             return
@@ -356,8 +329,6 @@ export default function Calendar() {
     }
 
     function openEdit(event: Event) {
-        // Imported meetings are changed in Google Calendar; the detail drawer says so.
-        if (isImportedEvent(event)) return
         setDetailEvent(null)
         setEditingEvent(event)
         setEditorOpen(true)
@@ -721,11 +692,6 @@ export default function Calendar() {
                             )}
                             <CalendarFilterBar onChanged={reload} />
                             <HeroIconButton
-                                icon="fa-solid fa-video"
-                                label="Google meetings"
-                                onClick={() => setMeetingsOpen(true)}
-                            />
-                            <HeroIconButton
                                 icon="fa-solid fa-file-export"
                                 label="Export calendar"
                                 onClick={() => setExportOpen(true)}
@@ -830,7 +796,7 @@ export default function Calendar() {
                 onClose={() => setDetailEvent(null)}
                 onEdit={() => detailEvent && openEdit(detailEvent)}
                 onDelete={
-                    detailEvent && !isImportedEvent(detailEvent)
+                    detailEvent
                         ? (event) => {
                               // Recurring events offer this-one / whole-series; the
                               // scope dialog takes over from the closing detail modal.
@@ -847,7 +813,7 @@ export default function Calendar() {
                     // Inline notes only for non-recurring events. Recurring
                     // instances carry an occurrence date, so saving would move
                     // the whole series — they stay read-only.
-                    detailEvent && !detailEvent.recurrence && !isImportedEvent(detailEvent)
+                    detailEvent && !detailEvent.recurrence
                         ? async (notes) => {
                               const ev = detailEvent
                               await updateEvent(ev._id, {
@@ -936,16 +902,6 @@ export default function Calendar() {
             )}
 
             <CalendarExportDrawer open={exportOpen} onClose={() => setExportOpen(false)} />
-            <MeetingsFeedDrawer
-                open={meetingsOpen}
-                onClose={() => setMeetingsOpen(false)}
-                feed={meetingsFeed}
-                onChanged={(feed) => {
-                    setMeetingsFeed(feed)
-                    void reloadCalendars()
-                    reload()
-                }}
-            />
 
             {/* Leave / holiday editor — opened from the Year-view Leave row. */}
             <Drawer
