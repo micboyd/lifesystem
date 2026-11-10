@@ -41,6 +41,10 @@ export interface IWalk extends Document {
     end: WalkPoint | null
     route: WalkRoute | null
     doneAt: Date | null
+    /** The repeating walk this day belongs to, if any. */
+    series: Types.ObjectId | null
+    /** The library walk this day's walk was copied from, if any. */
+    library: Types.ObjectId | null
     createdAt: Date
     updatedAt: Date
 }
@@ -64,6 +68,8 @@ const routeSchema = new Schema<WalkRoute>(
     { _id: false }
 )
 
+export { pointSchema, routeSchema }
+
 const walkSchema = new Schema<IWalk>(
     {
         user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
@@ -80,10 +86,14 @@ const walkSchema = new Schema<IWalk>(
         end: { type: pointSchema, default: null },
         route: { type: routeSchema, default: null },
         doneAt: { type: Date, default: null },
+        series: { type: Schema.Types.ObjectId, ref: 'WalkSeries', default: null },
+        library: { type: Schema.Types.ObjectId, ref: 'WalkLibraryItem', default: null },
     },
     { timestamps: true }
 )
 
 walkSchema.index({ user: 1, date: 1, time: 1 })
+// One walk per repeating walk per day, however many screens ask for the day at once.
+walkSchema.index({ user: 1, series: 1, date: 1 }, { unique: true, partialFilterExpression: { series: { $type: 'objectId' } } })
 
 export default model<IWalk>('Walk', walkSchema)

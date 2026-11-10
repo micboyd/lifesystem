@@ -183,7 +183,7 @@ export interface WalkLike {
 }
 
 /** The route's real length if it has one, otherwise what the target works out at. */
-export function walkEstimate(walk: WalkLike, weightKg: number | null): WalkEstimate | null {
+export function walkEstimate(walk: Pick<WalkLike, 'pace' | 'goal' | 'route'>, weightKg: number | null): WalkEstimate | null {
     const distanceM = walk.route?.distanceM ?? targetMetres(walk.goal, walk.pace, weightKg)
     return distanceM ? estimateWalk(distanceM, walk.pace, weightKg) : null
 }
@@ -242,3 +242,64 @@ export const walkDayItems = (walks: WalkLike[], weightKg: number | null): WalkDa
         detail: walkFacts(w, weightKg),
         done: !!w.doneAt,
     }))
+
+/** How close two starts must be for a starred route to be offered. */
+export const FAVOURITE_NEAR_M = 500
+
+export interface RouteLine {
+    coords: number[][]
+    distanceM: number
+}
+
+/** The same line: cheap enough to run on every render, and routes that differ differ here. */
+export function sameRoute(a: RouteLine, b: RouteLine): boolean {
+    if (a.distanceM !== b.distanceM || a.coords.length !== b.coords.length) return false
+    const mid = Math.floor(a.coords.length / 2)
+    return a.coords[mid][0] === b.coords[mid][0] && a.coords[mid][1] === b.coords[mid][1]
+}
+
+export type RepeatMode = 'once' | 'weekdays' | 'daily' | 'custom'
+
+const WEEKDAYS = [1, 2, 3, 4, 5]
+const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6]
+
+export function repeatModeOf(days: number[]): RepeatMode {
+    const key = [...days].sort().join()
+    if (!key) return 'once'
+    if (key === WEEKDAYS.join()) return 'weekdays'
+    if (key === EVERY_DAY.join()) return 'daily'
+    return 'custom'
+}
+
+export const daysForRepeat = (mode: Exclude<RepeatMode, 'custom'>): number[] =>
+    mode === 'weekdays' ? WEEKDAYS : mode === 'daily' ? EVERY_DAY : []
+
+/** Over this share of a route walked twice, it reads as there and back rather than a way round. */
+export const DOUBLE_BACK_SHARE = 0.15
+
+/**
+ * How much of a line goes back over a stretch it already walked, 0–1. Routes
+ * come off one street graph, so a retraced stretch repeats its exact points.
+ */
+export function doubledBackShare(coords: number[][]): number {
+    const seen = new Set<string>()
+    let total = 0
+    let repeated = 0
+    for (let i = 1; i < coords.length; i++) {
+        const a = `${coords[i - 1][0]},${coords[i - 1][1]}`
+        const b = `${coords[i][0]},${coords[i][1]}`
+        const m = Math.hypot(coords[i][0] - coords[i - 1][0], coords[i][1] - coords[i - 1][1])
+        total += m
+        if (seen.has(`${b}>${a}`)) repeated += m
+        seen.add(`${a}>${b}`)
+    }
+    return total > 0 ? repeated / total : 0
+}
+
+/** Where a walk lands when it's put in a part of the day, until you say otherwise. */
+export const SLOT_TIMES: Record<DayPart, string> = { morning: '08:00', afternoon: '13:00', evening: '18:00' }
+
+/** What a library walk is called: its name, or where it starts. */
+export function libraryTitle(item: { name: string; start: { label: string } }): string {
+    return item.name || `Walk from ${item.start.label || 'your start'}`
+}

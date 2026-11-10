@@ -1,19 +1,153 @@
 import { Response } from 'express'
 import { AuthRequest } from '../middleware/auth'
 import Walk from '../models/Walk'
+import WalkSeries, { type IWalkSeries } from '../models/WalkSeries'
+import WalkFavourite from '../models/WalkFavourite'
+import WalkLibraryItem from '../models/WalkLibraryItem'
 import { Types } from 'mongoose'
 import { RouteError, roundTrip, oneWay, through, throughLoose, searchPlaces, nameOfPoint, type OrsRoute } from '../lib/openroute'
-import { completeRoute, MAX_COMPLETE_CALLS } from '../lib/walkComplete'
+import { completeRoute, MAX_COMPLETE_CALLS, MAX_REPEATED } from '../lib/walkComplete'
 import { generateRoute, MAX_CANDIDATES } from '../lib/routeGenerate'
 import { elevationStats, haversine, readPoint, type Coord, type LatLng } from '../lib/routeGeo'
 import { dailyLimit, recordCalls, usage, usedToday } from '../lib/routeUsage'
-import { MAX_STOPS, readStops, readWalk, readWalkPoint } from '../lib/walkInput'
+import { MAX_STOPS, readDays, planOf, readFavourite, readLibraryItem, readStops, readWalk, readWalkPoint, type WalkFields } from '../lib/walkInput'
+import { datesToCreate, repeatsOn, seriesTemplate } from '../lib/walkSeries'
 import { BAD_RADIUS_M, COOLDOWN_MS, ERROR_STATUS, MAX_TARGET_M, MIN_TARGET_M, memoryFor } from './routeController'
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
 /** Loops remembered, so "Generate another" is new but a neighbourhood doesn't run out. */
 const WALK_SEEN = 12
 const WALK_KEYS = 200
+const MAX_FAVOURITES = 50
+
+/** Make each repeating walk's days in this range real, so ticking and routes work as for any walk. */
+async function fillSeries(user: string, from: string, to: string) {
+    const all = await WalkSeries.find({ user, startDate: { $lte: to } })
+    for (const series of all) {
+        const existing = await Walk.find({ user, series: series._id, date: { $gte: from, $lte: to } }, { date: 1 })
+        const dates = datesToCreate(series, from, to, new Set(existing.map((w) => w.date)))
+        for (const date of dates) {
+            const { time, name, pace, goal, start, stops, end } = series
+            try {
+                await Walk.updateOne(
+                    { user, series: series._id, date },
+                    { $setOnInsert: { time, name, pace, goal, start, stops, end, route: null, doneAt: null } },
+                    { upsert: true }
+                )
+            } catch (err) {
+                // Another screen made this day at the same moment.
+                if ((err as { code?: number }).code !== 11000) throw err
+            }
+        }
+    }
+}
+
+const newSeries = (user: string, value: WalkFields, days: number[]) =>
+    WalkSeries.create({ ...seriesTemplate(value), user, days, startDate: value.date, skipped: [] })
+
+/** Days ahead that nothing has happened on — safe to drop, and they refill from the series. */
+const untouchedAfter = (user: string, series: unknown, date: string) => ({ user, series, date: { $gt: date }, route: null, doneAt: null })
+
+async function endSeries(user: string, series: IWalkSeries['_id'], fromDate: string) {
+    await Walk.deleteMany(untouchedAfter(user, series, fromDate))
+    await Walk.updateMany({ user, series }, { $set: { series: null } })
+    await WalkSeries.deleteOne({ _id: series, user })
+}
+
+export async function listLibrary(req: AuthRequest, res: Response) {
+    res.json({ message: 'OK', data: await WalkLibraryItem.find({ user: req.userId }).sort({ updatedAt: -1 }) })
+}
+
+const findItem = (id: unknown, user?: string) => (Types.ObjectId.isValid(String(id)) ? WalkLibraryItem.findOne({ _id: id, user }) : Promise.resolve(null))
+
+export async function getLibraryItem(req: AuthRequest, res: Response) {
+    const item = await findItem(req.params.id, req.userId)
+    if (!item) {
+        res.status(404).json({ message: 'Walk not found' })
+        return
+    }
+    res.json({ message: 'OK', data: item })
+}
+
+export async function createLibraryItem(req: AuthRequest, res: Response) {
+    const read = readLibraryItem(req.body)
+    if (!read.ok) {
+        res.status(400).json({ message: read.message })
+        return
+    }
+    res.status(201).json({ message: 'Created', data: await WalkLibraryItem.create({ ...read.value, user: req.userId }) })
+}
+
+export async function updateLibraryItem(req: AuthRequest, res: Response) {
+    const read = readLibraryItem(req.body)
+    if (!read.ok) {
+        res.status(400).json({ message: read.message })
+        return
+    }
+    const item = await findItem(req.params.id, req.userId)
+    if (!item) {
+        res.status(404).json({ message: 'Walk not found' })
+        return
+    }
+    item.set(read.value)
+    await item.save()
+    res.json({ message: 'Saved', data: item })
+}
+
+/** Walks already on a day are copies, so they stay. */
+export async function deleteLibraryItem(req: AuthRequest, res: Response) {
+    const item = await findItem(req.params.id, req.userId)
+    if (!item) {
+        res.status(404).json({ message: 'Walk not found' })
+        return
+    }
+    await item.deleteOne()
+    res.json({ message: 'Deleted', data: null })
+}
+
+/** Put a copy of a library walk on a day, so that day can have its own route. */
+export async function assignLibraryItem(req: AuthRequest, res: Response) {
+    const item = await findItem(req.params.id, req.userId)
+    if (!item) {
+        res.status(404).json({ message: 'Walk not found' })
+        return
+    }
+    const read = readWalk({ ...item.toObject(), date: req.body.date, time: req.body.time })
+    if (!read.ok) {
+        res.status(400).json({ message: read.message })
+        return
+    }
+    const walk = await Walk.create({ ...read.value, user: req.userId, library: item._id })
+    res.status(201).json({ message: 'Created', data: walk })
+}
+
+export async function listFavourites(req: AuthRequest, res: Response) {
+    const favourites = await WalkFavourite.find({ user: req.userId }).sort({ createdAt: -1 })
+    res.json({ message: 'OK', data: favourites })
+}
+
+export async function createFavourite(req: AuthRequest, res: Response) {
+    const fields = readFavourite(req.body)
+    if (!fields) {
+        res.status(400).json({ message: 'That route could not be read' })
+        return
+    }
+    const count = await WalkFavourite.countDocuments({ user: req.userId })
+    if (count >= MAX_FAVOURITES) {
+        res.status(400).json({ message: `You can star up to ${MAX_FAVOURITES} routes. Unstar one first.` })
+        return
+    }
+    res.status(201).json({ message: 'Created', data: await WalkFavourite.create({ ...fields, user: req.userId }) })
+}
+
+export async function deleteFavourite(req: AuthRequest, res: Response) {
+    const removed = Types.ObjectId.isValid(String(req.params.id)) ? await WalkFavourite.findOneAndDelete({ _id: req.params.id, user: req.userId }) : null
+    if (!removed) {
+        res.status(404).json({ message: 'Route not found' })
+        return
+    }
+    res.json({ message: 'Deleted', data: null })
+}
 
 export async function listWalks(req: AuthRequest, res: Response) {
     const { from, to } = req.query
@@ -21,6 +155,7 @@ export async function listWalks(req: AuthRequest, res: Response) {
         res.status(400).json({ message: 'from and to must be YYYY-MM-DD' })
         return
     }
+    await fillSeries(req.userId!, from, to)
     const walks = await Walk.find({ user: req.userId, date: { $gte: from, $lte: to } }).sort({ date: 1, time: 1 })
     res.json({ message: 'OK', data: walks })
 }
@@ -31,7 +166,8 @@ export async function getWalk(req: AuthRequest, res: Response) {
         res.status(404).json({ message: 'Walk not found' })
         return
     }
-    res.json({ message: 'OK', data: walk })
+    const series = walk.series ? await WalkSeries.findOne({ _id: walk.series, user: req.userId }) : null
+    res.json({ message: 'OK', data: { ...walk.toObject(), seriesDays: series?.days ?? [] } })
 }
 
 export async function createWalk(req: AuthRequest, res: Response) {
@@ -40,7 +176,16 @@ export async function createWalk(req: AuthRequest, res: Response) {
         res.status(400).json({ message: read.message })
         return
     }
-    const walk = await Walk.create({ ...read.value, user: req.userId })
+    const days = readDays(req.body.days)
+    if (!days) {
+        res.status(400).json({ message: 'Unknown days to repeat on' })
+        return
+    }
+    const series = days.length ? await newSeries(req.userId!, read.value, days) : null
+    // A repeat chosen on a day it doesn't cover: this one stands alone, the rest follow.
+    const link = series && repeatsOn(days, read.value.date) ? series._id : null
+    const item = req.body.saveToLibrary === true ? await WalkLibraryItem.create({ ...planOf(read.value), user: req.userId }) : null
+    const walk = await Walk.create({ ...read.value, user: req.userId, series: link, library: item?._id ?? null })
     res.status(201).json({ message: 'Created', data: walk })
 }
 
@@ -50,15 +195,38 @@ export async function updateWalk(req: AuthRequest, res: Response) {
         res.status(400).json({ message: read.message })
         return
     }
-    const walk = await Walk.findOneAndUpdate(
-        { _id: req.params.id, user: req.userId },
-        { $set: read.value },
-        { new: true, runValidators: true }
-    )
-    if (!walk) {
+    const days = readDays(req.body.days)
+    if (!days) {
+        res.status(400).json({ message: 'Unknown days to repeat on' })
+        return
+    }
+    const userId = req.userId!
+    const existing = Types.ObjectId.isValid(String(req.params.id)) ? await Walk.findOne({ _id: req.params.id, user: userId }) : null
+    if (!existing) {
         res.status(404).json({ message: 'Walk not found' })
         return
     }
+
+    const value = read.value
+    let series = existing.series
+    if (series && value.date !== existing.date) {
+        // Moved to another day: it stands alone now, and its old day stays empty.
+        await WalkSeries.updateOne({ _id: series, user: userId }, { $addToSet: { skipped: existing.date } })
+        series = null
+    } else if (series && req.body.applyToSeries === true) {
+        if (days.length === 0) {
+            await endSeries(userId, series, value.date)
+            series = null
+        } else {
+            await WalkSeries.updateOne({ _id: series, user: userId }, { $set: { ...seriesTemplate(value), days } })
+            await Walk.deleteMany(untouchedAfter(userId, series, value.date))
+        }
+    } else if (!series && days.length) {
+        const created = await newSeries(userId, value, days)
+        if (repeatsOn(days, value.date)) series = created._id
+    }
+
+    const walk = await Walk.findOneAndUpdate({ _id: existing._id, user: userId }, { $set: { ...value, series } }, { new: true, runValidators: true })
     res.json({ message: 'Saved', data: walk })
 }
 
@@ -81,6 +249,8 @@ export async function deleteWalk(req: AuthRequest, res: Response) {
         res.status(404).json({ message: 'Walk not found' })
         return
     }
+    // Without this the repeat would put the day straight back.
+    if (walk.series) await WalkSeries.updateOne({ _id: walk.series, user: req.userId }, { $addToSet: { skipped: walk.date } })
     res.json({ message: 'Deleted', data: null })
 }
 
@@ -155,6 +325,7 @@ export async function generateWalkRoute(req: AuthRequest, res: Response) {
             seen: mem.walk.seen,
             bad: mem.bad.filter((b) => haversine(b, start) <= BAD_RADIUS_M).map((b) => b.cells),
             client: { roundTrip, oneWay },
+            maxRepeated: MAX_REPEATED,
         })
         await recordCalls(result.calls)
         mem.walk.keys = [...mem.walk.keys, ...result.tried].slice(-WALK_KEYS)

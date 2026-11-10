@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_STOPS, readStops, readWalk } from './walkInput'
+import { Types } from 'mongoose'
+import WalkLibraryItem from '../models/WalkLibraryItem'
+import { MAX_STOPS, readLibraryItem, readStops, readWalk } from './walkInput'
 
 const base = {
     date: '2026-11-09',
@@ -47,4 +49,22 @@ describe('readStops', () => {
     it('keeps labels', () => expect(readStops([stop])).toEqual([stop]))
     it('refuses too many', () => expect(readStops(Array(MAX_STOPS + 1).fill(stop))).toBeNull())
     it('refuses a malformed one', () => expect(readStops([stop, { lat: 1 }])).toBeNull())
+})
+
+describe('readLibraryItem', () => {
+    const { date: _date, time: _time, ...plan } = base
+    it('takes a plan with no day or time', () => {
+        const out = readLibraryItem({ ...plan, name: 'Coffee' })
+        expect(out).toMatchObject({ ok: true, value: { name: 'Coffee', stops: [] } })
+        expect(out.ok && 'date' in out.value).toBe(false)
+        expect(out.ok && 'time' in out.value).toBe(false)
+    })
+    it('refuses a plan with no start', () => expect(readLibraryItem({ ...plan, start: null }).ok).toBe(false))
+    it('can be read back from a stored item onto a day', () => {
+        const coords = [[-2.2, 53.4, 40], [-2.21, 53.41, 44]]
+        const stop = { lat: 53.41, lng: -2.21, label: 'Cafe' }
+        const item = new WalkLibraryItem({ ...plan, user: new Types.ObjectId(), name: 'Coffee', stops: [stop], route: { coords, distanceM: 900 } })
+        const out = readWalk({ ...item.toObject(), date: '2026-11-10', time: '08:00' })
+        expect(out).toMatchObject({ ok: true, value: { date: '2026-11-10', name: 'Coffee', stops: [stop], route: { coords, distanceM: 900 } } })
+    })
 })

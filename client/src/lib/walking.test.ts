@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
     convertGoal,
+    daysForRepeat,
+    doubledBackShare,
+    repeatModeOf,
+    sameRoute,
     estimateWalk,
     finishTime,
     formatMinutes,
+    libraryTitle,
+    SLOT_TIMES,
     nextWalk,
     targetMetres,
     walkDayItems,
@@ -121,5 +127,39 @@ describe('walks on a day', () => {
         expect(items.map((i) => i.id)).toEqual(['a', 'b'])
         expect(items[0]).toMatchObject({ title: 'Morning walk', detail: '08:00 · 1 h 00 min · 6,500 steps', done: false })
         expect(items[1].done).toBe(true)
+    })
+})
+
+describe('repeats', () => {
+    it('names the common patterns', () => {
+        expect(repeatModeOf([])).toBe('once')
+        expect(repeatModeOf([5, 4, 3, 2, 1])).toBe('weekdays')
+        expect(repeatModeOf([0, 1, 2, 3, 4, 5, 6])).toBe('daily')
+        expect(repeatModeOf([1, 3])).toBe('custom')
+    })
+    it('turns a pattern into days', () => expect(daysForRepeat('weekdays')).toEqual([1, 2, 3, 4, 5]))
+})
+
+describe('sameRoute', () => {
+    const a = { distanceM: 100, coords: [[0, 0], [1, 1], [2, 2]] }
+    it('matches the same line', () => expect(sameRoute(a, { ...a })).toBe(true))
+    it('tells a different length apart', () => expect(sameRoute(a, { ...a, distanceM: 101 })).toBe(false))
+    it('tells a different line of the same length apart', () => {
+        expect(sameRoute(a, { distanceM: 100, coords: [[0, 0], [9, 9], [2, 2]] })).toBe(false)
+    })
+})
+
+describe('doubledBackShare', () => {
+    it('is half for there and back', () => expect(doubledBackShare([[0, 0], [1, 0], [2, 0], [1, 0], [0, 0]])).toBeCloseTo(0.5))
+    it('is nothing for a loop', () => expect(doubledBackShare([[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]])).toBe(0))
+})
+
+describe('the library', () => {
+    it('falls back to where a walk starts', () => {
+        expect(libraryTitle({ name: '', start: { label: 'Home' } })).toBe('Walk from Home')
+        expect(libraryTitle({ name: 'Coffee', start: { label: 'Home' } })).toBe('Coffee')
+    })
+    it('lands each slot in its own part of the day', () => {
+        for (const part of ['morning', 'afternoon', 'evening'] as const) expect(walkPart(SLOT_TIMES[part])).toBe(part)
     })
 })

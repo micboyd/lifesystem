@@ -6,6 +6,7 @@ import {
     pathLength,
     repeatedShare,
     routeCells,
+    trimSpurs,
     type Coord,
     type LatLng,
 } from './routeGeo'
@@ -47,6 +48,8 @@ export interface GenerateInput {
     /** Fingerprints of routes reported as bad near this start. */
     bad: string[][]
     client: RouteClient
+    /** Set for true loops: spurs are cut, and routes doubling back past this share lose out. */
+    maxRepeated?: number
     rand?: () => number
 }
 
@@ -117,6 +120,13 @@ function build(
     }
 }
 
+/** The route with its spurs cut, its figures following. Distance keeps the router's own scale. */
+function withoutSpurs(raw: OrsRoute, start: LatLng): OrsRoute {
+    const coords = trimSpurs(raw.coords, [start])
+    if (coords.length === raw.coords.length) return raw
+    return { ...raw, coords, distanceM: raw.distanceM * (pathLength(coords) / pathLength(raw.coords)), ascentM: undefined, descentM: undefined }
+}
+
 async function wave(
     input: GenerateInput,
     n: number,
@@ -137,7 +147,7 @@ async function wave(
     const built: BuiltCandidate[] = []
     const errors: RouteError[] = []
     settled.forEach((r, i) => {
-        if (r.status === 'fulfilled') built.push(build(r.value, seeds[i].seed, seeds[i].points, seeds[i].key, input.kind, input.startPref))
+        if (r.status === 'fulfilled') built.push(build(input.maxRepeated === undefined ? r.value : withoutSpurs(r.value, input.start), seeds[i].seed, seeds[i].points, seeds[i].key, input.kind, input.startPref))
         else errors.push(r.reason instanceof RouteError ? r.reason : new RouteError('down', 'The routing service failed.'))
     })
     return { built, tried: seeds.map((s) => s.key), errors }
@@ -159,10 +169,11 @@ export async function generateRoute(input: GenerateInput): Promise<GenerateResul
     const errors = [...one.errors]
     let calls = one.tried.length
 
-    const firstPick = pickRoute(built, input.targetM, input.seen, input.bad, input.startPref)
-    const validCount = built.filter((c) => withinTolerance(c.distanceM, input.targetM)).length
+    const shapely = (list: BuiltCandidate[]) => (input.maxRepeated === undefined ? list : list.filter((c) => c.repeatedShare <= input.maxRepeated!))
+    const firstPick = pickRoute(shapely(built), input.targetM, input.seen, input.bad, input.startPref)
+    const validCount = shapely(built).filter((c) => withinTolerance(c.distanceM, input.targetM)).length
     // With a start asked for, a real choice means one that also starts that way.
-    const matching = built.filter(
+    const matching = shapely(built).filter(
         (c) => withinTolerance(c.distanceM, input.targetM) && matchesStart(c.openingM, input.startPref ?? 'any')
     ).length
     const stopEarly =
@@ -183,7 +194,10 @@ export async function generateRoute(input: GenerateInput): Promise<GenerateResul
 
     if (built.length === 0) throw errors.length ? worstError(errors) : new RouteError('down', 'No routes came back.')
 
-    const pick = pickRoute(built, input.targetM, input.seen, input.bad, input.startPref)
+    // Nothing the right shape: the one that doubles back least, rather than no route.
+    const pool = shapely(built).length ? shapely(built) : [...built].sort((a, b) => a.repeatedShare - b.repeatedShare).slice(0, 1)
+    let pick = pickRoute(pool, input.targetM, input.seen, input.bad, input.startPref)
+    if (pick.kind === 'none') pick = pickRoute(built, input.targetM, input.seen, input.bad, input.startPref)
     const route = pick.kind === 'none' ? null : (built.find((b) => b.key === pick.route.key) ?? null)
     return { pick, route, tried, calls }
 }

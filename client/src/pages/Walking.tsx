@@ -1,15 +1,16 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Container from '../components/Container'
 import Button from '../components/Button'
 import DashboardDateNav from '../components/dashboard/DashboardDateNav'
 import { DASH, SectionLoading } from '../components/dashboard/DashSection'
 import { useWalks } from '../components/walking/useWalks'
+import LibraryPicker from '../components/walking/LibraryPicker'
 import { useAuth } from '../context/AuthContext'
 import { todayKey } from '../lib/calendar'
 import { DAY_PARTS, partAt, type DayPart } from '../lib/yourDay'
-import { formatMinutes, formatWalkKm, nextWalk, walkDayTotals, walkEstimate, walkFacts, walkPart, walkTitle, finishTime, type WalkDayTotals } from '../lib/walking'
-import { setWalkDone, type Walk } from '../services/walks'
+import { formatGoal, libraryTitle, formatMinutes, formatWalkKm, nextWalk, walkDayTotals, walkEstimate, walkFacts, walkPart, walkTitle, finishTime, type WalkDayTotals } from '../lib/walking'
+import { listLibrary, setWalkDone, type Walk, type WalkLibraryItem } from '../services/walks'
 
 /**
  * Walking: a day of planned walks, laid out like Your day — the next one on the
@@ -34,7 +35,30 @@ export default function Walking() {
     const [error, setError] = useState('')
     const stepGoal = useAuth().user?.settings?.stepGoal
 
-    const open = (walk: Walk | null) => navigate(walk ? `/walking/${walk._id}` : `/walking/new?date=${date}`)
+    const open = (walk: Walk) => navigate(`/walking/${walk._id}`)
+    const [library, setLibrary] = useState<WalkLibraryItem[] | null>(null)
+    const [libraryFailed, setLibraryFailed] = useState(false)
+    const [slot, setSlot] = useState<DayPart | null>(null)
+    // Kept while the picker slides shut.
+    const [lastSlot, setLastSlot] = useState<DayPart>('morning')
+    const pickSlot = (part: DayPart) => {
+        setLastSlot(part)
+        setSlot(part)
+    }
+
+    useEffect(() => {
+        let live = true
+        listLibrary()
+            .then((items) => live && setLibrary(items))
+            .catch(() => {
+                if (!live) return
+                setLibrary([])
+                setLibraryFailed(true)
+            })
+        return () => {
+            live = false
+        }
+    }, [])
 
     async function toggle(walk: Walk) {
         setError('')
@@ -84,12 +108,12 @@ export default function Walking() {
 
                     <div className="mt-8 grid gap-8 lg:grid-cols-12 lg:gap-x-12">
                         <div className="self-start lg:col-span-4">
-                            <NextWalk walk={next} walks={walks} weightKg={weightKg} onOpen={open} onToggle={toggle} />
+                            <NextWalk walk={next} walks={walks} weightKg={weightKg} onOpen={open} onToggle={toggle} onAdd={() => pickSlot(nowPart ?? 'morning')} />
                         </div>
                         <div className="min-w-0 lg:col-span-8">
                             <div className="grid gap-8 sm:grid-cols-3 sm:gap-6">
                                 {DAY_PARTS.map((part) => (
-                                    <PartColumn key={part} part={part} now={nowPart === part}>
+                                    <PartColumn key={part} part={part} now={nowPart === part} onAdd={() => pickSlot(part)}>
                                         {walks
                                             .filter((w) => walkPart(w.time) === part)
                                             .map((w) => (
@@ -98,15 +122,14 @@ export default function Walking() {
                                     </PartColumn>
                                 ))}
                             </div>
-                            <div className="mt-6">
-                                <Button variant="secondary" icon="fa-solid fa-plus" onClick={() => open(null)}>
-                                    New walk
-                                </Button>
-                            </div>
                         </div>
                     </div>
+
+                    <Library items={library} failed={libraryFailed} weightKg={weightKg} onOpen={(id) => navigate(`/walking/library/${id}`)} onNew={() => navigate('/walking/library/new')} />
                 </>
             )}
+
+            <LibraryPicker open={!!slot} part={slot ?? lastSlot} date={date} items={library ?? []} weightKg={weightKg} onClose={() => setSlot(null)} onAssigned={upsert} />
         </Container>
     )
 }
@@ -155,12 +178,14 @@ function NextWalk({
     weightKg,
     onOpen,
     onToggle,
+    onAdd,
 }: {
     walk: Walk | null
     walks: Walk[]
     weightKg: number | null
-    onOpen: (walk: Walk | null) => void
+    onOpen: (walk: Walk) => void
     onToggle: (walk: Walk) => void
+    onAdd: () => void
 }) {
     const panel = 'rounded-3xl p-6 sm:p-7'
     const overline = 'text-[11px] font-medium uppercase tracking-[0.06em]'
@@ -177,9 +202,9 @@ function NextWalk({
             <div className={`${panel} bg-neutral-100`}>
                 <p className={`${overline} text-neutral-500`}>Next walk</p>
                 <p className="mt-3 text-2xl font-semibold tracking-[-0.025em] text-neutral-950">Nothing planned</p>
-                <p className="mt-1 text-[14px] leading-6 text-neutral-600">Set a target and a start, and get a route to follow.</p>
-                <Button className="mt-6" fullWidth size="lg" icon="fa-solid fa-plus" onClick={() => onOpen(null)}>
-                    Plan a walk
+                <p className="mt-1 text-[14px] leading-6 text-neutral-600">Pick a walk from your library, or make a new one.</p>
+                <Button className="mt-6" fullWidth size="lg" icon="fa-solid fa-plus" onClick={onAdd}>
+                    Add a walk
                 </Button>
             </div>
         )
@@ -218,7 +243,58 @@ function NextWalk({
     )
 }
 
-function PartColumn({ part, now, children }: { part: DayPart; now: boolean; children: ReactNode[] }) {
+function Library({
+    items,
+    failed,
+    weightKg,
+    onOpen,
+    onNew,
+}: {
+    items: WalkLibraryItem[] | null
+    failed: boolean
+    weightKg: number | null
+    onOpen: (id: string) => void
+    onNew: () => void
+}) {
+    return (
+        <section className="mt-14 border-t border-neutral-200 pt-10" aria-label="Walk library">
+            <div className="mb-5 flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                    <h2 className="text-xl font-semibold tracking-[-0.015em] text-neutral-900">Library</h2>
+                    <p className="mt-0.5 text-[13px] text-neutral-500">Your walks, ready to put on any day.</p>
+                </div>
+                <Button variant="secondary" icon="fa-solid fa-plus" onClick={onNew}>
+                    New walk
+                </Button>
+            </div>
+            {!items ? (
+                <SectionLoading />
+            ) : failed ? (
+                <p className={DASH.empty}>Couldn’t load your library.</p>
+            ) : items.length === 0 ? (
+                <p className={DASH.empty}>No walks yet. New walks you make are kept here.</p>
+            ) : (
+                <ul className="grid border-t border-neutral-200 sm:grid-cols-2 sm:gap-x-6 lg:grid-cols-3 [&>li]:border-b [&>li]:border-neutral-200">
+                    {items.map((item) => {
+                        const e = walkEstimate(item, weightKg)
+                        return (
+                            <li key={item._id}>
+                                <button type="button" className="group w-full py-3 text-left" onClick={() => onOpen(item._id)}>
+                                    <p className="truncate text-[15px] text-neutral-900 group-hover:underline group-hover:underline-offset-4">{libraryTitle(item)}</p>
+                                    <p className="nums mt-0.5 truncate text-[13px] text-neutral-500">
+                                        {[e ? formatWalkKm(e.distanceM) : null, formatGoal(item.goal), item.route ? null : 'No route yet'].filter(Boolean).join(' · ')}
+                                    </p>
+                                </button>
+                            </li>
+                        )
+                    })}
+                </ul>
+            )}
+        </section>
+    )
+}
+
+function PartColumn({ part, now, onAdd, children }: { part: DayPart; now: boolean; onAdd: () => void; children: ReactNode[] }) {
     return (
         <div className="min-w-0">
             <div className="mb-2 flex h-6 items-center gap-2">
@@ -230,6 +306,10 @@ function PartColumn({ part, now, children }: { part: DayPart; now: boolean; chil
             ) : (
                 <ul className={DASH.list}>{children}</ul>
             )}
+            <button type="button" onClick={onAdd} className="mt-1 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-neutral-600 transition-colors hover:text-neutral-900">
+                <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
+                Add walk
+            </button>
         </div>
     )
 }
@@ -273,7 +353,10 @@ function WalkRow({
                 <p className={`truncate text-[15px] group-hover:underline group-hover:underline-offset-4 ${done ? 'text-neutral-500' : 'text-neutral-900'} ${isNext ? 'font-medium' : ''}`}>
                     {title}
                 </p>
-                <p className="nums mt-0.5 truncate text-[13px] text-neutral-500">{walkFacts(walk, weightKg)}</p>
+                <p className="nums mt-0.5 truncate text-[13px] text-neutral-500">
+                    {walk.series && <i className="fa-solid fa-repeat mr-1.5 text-[11px]" aria-label="Repeats" />}
+                    {walkFacts(walk, weightKg)}
+                </p>
             </button>
         </li>
     )

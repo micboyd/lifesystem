@@ -11,12 +11,18 @@ import RouteMap, { type MapWaypoint, type StepMarker } from '../components/route
 import PlaceSearch from '../components/walking/PlaceSearch'
 import { loadWeightKg } from '../components/walking/useWalks'
 import { todayKey } from '../lib/calendar'
+import { WEEK_ORDER } from '../lib/perfectDay'
+import { haversine } from '../lib/routeTrack'
 import { googleMapsUrl, MAPS_WARNING } from '../lib/routeMaps'
 import { currentPosition } from '../lib/routeLocation'
 import { LIT_WARNING, needsLitCheck } from '../lib/routeSafety'
 import {
     convertGoal,
+    daysForRepeat,
+    DOUBLE_BACK_SHARE,
+    doubledBackShare,
     estimateWalk,
+    FAVOURITE_NEAR_M,
     finishTime,
     formatMinutes,
     formatWalkKm,
@@ -24,6 +30,8 @@ import {
     MAX_WALK_M,
     MIN_WALK_M,
     PACES,
+    repeatModeOf,
+    sameRoute,
     targetMetres,
     walkGap,
     walkPart,
@@ -31,18 +39,27 @@ import {
     type WalkGap,
     type WalkGoalKind,
     type WalkPace,
+    type RepeatMode,
 } from '../lib/walking'
 import { getRouteSettings, routeFailure, setHome, type RouteFailure, type RouteSettings, type RouteUsage } from '../services/routes'
 import {
     completeWalkRoute,
+    createFavourite,
+    createLibraryItem,
     createWalk,
+    deleteFavourite,
+    deleteLibraryItem,
     deleteWalk,
     generateWalkRoute,
+    getLibraryItem,
     getWalk,
+    listFavourites,
     nameOfPoint,
+    updateLibraryItem,
     updateWalk,
     type Walk,
     type WalkPoint,
+    type WalkFavourite,
     type WalkRoute,
 } from '../services/walks'
 
@@ -93,6 +110,10 @@ interface Form {
     stops: WalkPoint[]
     finishElsewhere: boolean
     end: WalkPoint | null
+    /** Weekdays it repeats on (0 Sunday); empty for a one-off. */
+    days: number[]
+    /** Remembered apart from `days`, so "Custom" can be open with nothing ticked yet. */
+    repeat: RepeatMode
 }
 
 /** The next half hour today; midday on any other day. */
@@ -117,6 +138,8 @@ function formFrom(walk: Walk | null, date: string, home: RouteSettings['home']):
             stops: walk.stops,
             finishElsewhere: !!walk.end,
             end: walk.end,
+            days: walk.seriesDays ?? [],
+            repeat: repeatModeOf(walk.seriesDays ?? []),
         }
     return {
         name: '',
@@ -130,7 +153,22 @@ function formFrom(walk: Walk | null, date: string, home: RouteSettings['home']):
         stops: [],
         finishElsewhere: false,
         end: null,
+        days: [],
+        repeat: 'once',
     }
+}
+
+const REPEAT_OPTIONS: { value: RepeatMode; label: string }[] = [
+    { value: 'once', label: 'Just this day' },
+    { value: 'weekdays', label: 'Weekdays' },
+    { value: 'daily', label: 'Every day' },
+    { value: 'custom', label: 'Choose days' },
+]
+const DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+function starredOn(iso: string): string {
+    return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
 const finishOf = (f: Form) => (f.finishElsewhere ? f.end : null)
@@ -146,24 +184,31 @@ function withName(f: Form, p: { lat: number; lng: number }, label: string): Form
 }
 
 /** Fetches what the planner opens with, then starts it fresh. */
-export default function WalkPlanner() {
+export default function WalkPlanner({ library = false }: { library?: boolean }) {
     const { id } = useParams<{ id: string }>()
     const [params] = useSearchParams()
     const walkId = id === 'new' ? null : (id ?? null)
     const raw = params.get('date')
     const date = raw && /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : todayKey()
+    const rawTime = params.get('time')
+    const time = rawTime && /^([01]\d|2[0-3]):[0-5]\d$/.test(rawTime) ? rawTime : null
     const [loaded, setLoaded] = useState<{ key: string; walk: Walk | null; weightKg: number | null; settings: RouteSettings | null; failed: boolean } | null>(null)
-    const key = walkId ?? `new-${date}`
+    const key = `${library ? 'library' : 'day'}-${walkId ?? `new-${date}-${time}`}`
 
     useEffect(() => {
         let live = true
-        Promise.all([walkId ? getWalk(walkId) : Promise.resolve(null), loadWeightKg(), getRouteSettings().catch(() => null)])
+        const opening = !walkId
+            ? Promise.resolve(null)
+            : library
+              ? getLibraryItem(walkId).then((item): Walk => ({ ...item, date: todayKey(), time: '12:00', doneAt: null, series: null, library: item._id }))
+              : getWalk(walkId)
+        Promise.all([opening, loadWeightKg(), getRouteSettings().catch(() => null)])
             .then(([walk, weightKg, settings]) => live && setLoaded({ key, walk, weightKg, settings, failed: false }))
             .catch(() => live && setLoaded({ key, walk: null, weightKg: null, settings: null, failed: true }))
         return () => {
             live = false
         }
-    }, [walkId, key])
+    }, [walkId, key, library])
 
     const ready = loaded?.key === key ? loaded : null
     if (!ready)
@@ -183,22 +228,31 @@ export default function WalkPlanner() {
                 </div>
             </div>
         )
-    return <Planner key={key} walk={ready.walk} date={date} weightKg={ready.weightKg} initialSettings={ready.settings} />
+    return <Planner key={key} isLibrary={library} walk={ready.walk} date={date} time={time} weightKg={ready.weightKg} initialSettings={ready.settings} />
 }
 
 function Planner({
+    isLibrary,
     walk,
     date,
+    time,
     weightKg,
     initialSettings,
 }: {
+    /** Planning a walk with no day: no time or repeat, and it saves to the library. */
+    isLibrary: boolean
     walk: Walk | null
     date: string
+    /** The slot a new walk was asked for from. */
+    time: string | null
     weightKg: number | null
     initialSettings: RouteSettings | null
 }) {
     const navigate = useNavigate()
-    const [initial] = useState(() => formFrom(walk, date, initialSettings?.home ?? null))
+    const [initial] = useState(() => {
+        const f = formFrom(walk, date, initialSettings?.home ?? null)
+        return !walk && time ? { ...f, time } : f
+    })
     const [form, setForm] = useState<Form>(initial)
     const [route, setRoute] = useState<WalkRoute | null>(walk?.route ?? null)
     const [routeKey, setRouteKey] = useState<string | null>(walk?.route ? pointsKey(initial) : null)
@@ -219,13 +273,16 @@ function Planner({
     const [confirmLeave, setConfirmLeave] = useState(false)
     const [dirty, setDirty] = useState(false)
     const [completeTries, setCompleteTries] = useState(0)
+    const [favourites, setFavourites] = useState<WalkFavourite[]>([])
+    const [applyFuture, setApplyFuture] = useState(false)
+    const [keptInLibrary, setKeptInLibrary] = useState(false)
 
     const patch = (change: Partial<Form>) => {
         setDirty(true)
         setForm((f) => ({ ...f, ...change }))
     }
     const refit = () => setFitKey((k) => k + 1)
-    const backTo = `/walking?date=${form.date}`
+    const backTo = isLibrary ? '/walking' : `/walking?date=${form.date}`
 
     // Leave room for the floating panels when fitting the route. Fixed at open, like the layout.
     const [fitPadding] = useState(() =>
@@ -233,6 +290,16 @@ function Planner({
             ? { topLeft: [468, 48] as [number, number], bottomRight: [80, 150] as [number, number] }
             : { topLeft: [32, 80] as [number, number], bottomRight: [32, Math.round(window.innerHeight * 0.6)] as [number, number] }
     )
+
+    useEffect(() => {
+        let live = true
+        listFavourites()
+            .then((list) => live && setFavourites(list))
+            .catch(() => undefined)
+        return () => {
+            live = false
+        }
+    }, [])
 
     useEffect(() => {
         if (cooldownUntil <= now) return
@@ -300,8 +367,12 @@ function Planner({
     const kept = stops.filter((s) => s.label !== ADDED)
     const hasAdded = kept.length < stops.length
     const short = !!shown && !!targetM && shown.distanceM < targetM * 0.95
+    const doublesBack = !!shown && doubledBackShare(shown.coords) > DOUBLE_BACK_SHARE
     const canComplete =
-        !loop && !!start && finishReady && !!targetM && !!shown && !busy && waitSec === 0 && (short || hasAdded) && kept.length < MAX_STOPS
+        !loop && !!start && finishReady && !!targetM && !!shown && !busy && waitSec === 0 && (short || hasAdded || doublesBack) && kept.length < MAX_STOPS
+    const starred = shown ? favourites.find((f) => sameRoute(f.route, shown)) : undefined
+    const nearby = start ? favourites.filter((f) => haversine(f.start, start) <= FAVOURITE_NEAR_M) : []
+    const repeatChanged = [...form.days].sort().join() !== [...initial.days].sort().join()
     const canSave = !!start && !!form.time && goalValue > 0 && targetM !== null && !saving && !busy && finishReady
 
     function changeKind(kind: WalkGoalKind) {
@@ -405,6 +476,53 @@ function Planner({
         }
     }
 
+    // Counts up by date, so each day's press starts from a different walk.
+    const dayNumber = Math.floor(Date.parse(`${form.date}T00:00:00Z`) / 86_400_000)
+
+    async function toggleStar() {
+        if (!shown || !start) return
+        setFailure(null)
+        try {
+            if (starred) {
+                await deleteFavourite(starred._id)
+                setFavourites((list) => list.filter((f) => f._id !== starred._id))
+            } else {
+                const saved = await createFavourite({ start, stops, end, route: shown })
+                setFavourites((list) => [saved, ...list])
+            }
+        } catch (err) {
+            setFailure(routeFailure(err))
+        }
+    }
+
+    function loadFavourite(f: WalkFavourite) {
+        const updated: Form = {
+            ...form,
+            start: f.start,
+            startMode: f.start.label === 'Home' ? 'home' : 'choose',
+            stops: f.stops,
+            end: f.end,
+            finishElsewhere: !!f.end,
+        }
+        setFailure(null)
+        setForm(updated)
+        setRoute(f.route)
+        setRouteKey(pointsKey(updated))
+        setRouteTargetM(null)
+        setDirty(true)
+        setSheetOpen(false)
+        refit()
+    }
+
+    function chooseRepeat(mode: RepeatMode) {
+        if (mode === 'custom') patch({ repeat: mode, days: form.days })
+        else patch({ repeat: mode, days: daysForRepeat(mode) })
+    }
+
+    function toggleDay(day: number) {
+        patch({ days: form.days.includes(day) ? form.days.filter((d) => d !== day) : [...form.days, day] })
+    }
+
     /** Keep the places, swap any point added last time, and stretch the walk to the target. */
     async function completeToTarget() {
         if (!start || !targetM) return
@@ -413,7 +531,7 @@ function Planner({
         setCooldownUntil(clock() + (initialSettings?.cooldownMs ?? 8000))
         setNow(clock())
         try {
-            const out = await completeWalkRoute({ start, stops: kept, end, targetM, seed: completeTries })
+            const out = await completeWalkRoute({ start, stops: kept, end, targetM, seed: dayNumber + completeTries })
             const next = [...kept]
             if (out.stop) next.splice(out.stopIndex, 0, { ...out.stop, label: ADDED })
             const updated = { ...form, stops: next }
@@ -440,7 +558,27 @@ function Planner({
         setSaving(true)
         setFailure(null)
         try {
-            const body = { date: form.date, time: form.time, name: form.name, pace: form.pace, goal, start, stops, end, route: shown }
+            const plan = { name: form.name, pace: form.pace, goal, start, stops, end, route: shown }
+            if (isLibrary) {
+                if (walk) await updateLibraryItem(walk._id, plan)
+                else await createLibraryItem(plan)
+                navigate(backTo)
+                return
+            }
+            const body = {
+                date: form.date,
+                time: form.time,
+                name: form.name,
+                pace: form.pace,
+                goal,
+                start,
+                stops,
+                end,
+                route: shown,
+                days: form.days,
+                applyToSeries: !!walk?.series && (applyFuture || repeatChanged),
+                saveToLibrary: !walk,
+            }
             if (walk) await updateWalk(walk._id, body)
             else await createWalk(body)
             navigate(backTo)
@@ -453,8 +591,21 @@ function Planner({
     async function remove() {
         if (!walk) return
         try {
-            await deleteWalk(walk._id)
+            if (isLibrary) await deleteLibraryItem(walk._id)
+            else await deleteWalk(walk._id)
             navigate(backTo)
+        } catch (err) {
+            setFailure(routeFailure(err))
+        }
+    }
+
+    /** Keep a day's walk, made before the library or changed since, as a plan to reuse. */
+    async function keepInLibrary() {
+        if (!start) return
+        setFailure(null)
+        try {
+            await createLibraryItem({ name: form.name, pace: form.pace, goal, start, stops, end, route: shown })
+            setKeptInLibrary(true)
         } catch (err) {
             setFailure(routeFailure(err))
         }
@@ -469,7 +620,7 @@ function Planner({
 
     const leave = () => (dirty ? setConfirmLeave(true) : navigate(backTo))
 
-    const litCheck = form.time ? needsLitCheck(walkPart(form.time), form.date) : false
+    const litCheck = !isLibrary && form.time ? needsLitCheck(walkPart(form.time), form.date) : false
     const unit = GOAL_UNITS[form.kind]
     const failureText = failure ? (FAILURE_TEXT[failure.code] ?? failure.message) : ''
     const partName = form.time ? `${walkPart(form.time)[0].toUpperCase()}${walkPart(form.time).slice(1)} walk` : 'Walk'
@@ -480,6 +631,7 @@ function Planner({
         : busy
           ? 'Finding a route…'
           : 'Estimated from your target'
+    const fullNote = doublesBack ? `Doubles back in places · ${note}` : note
 
     return (
         <div className="fixed inset-0 overflow-hidden bg-neutral-100">
@@ -525,7 +677,7 @@ function Planner({
             <div className="pointer-events-none absolute bottom-6 left-[calc(420px+2rem)] right-4 z-10 hidden justify-center lg:flex">
                 <div className="pointer-events-auto rounded-3xl bg-white px-7 py-4 shadow-xl ring-1 ring-neutral-900/[0.06]">
                     <Readout estimate={estimate} />
-                    <ReadoutNote gap={gap} note={note} hint={!loop && !short} />
+                    <ReadoutNote gap={gap} note={fullNote} hint={!loop && !short && !doublesBack} />
                 </div>
             </div>
 
@@ -537,7 +689,18 @@ function Planner({
                     <button type="button" onClick={leave} aria-label="Back to Walking" className={`${backButton} -ml-2 hidden lg:grid`}>
                         <i className="fa-solid fa-arrow-left" aria-hidden="true" />
                     </button>
-                    <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-[-0.015em] text-neutral-950">{form.name || (walk ? partName : 'New walk')}</h1>
+                    <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-[-0.015em] text-neutral-950">{form.name || (walk ? (isLibrary ? 'Library walk' : partName) : 'New walk')}</h1>
+                    {shown && (
+                        <button
+                            type="button"
+                            onClick={() => void toggleStar()}
+                            aria-pressed={!!starred}
+                            className={`inline-flex h-11 shrink-0 items-center gap-2 rounded-xl px-3 text-sm font-medium transition-colors hover:bg-neutral-100 ${starred ? 'text-amber-600' : 'text-neutral-700'}`}
+                        >
+                            <i className={`${starred ? 'fa-solid' : 'fa-regular'} fa-star`} aria-hidden="true" />
+                            {starred ? 'Starred' : 'Star route'}
+                        </button>
+                    )}
                     <button
                         type="button"
                         onClick={() => setSheetOpen((o) => !o)}
@@ -551,7 +714,7 @@ function Planner({
 
                 <div className="shrink-0 px-4 pb-3 pt-1 lg:hidden">
                     <Readout estimate={estimate} />
-                    <ReadoutNote gap={gap} note={note} hint={!loop && !short} />
+                    <ReadoutNote gap={gap} note={fullNote} hint={!loop && !short && !doublesBack} />
                 </div>
 
                 <div className={`min-h-0 flex-1 flex-col gap-6 overflow-y-auto border-t border-neutral-100 px-4 py-5 lg:flex lg:px-5 ${sheetOpen ? 'flex' : 'hidden'}`}>
@@ -566,6 +729,53 @@ function Planner({
                             <i className="fa-solid fa-lightbulb text-amber-500" aria-hidden="true" />
                             {LIT_WARNING}
                         </p>
+                    )}
+
+                    {nearby.length > 0 && (
+                        <Group title="Starred routes from here">
+                            <ul className="divide-y divide-neutral-100 rounded-xl border border-neutral-200">
+                                {nearby.map((f) => {
+                                    const viewing = !!shown && sameRoute(f.route, shown)
+                                    const kind = f.stops.length ? `via ${f.stops.length} ${f.stops.length === 1 ? 'place' : 'places'}` : f.end ? 'One way' : 'Loop'
+                                    return (
+                                        <li key={f._id} className="flex items-center gap-1 pr-1.5">
+                                            <button type="button" onClick={() => loadFavourite(f)} aria-current={viewing || undefined} className="flex min-h-12 min-w-0 flex-1 items-center gap-3 rounded-l-xl px-3.5 py-2 text-left text-sm hover:bg-neutral-50">
+                                                <span className="nums shrink-0 font-semibold text-neutral-900">{formatWalkKm(f.route.distanceM)}</span>
+                                                <span className="nums min-w-0 flex-1 truncate text-neutral-500">
+                                                    {kind} · ↑{f.route.ascentM} m · {starredOn(f.createdAt)}
+                                                </span>
+                                                {viewing && <span className="shrink-0 text-xs font-medium text-success">On the map</span>}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className={`${smallIcon} text-amber-500 hover:text-amber-600`}
+                                                aria-label={`Unstar the ${formatWalkKm(f.route.distanceM)} route`}
+                                                onClick={() => {
+                                                    deleteFavourite(f._id)
+                                                        .then(() => setFavourites((list) => list.filter((x) => x._id !== f._id)))
+                                                        .catch((err) => setFailure(routeFailure(err)))
+                                                }}
+                                            >
+                                                <i className="fa-solid fa-star" aria-hidden="true" />
+                                            </button>
+                                        </li>
+                                    )
+                                })}
+                            </ul>
+                        </Group>
+                    )}
+
+                    {isLibrary && (
+                        <Group title="Name">
+                            <input
+                                value={form.name}
+                                maxLength={80}
+                                onChange={(e) => patch({ name: e.target.value })}
+                                placeholder="e.g. Coffee walk"
+                                aria-label="Name"
+                                className={`${FIELD_BASE} ${FIELD_IDLE} h-11 px-3.5`}
+                            />
+                        </Group>
                     )}
 
                     <Group title="Your target">
@@ -669,6 +879,7 @@ function Planner({
                         {form.finishElsewhere && form.end && <PointLine mark="F" tone="bg-neutral-900" label={form.end.label || 'Finish'} />}
                     </Group>
 
+                    {!isLibrary && (
                     <Group title="When">
                         <div className="grid grid-cols-2 gap-3">
                             <DatePicker
@@ -687,12 +898,43 @@ function Planner({
                             aria-label="Name (optional)"
                             className={`${FIELD_BASE} ${FIELD_IDLE} h-11 px-3.5`}
                         />
+                        <span className={`${FIELD_LABEL} mt-1`}>Repeat</span>
+                        <PillToggle label="Repeat" value={form.repeat} onChange={chooseRepeat} options={REPEAT_OPTIONS} />
+                        {form.repeat === 'custom' && (
+                            <div className="flex gap-1.5" role="group" aria-label="Days to repeat on">
+                                {WEEK_ORDER.map((d) => (
+                                    <button
+                                        key={d}
+                                        type="button"
+                                        aria-pressed={form.days.includes(d)}
+                                        aria-label={DAY_NAMES[d]}
+                                        onClick={() => toggleDay(d)}
+                                        className={`grid h-11 min-w-0 flex-1 place-items-center rounded-xl text-sm font-medium transition-colors ${form.days.includes(d) ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}
+                                    >
+                                        {DAY_LETTERS[d]}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        {form.days.length > 0 && <p className={FIELD_HINT}>Each day gets its own walk with a blank route, ready for that day’s.</p>}
+                        {walk?.series && (
+                            <label className="flex min-h-11 items-center gap-2.5 text-sm text-neutral-800">
+                                <input type="checkbox" className="h-4 w-4" checked={applyFuture || repeatChanged} disabled={repeatChanged} onChange={(e) => setApplyFuture(e.target.checked)} />
+                                {form.days.length === 0 ? 'Stop repeating this walk' : 'Use these settings on future days too'}
+                            </label>
+                        )}
                     </Group>
+                    )}
 
                     <div className="flex flex-wrap gap-2">
                         {shown && (
                             <Button variant="secondary" icon="fa-solid fa-diamond-turn-right" onClick={() => setConfirmMaps(true)}>
                                 Open in Google Maps
+                            </Button>
+                        )}
+                        {walk && !isLibrary && !walk.library && (
+                            <Button variant="secondary" icon={keptInLibrary ? 'fa-solid fa-check' : 'fa-solid fa-bookmark'} disabled={keptInLibrary || !start} onClick={() => void keepInLibrary()}>
+                                {keptInLibrary ? 'In your library' : 'Save to library'}
                             </Button>
                         )}
                         {walk && (
@@ -716,17 +958,17 @@ function Planner({
                     )}
                     {!loop && (
                         <Button variant="secondary" size="lg" className="flex-1" icon={busy ? undefined : 'fa-solid fa-wand-magic-sparkles'} disabled={!canComplete} onClick={() => void completeToTarget()}>
-                            {busy ? 'Finding…' : waitSec > 0 ? `Again in ${waitSec}s` : short || !hasAdded ? 'Match my target' : 'Another route'}
+                            {busy ? 'Finding…' : waitSec > 0 ? `Again in ${waitSec}s` : short ? 'Match my target' : hasAdded ? 'Another route' : doublesBack ? 'Make it a loop' : 'Match my target'}
                         </Button>
                     )}
                     <Button size="lg" className="flex-1" disabled={!canSave} onClick={() => void save()}>
-                        {saving ? 'Saving…' : walk ? 'Save walk' : 'Add walk'}
+                        {saving ? 'Saving…' : isLibrary ? 'Save to library' : walk ? 'Save walk' : 'Add walk'}
                     </Button>
                 </footer>
             </aside>
 
             <ConfirmModal open={confirmMaps} title="Open in Google Maps" message={MAPS_WARNING} confirmLabel="Open Google Maps" onConfirm={openMaps} onClose={() => setConfirmMaps(false)} />
-            <ConfirmModal open={confirmDelete} title="Delete this walk?" message="It and its route will be gone." confirmLabel="Delete walk" danger onConfirm={() => void remove()} onClose={() => setConfirmDelete(false)} />
+            <ConfirmModal open={confirmDelete} title="Delete this walk?" message={isLibrary ? 'It leaves your library. Walks already on your days stay.' : walk?.series ? 'Just this day. To stop it repeating, set Repeat to Just this day and save.' : 'It and its route will be gone.'} confirmLabel="Delete walk" danger onConfirm={() => void remove()} onClose={() => setConfirmDelete(false)} />
             <ConfirmModal open={confirmLeave} title="Leave without saving?" message="Your changes to this walk won’t be kept." confirmLabel="Leave" danger onConfirm={() => navigate(backTo)} onClose={() => setConfirmLeave(false)} />
         </div>
     )

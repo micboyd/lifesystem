@@ -37,7 +37,7 @@ describe('completeRoute', () => {
 
     it('leaves a walk alone when the places already reach the target', async () => {
         const { client, calls } = streets()
-        const out = await completeRoute({ points, targetM: 1000, seed: 0, client })
+        const out = await completeRoute({ points: [A, B], targetM: 1000, seed: 0, client })
         expect(out.stop).toBeNull()
         expect(calls).toHaveLength(1)
     })
@@ -98,6 +98,13 @@ describe('completeRoute', () => {
         }
         const out = await completeRoute({ points, targetM: 6000, seed: 0, client })
         expect(out.stop).not.toBeNull()
+    })
+
+    it('turns a there-and-back that is already long enough into a way round', async () => {
+        const { client, calls } = streets()
+        const out = await completeRoute({ points, targetM: 2000, seed: 0, client })
+        expect(out.stop).not.toBeNull()
+        expect(calls.length).toBeGreaterThan(1)
     })
 
     it('says so when nothing can be added', async () => {

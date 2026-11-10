@@ -30,9 +30,88 @@ export interface Walk {
     end: WalkPoint | null
     route: WalkRoute | null
     doneAt: string | null
+    /** The repeating walk this day belongs to. */
+    series: string | null
+    /** Which weekdays it repeats on (0 Sunday); only when fetched singly. */
+    seriesDays?: number[]
+    /** The library walk this was copied from. */
+    library: string | null
 }
 
-export type WalkPayload = Omit<Walk, '_id' | 'doneAt'>
+export type WalkPayload = Omit<Walk, '_id' | 'doneAt' | 'series' | 'seriesDays' | 'library'> & {
+    /** New walks: also keep the plan in the library. */
+    saveToLibrary?: boolean
+    /** Weekdays to repeat on; empty for a one-off. */
+    days: number[]
+    /** Also change the repeating walk from here on (empty `days` ends it). */
+    applyToSeries?: boolean
+}
+
+/** A walk with no day. Putting it on a day copies it. */
+export interface WalkLibraryItem {
+    _id: string
+    name: string
+    pace: WalkPace
+    goal: WalkGoal
+    start: WalkPoint
+    stops: WalkPoint[]
+    end: WalkPoint | null
+    route: WalkRoute | null
+}
+
+export type LibraryPayload = Omit<WalkLibraryItem, '_id'>
+
+export async function listLibrary(): Promise<WalkLibraryItem[]> {
+    const res = await api.get<ApiResponse<WalkLibraryItem[]>>('/walks/library')
+    return res.data.data
+}
+
+export async function getLibraryItem(id: string): Promise<WalkLibraryItem> {
+    const res = await api.get<ApiResponse<WalkLibraryItem>>(`/walks/library/${id}`)
+    return res.data.data
+}
+
+export async function createLibraryItem(body: LibraryPayload): Promise<WalkLibraryItem> {
+    const res = await api.post<ApiResponse<WalkLibraryItem>>('/walks/library', body)
+    return res.data.data
+}
+
+export async function updateLibraryItem(id: string, body: LibraryPayload): Promise<WalkLibraryItem> {
+    const res = await api.put<ApiResponse<WalkLibraryItem>>(`/walks/library/${id}`, body)
+    return res.data.data
+}
+
+export async function deleteLibraryItem(id: string): Promise<void> {
+    await api.delete(`/walks/library/${id}`)
+}
+
+export async function assignLibraryItem(id: string, date: string, time: string): Promise<Walk> {
+    const res = await api.post<ApiResponse<Walk>>(`/walks/library/${id}/assign`, { date, time })
+    return res.data.data
+}
+
+export interface WalkFavourite {
+    _id: string
+    start: WalkPoint
+    stops: WalkPoint[]
+    end: WalkPoint | null
+    route: WalkRoute
+    createdAt: string
+}
+
+export async function listFavourites(): Promise<WalkFavourite[]> {
+    const res = await api.get<ApiResponse<WalkFavourite[]>>('/walks/favourites')
+    return res.data.data
+}
+
+export async function createFavourite(body: Omit<WalkFavourite, '_id' | 'createdAt'>): Promise<WalkFavourite> {
+    const res = await api.post<ApiResponse<WalkFavourite>>('/walks/favourites', body)
+    return res.data.data
+}
+
+export async function deleteFavourite(id: string): Promise<void> {
+    await api.delete(`/walks/favourites/${id}`)
+}
 
 export async function listWalks(from: string, to: string): Promise<Walk[]> {
     const res = await api.get<ApiResponse<Walk[]>>('/walks', { params: { from, to } })

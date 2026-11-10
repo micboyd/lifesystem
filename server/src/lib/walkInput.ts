@@ -61,6 +61,44 @@ function readRoute(raw: unknown): WalkRoute | null | undefined {
     }
 }
 
+export type LibraryFields = Omit<WalkFields, 'date' | 'time'>
+
+/** A walk with no day: read as a walk on a placeholder day, then the day taken off. */
+export function readLibraryItem(body: Record<string, unknown>): { ok: true; value: LibraryFields } | { ok: false; message: string } {
+    const read = readWalk({ ...body, date: '2000-01-01', time: '00:00' })
+    if (!read.ok) return read
+    return { ok: true, value: planOf(read.value) }
+}
+
+/** A walk's plan, without the day it's on. */
+export function planOf(v: WalkFields): LibraryFields {
+    return { name: v.name, pace: v.pace, goal: v.goal, start: v.start, stops: v.stops, end: v.end, route: v.route }
+}
+
+/** Weekdays (0 Sunday – 6 Saturday), sorted. Absent is none; null if malformed. */
+export function readDays(raw: unknown): number[] | null {
+    if (raw === undefined || raw === null) return []
+    if (!Array.isArray(raw) || !raw.every((d) => Number.isInteger(d) && d >= 0 && d <= 6)) return null
+    return [...new Set(raw as number[])].sort((a, b) => a - b)
+}
+
+export interface FavouriteFields {
+    start: WalkPoint
+    stops: WalkPoint[]
+    end: WalkPoint | null
+    route: WalkRoute
+}
+
+/** A route to star: it must have a real line and a start. */
+export function readFavourite(body: Record<string, unknown>): FavouriteFields | null {
+    const start = readWalkPoint(body.start)
+    const stops = readStops(body.stops)
+    const end = body.end ? readWalkPoint(body.end) : null
+    const route = readRoute(body.route)
+    if (!start || !stops || (body.end && !end) || !route) return null
+    return { start, stops, end, route }
+}
+
 export function readWalk(body: Record<string, unknown>): WalkRead {
     const fail = (message: string): WalkRead => ({ ok: false, message })
     const { date, time, pace, goal } = body

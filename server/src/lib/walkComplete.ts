@@ -1,11 +1,12 @@
 import { RouteError, type OrsRoute } from './openroute'
-import { destinationPoint, haversine, type LatLng } from './routeGeo'
+import { destinationPoint, haversine, nearestOnLine, pathLength, repeatedShare, trimSpurs, type Coord, type LatLng } from './routeGeo'
 
 /**
  * Make a walk through fixed places reach its target. The places stay, in order;
  * one made-up point is pushed out to the side of a long leg to add the distance.
- * The first wave tries a few directions; the second rescales the closest. Among
- * those on target the least rough wins (unpaved ground and steps).
+ * Spurs are cut, and a route that doubles back loses to one that doesn't, so
+ * it comes out a real circuit. The first wave tries a few directions; the second
+ * rescales the closest. Among those on target the least rough wins.
  */
 
 export interface CompleteClient {
@@ -38,6 +39,10 @@ export const MAX_COMPLETE_CALLS = 1 + FIRST_WAVE * 2 + SECOND_WAVE
 
 /** Tighter than the page's 5%, so a route picked as on target also reads as on target. */
 export const COMPLETE_TOLERANCE = 0.04
+/** More of a route than this over ground it already walked, and it isn't a real loop. */
+export const MAX_REPEATED = 0.08
+/** When the places already reach the target, the detour that turns there-and-back into a circuit. */
+const LOOP_ONLY_EXTRA = 0.15
 /** Streets wind: the walked extra is roughly this much more than the straight-line extra. */
 const DETOUR = 1.3
 const ANGLES = [90, -90, 60, -60, 120, -120]
@@ -64,15 +69,25 @@ interface Plan {
 interface Tried extends Plan {
     stop: LatLng
     route: OrsRoute
+    repeated: number
+}
+
+/** Cut the spurs from a candidate, keeping the places asked for. Distance keeps the router's scale. */
+function tidied(route: OrsRoute, keep: LatLng[]): OrsRoute {
+    const coords = trimSpurs(route.coords as Coord[], keep)
+    if (coords.length === route.coords.length) return route
+    return { ...route, coords, distanceM: route.distanceM * (pathLength(coords) / pathLength(route.coords as Coord[])), ascentM: undefined, descentM: undefined }
 }
 
 export async function completeRoute(input: CompleteInput): Promise<CompleteResult> {
     const { points, targetM, seed, client } = input
     const base = await client.route(points, null, false)
     let calls = 1
-    if (base.distanceM >= targetM * (1 - COMPLETE_TOLERANCE)) return { route: base, stop: null, stopIndex: 0, calls }
+    const longEnough = base.distanceM >= targetM * (1 - COMPLETE_TOLERANCE)
+    if (longEnough && repeatedShare(base.coords as Coord[]) <= MAX_REPEATED) return { route: base, stop: null, stopIndex: 0, calls }
 
-    const extraM = targetM - base.distanceM
+    // Long enough but there and back: a small detour still gives it a way round.
+    const extraM = Math.max(targetM - base.distanceM, base.distanceM * LOOP_ONLY_EXTRA)
     const legs = points
         .slice(0, -1)
         .map((p, i) => ({ i, m: haversine(p, points[i + 1]) }))
@@ -91,7 +106,11 @@ export async function completeRoute(input: CompleteInput): Promise<CompleteResul
             plans.map((plan) => {
                 const stop = pointFor(plan)
                 const via = [...points.slice(0, plan.leg + 1), stop, ...points.slice(plan.leg + 1)]
-                return client.route(via, plan.leg + 1, avoidSteps).then((route) => ({ ...plan, stop, route }))
+                return client.route(via, plan.leg + 1, avoidSteps).then((raw) => {
+                    const route = tidied(raw, points)
+                    // The pin sits on the line, so the route still holds if it's redrawn through it.
+                    return { ...plan, stop: nearestOnLine(route.coords as Coord[], stop), route, repeated: repeatedShare(route.coords as Coord[]) }
+                })
             })
         )
         return settled.flatMap((s) => (s.status === 'fulfilled' ? [s.value] : []))
@@ -100,7 +119,9 @@ export async function completeRoute(input: CompleteInput): Promise<CompleteResul
     const first: Plan[] = Array.from({ length: FIRST_WAVE }, (_, i) => {
         // Two directions off the longest leg, the third off the next one along.
         const leg = legs[i === 2 && legs.length > 1 ? 1 : 0]
-        return { leg: leg.i, angle: ANGLES[(seed * FIRST_WAVE + i) % ANGLES.length], offsetM: detourOffset(leg.m, extraM) }
+        // The turn of ±30° means a new day's seed gives a new walk, not just one of a few.
+        const turn = ((seed * 47) % 61) - 30
+        return { leg: leg.i, angle: ANGLES[(seed * FIRST_WAVE + i) % ANGLES.length] + turn, offsetM: detourOffset(leg.m, extraM) }
     })
 
     let avoidSteps = true
@@ -114,15 +135,19 @@ export async function completeRoute(input: CompleteInput): Promise<CompleteResul
 
     const missBy = (t: Tried) => Math.abs(t.route.distanceM - targetM)
     const allowed = targetM * COMPLETE_TOLERANCE
-    if (!tried.some((t) => missBy(t) <= allowed)) {
-        const closest = [...tried].sort((a, b) => missBy(a) - missBy(b))[0]
+    const looped = (list: Tried[]) => list.filter((t) => t.repeated <= MAX_REPEATED)
+    const pool = (list: Tried[]) => (looped(list).length ? looped(list) : list)
+    if (!looped(tried).some((t) => missBy(t) <= allowed)) {
+        const closest = [...pool(tried)].sort((a, b) => missBy(a) - missBy(b))[0]
         const added = closest.route.distanceM - base.distanceM
         const ratio = added > 0 ? Math.min(2.5, Math.max(0.4, extraM / added)) : 1.5
         const second = [ratio, ratio * (extraM > added ? 1.15 : 0.85)].slice(0, SECOND_WAVE)
         tried = [...tried, ...(await run(second.map((r) => ({ leg: closest.leg, angle: closest.angle, offsetM: closest.offsetM * r })), avoidSteps))]
     }
 
-    const onTarget = tried.filter((t) => missBy(t) <= allowed).sort((a, b) => (a.route.roughShare ?? 0) - (b.route.roughShare ?? 0))
-    const best = onTarget[0] ?? [...tried].sort((a, b) => missBy(a) - missBy(b))[0]
+    const onTarget = pool(tried)
+        .filter((t) => missBy(t) <= allowed)
+        .sort((a, b) => (a.route.roughShare ?? 0) - (b.route.roughShare ?? 0))
+    const best = onTarget[0] ?? [...pool(tried)].sort((a, b) => missBy(a) - missBy(b))[0]
     return { route: best.route, stop: best.stop, stopIndex: best.leg, calls }
 }

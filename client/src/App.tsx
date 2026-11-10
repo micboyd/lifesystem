@@ -73,6 +73,14 @@ export default function App() {
 
             {/* The walk planner takes the whole screen: signed in, but no shell. */}
             <Route
+                path="/walking/library/:id"
+                element={
+                    <ProtectedRoute>
+                        <WalkPlanner library />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
                 path="/walking/:id"
                 element={
                     <ProtectedRoute>

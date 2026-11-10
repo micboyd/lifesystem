@@ -135,6 +135,41 @@ export function repeatedShare(coords: Coord[]): number {
     return repeated / cells.length
 }
 
+/** Metres within which a spur's tip counts as reaching a place you asked to pass. */
+const KEEP_NEAR_M = 75
+
+/**
+ * Cut out "up the street and back": wherever the line reverses over its own
+ * points, the spur goes, unless its tip is somewhere in `keep`. Routes come off
+ * one street graph, so a retraced stretch repeats the same coordinates exactly.
+ * If that would leave under 30% of the line, it was all spur: left alone.
+ */
+export function trimSpurs(coords: Coord[], keep: LatLng[]): Coord[] {
+    const same = (a: Coord, b: Coord) => a[0] === b[0] && a[1] === b[1]
+    const kept = (c: Coord) => keep.some((p) => haversine(toLatLng(c), p) <= KEEP_NEAR_M)
+    const out: Coord[] = []
+    for (const c of coords) {
+        const n = out.length
+        if (n >= 2 && same(c, out[n - 2]) && !kept(out[n - 1])) out.pop()
+        else out.push(c)
+    }
+    return pathLength(out) < pathLength(coords) * 0.3 ? coords : out
+}
+
+/** The point of a line nearest `p`. */
+export function nearestOnLine(coords: Coord[], p: LatLng): LatLng {
+    let best = toLatLng(coords[0])
+    let bestM = Infinity
+    for (const c of coords) {
+        const m = haversine(toLatLng(c), p)
+        if (m < bestM) {
+            bestM = m
+            best = toLatLng(c)
+        }
+    }
+    return best
+}
+
 /** The elevation `atM` metres along a line, or undefined where it has none. */
 export function elevationAt(coords: Coord[], atM: number): number | undefined {
     let walked = 0
