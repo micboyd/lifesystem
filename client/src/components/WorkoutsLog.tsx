@@ -437,7 +437,7 @@ function LogRow({
                                         className={`shrink-0 text-sm tabular-nums ${
                                             best
                                                 ? 'font-semibold text-neutral-900'
-                                                : 'text-neutral-400'
+                                                : 'text-neutral-500'
                                         }`}
                                     >
                                         {best ? formatSet(best) : formatSetsReps(ex) || '—'}

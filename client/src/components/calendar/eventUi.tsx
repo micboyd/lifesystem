@@ -113,7 +113,7 @@ export function Segment({
                     : 'text-neutral-600 hover:text-neutral-900'
             }`}
         >
-            {icon && <i className={`${icon} text-[11px] ${on ? 'text-neutral-700' : 'text-neutral-400'}`} aria-hidden="true" />}
+            {icon && <i className={`${icon} text-[11px] ${on ? 'text-neutral-700' : 'text-neutral-500'}`} aria-hidden="true" />}
             {children}
         </button>
     )

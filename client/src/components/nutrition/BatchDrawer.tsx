@@ -323,7 +323,7 @@ export function BatchDrawer({
                                         onClick={() =>
                                             setRows((prev) => prev.filter((_, j) => j !== i))
                                         }
-                                        className="grid h-11 w-9 shrink-0 place-items-center rounded-xl text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                        className="grid h-11 w-9 shrink-0 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                                     >
                                         <i className="fa-solid fa-xmark" aria-hidden="true" />
                                     </button>
@@ -352,7 +352,7 @@ export function BatchDrawer({
                                 ))}
                             </div>
                             <div className="flex items-center justify-between gap-3">
-                                <p className="text-[11px] text-neutral-400">
+                                <p className="text-[11px] text-neutral-500">
                                     per 100 g · kcal, protein, carbs, fat
                                 </p>
                                 <label className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 text-xs font-medium text-neutral-600">

@@ -740,7 +740,7 @@ function PastRow({ week }: { week: PastWeek }) {
                 <div className="min-w-0">
                     <p className="text-[15px] font-semibold text-neutral-500">
                         Week {week.index}
-                        <span className="nums ml-2 text-[13px] font-normal text-neutral-400">
+                        <span className="nums ml-2 text-[13px] font-normal text-neutral-500">
                             {fmtDate(week.start)} – {fmtDate(week.end)}
                         </span>
                         <span className="ml-2 inline-flex h-5 items-center rounded-full bg-neutral-100 px-1.5 align-middle text-[11px] font-medium text-neutral-500">
@@ -749,7 +749,7 @@ function PastRow({ week }: { week: PastWeek }) {
                         </span>
                     </p>
                     {meta && (
-                        <p className="nums mt-1 flex items-center gap-1.5 text-[12px] text-neutral-400">
+                        <p className="nums mt-1 flex items-center gap-1.5 text-[12px] text-neutral-500">
                             {phase && <span className={`h-2 w-2 shrink-0 rounded-full opacity-60 ${phase.dot}`} aria-hidden="true" />}
                             <span className="truncate">{meta}</span>
                         </p>

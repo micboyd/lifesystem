@@ -41,7 +41,7 @@ export function DayMenu({ label, items }: { label: string; items: MenuEntry[] })
                     type="button"
                     aria-label={label}
                     title="Day options"
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                 >
                     <i className="fa-solid fa-ellipsis text-[13px]" aria-hidden="true" />
                 </button>
@@ -238,7 +238,7 @@ export function EmptySlotTile({
             } ${
                 active
                     ? 'bg-coral-50 text-coral-600 outline-coral-300'
-                    : 'text-neutral-400 outline-neutral-200 group-hover:text-neutral-600 group-hover:outline-neutral-300'
+                    : 'text-neutral-500 outline-neutral-200 group-hover:text-neutral-600 group-hover:outline-neutral-300'
             }`}
         >
             <span className="flex min-w-0 items-stretch gap-2.5">
@@ -475,7 +475,7 @@ export function CopiedBanner({
 }) {
     return (
         <div className="flex items-center gap-3 rounded-2xl bg-neutral-100 px-4 py-2 text-[13px] text-neutral-700">
-            <i className="fa-solid fa-paste text-xs text-neutral-400" aria-hidden="true" />
+            <i className="fa-solid fa-paste text-xs text-neutral-500" aria-hidden="true" />
             <span className="min-w-0 flex-1 truncate">
                 <span className="font-semibold text-neutral-900">{name}</span> copied — right-click a slot, or tap +, to
                 paste it

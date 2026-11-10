@@ -1037,7 +1037,7 @@ function StepperBar({
 // ─── One exercise ───────────────────────────────────────────────────────────────
 
 const inputCls =
-    'h-12 w-full min-w-0 rounded-xl border bg-white px-2 text-center text-base font-semibold tabular-nums text-neutral-900 outline-none transition-[border-color,box-shadow] placeholder:font-normal placeholder:text-neutral-400 hover:border-neutral-300 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none'
+    'h-12 w-full min-w-0 rounded-xl border bg-white px-2 text-center text-base font-semibold tabular-nums text-neutral-900 outline-none transition-[border-color,box-shadow] placeholder:font-normal placeholder:text-neutral-500 hover:border-neutral-300 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none'
 
 function ExerciseStep({
     ex,
@@ -1241,7 +1241,7 @@ function ExerciseStep({
                         </span>
                     </div>
                     <div
-                        className={`grid ${cols} items-center gap-x-2 px-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-400`}
+                        className={`grid ${cols} items-center gap-x-2 px-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500`}
                     >
                         <span className="text-center">Set</span>
                         {hasLast && <span className="text-center">Last</span>}
@@ -1271,7 +1271,7 @@ function ExerciseStep({
                                             ? 'text-emerald-700'
                                             : here
                                               ? 'text-neutral-900'
-                                              : 'text-neutral-400'
+                                              : 'text-neutral-500'
                                     }`}
                                 >
                                     {si + 1}
@@ -1381,7 +1381,7 @@ function ExerciseStep({
                             aria-live="polite"
                         >
                             <i
-                                className={`fa-solid ${volume.tone === 'up' ? 'fa-arrow-trend-up text-emerald-600' : volume.tone === 'down' ? 'fa-arrow-trend-down text-neutral-400' : 'fa-equals text-neutral-400'} text-xs`}
+                                className={`fa-solid ${volume.tone === 'up' ? 'fa-arrow-trend-up text-emerald-600' : volume.tone === 'down' ? 'fa-arrow-trend-down text-neutral-500' : 'fa-equals text-neutral-500'} text-xs`}
                                 aria-hidden="true"
                             />
                             <span className="min-w-0">
@@ -1411,7 +1411,7 @@ function DeltaTag({ n, unit }: { n: number; unit: 'kg' | 'rep' }) {
     const label = unit === 'kg' ? `${abs} kg` : `${abs} rep${abs === 1 ? '' : 's'}`
     return (
         <span
-            className={`block pt-1.5 text-center text-[11px] leading-none font-semibold tabular-nums ${n > 0 ? 'text-emerald-700' : 'text-neutral-400'}`}
+            className={`block pt-1.5 text-center text-[11px] leading-none font-semibold tabular-nums ${n > 0 ? 'text-emerald-700' : 'text-neutral-500'}`}
         >
             {n > 0 ? '+' : '−'}
             {label}
@@ -1438,7 +1438,7 @@ function TargetCard({
             <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
                     <i
-                        className={`fa-solid ${suggestion.kind === 'up' ? 'fa-arrow-trend-up text-emerald-600' : 'fa-repeat text-neutral-400'} text-[10px]`}
+                        className={`fa-solid ${suggestion.kind === 'up' ? 'fa-arrow-trend-up text-emerald-600' : 'fa-repeat text-neutral-500'} text-[10px]`}
                         aria-hidden="true"
                     />
                     {suggestion.kind === 'up' ? 'Go heavier today' : 'Same weight, more reps'}
@@ -1569,7 +1569,7 @@ function SkippedStrip({
             {skipped.map(({ ex, i }) => (
                 <div key={i} className="flex items-center gap-3 py-1.5">
                     <i
-                        className="fa-solid fa-forward w-3 text-center text-[10px] text-neutral-400"
+                        className="fa-solid fa-forward w-3 text-center text-[10px] text-neutral-500"
                         aria-hidden="true"
                     />
                     <span className="min-w-0 flex-1 truncate text-sm text-neutral-500">

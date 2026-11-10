@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Container from '../components/Container'
+import { DashCards } from '../components/dashboard/DashSection'
 import DashboardHeader from '../components/dashboard/DashboardHeader'
 import DashboardDateNav from '../components/dashboard/DashboardDateNav'
 import YourDayWidget from '../components/dashboard/YourDayWidget'
@@ -12,40 +13,49 @@ import BirthdaysWidget from '../components/dashboard/BirthdaysWidget'
 import { todayKey } from '../lib/calendar'
 
 /**
- * The day on one open page, most important first. A greeting, then Your day —
- * training, meals, habits and targets, in order, and what to do next — which
- * is the one place today lives. Then, quieter, a row of things to glance at:
- * the timeline, steps and walks, the weather, countdowns, and birthdays when one is close.
+ * The day on one page, most important first. A greeting; Your day's score and
+ * targets in one strip; then the plan — what's happening now and the day in
+ * order — with steps and the weather beside it, since they shape the day. Then,
+ * quieter, a row of things to glance at: the timeline, countdowns, and
+ * birthdays when one is close. Every section sits on its own card.
  */
 export default function Home() {
     const [date, setDate] = useState(todayKey())
     const { show: showTomorrow } = useTomorrowVisible(date)
 
     return (
-        <Container as="main" className="pb-20 pt-8 sm:pt-14">
+        <Container as="main" wide className="pb-20 pt-8 sm:pt-12">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                 <DashboardHeader />
                 <DashboardDateNav date={date} onChange={setDate} />
             </div>
 
-            <div className="mt-10 sm:mt-12">
-                <YourDayWidget date={date} />
-            </div>
-
-            {/* Evenings only: tonight's prep for tomorrow, across the whole page. */}
-            {showTomorrow && (
-                <div className="mt-14 sm:mt-16">
-                    <TomorrowWidget date={date} />
+            <DashCards>
+                <div className="mt-8 sm:mt-10">
+                    <YourDayWidget
+                        date={date}
+                        aside={
+                            <>
+                                <StepsWidget />
+                                <WeatherWidget />
+                            </>
+                        }
+                    />
                 </div>
-            )}
 
-            <div className="mt-14 grid gap-x-12 gap-y-12 border-t border-neutral-200 pt-12 sm:mt-16 md:grid-cols-2 lg:grid-cols-3">
-                <TimelineWidget />
-                <StepsWidget />
-                <WeatherWidget />
-                <CountdownsWidget />
-                <BirthdaysWidget date={date} />
-            </div>
+                {/* Evenings only: tonight's prep for tomorrow, across the whole page. */}
+                {showTomorrow && (
+                    <div className="mt-5">
+                        <TomorrowWidget date={date} />
+                    </div>
+                )}
+
+                <div className="mt-5 grid items-start gap-5 md:grid-cols-2 lg:grid-cols-3">
+                    <TimelineWidget />
+                    <CountdownsWidget />
+                    <BirthdaysWidget date={date} />
+                </div>
+            </DashCards>
         </Container>
     )
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { AreaIcon, DASH, SectionLoading } from './DashSection'
+import { AREA_TONES, AreaIcon, DASH, DASH_CARD, SectionLoading, type AreaTone } from './DashSection'
 import { useNutritionToday, type NutritionToday } from './useNutritionToday'
 import { listPlanEntries } from '../../services/fitnessPlan'
 import { listLogs as listWorkoutLogs } from '../../services/workoutLogs'
@@ -26,6 +26,18 @@ import {
 import type { FitnessPlanEntry, HabitDef } from '../../types'
 
 const PART_LABEL: Record<DayPart, string> = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' }
+
+/** The area each kind of step belongs to, as a tag on its row: same hue as that area everywhere else. */
+const KIND_TAG: Partial<Record<StepKind, { label: string; tone: AreaTone }>> = {
+    weigh: { label: 'Body', tone: 'navy' },
+    training: { label: 'Training', tone: 'violet' },
+    rest: { label: 'Rest', tone: 'violet' },
+    walk: { label: 'Walk', tone: 'green' },
+    meal: { label: 'Meals', tone: 'orange' },
+    'plan-meals': { label: 'Meals', tone: 'orange' },
+    protein: { label: 'Meals', tone: 'orange' },
+    calories: { label: 'Meals', tone: 'orange' },
+}
 
 /** Where each kind of step is done, and what the Next up button says. */
 const ACTION: Record<StepKind, { to: string; label: string }> = {
@@ -123,7 +135,14 @@ function useDayRecords(date: string) {
  * its part of the day; protein and calories up by the score. Habits tick
  * here; everything else opens where it's done.
  */
-export default function YourDayWidget({ date }: { date: string }) {
+export default function YourDayWidget({
+    date,
+    aside,
+}: {
+    date: string
+    /** Cards to sit beside the plan on wide screens (Home passes steps and weather). */
+    aside?: ReactNode
+}) {
     const today = todayKey()
     const nowMin = useMinutes()
     const invalidate = useInvalidate()
@@ -177,10 +196,15 @@ export default function YourDayWidget({ date }: { date: string }) {
     if (!day)
         return (
             <section className="min-w-0" aria-label="Your day">
-                <div className="mb-5">
+                <div className={DASH_CARD}>
                     <Title summary={null} />
                 </div>
-                <SectionLoading rows={4} />
+                <div className="mt-5 grid items-start gap-5 lg:grid-cols-12">
+                    <div className={`${DASH_CARD} lg:col-span-8`}>
+                        <SectionLoading rows={5} />
+                    </div>
+                    {aside && <div className="flex min-w-0 flex-col gap-5 lg:col-span-4">{aside}</div>}
+                </div>
             </section>
         )
 
@@ -197,41 +221,34 @@ export default function YourDayWidget({ date }: { date: string }) {
 
     return (
         <section className="min-w-0" aria-label="Your day">
-            <div className="mb-5 flex flex-wrap items-end justify-between gap-x-10 gap-y-5">
-                <Title summary={summaryOf(day, date, today)} />
+            {/* The day's score and targets in one strip, so the state of today reads first. */}
+            <div className={`${DASH_CARD} flex flex-wrap items-center justify-between gap-x-10 gap-y-5`}>
+                <div className="flex min-w-0 items-center gap-4">
+                    {day.total > 0 && <ScoreRing day={day} />}
+                    <Title summary={summaryOf(day, date, today)} />
+                </div>
                 <div className="flex w-full items-end gap-5 sm:w-auto sm:gap-8">
                     <Targets day={day} nutrition={nutrition} />
-                    {day.total > 0 && (
-                        <p className="nums ml-auto shrink-0 text-[28px] font-semibold leading-none tracking-[-0.03em] text-neutral-950 sm:ml-0">
-                            {day.done}
-                            <span className="ml-1 text-base font-medium tracking-normal text-neutral-500">/ {day.total}</span>
-                        </p>
-                    )}
                 </div>
             </div>
-            <ScoreBar day={day} />
 
-            <div className="mt-8 grid gap-8 lg:grid-cols-12 lg:gap-x-12">
-                <div className="self-start lg:col-span-4">
+            <div className="mt-5 grid items-start gap-5 lg:grid-cols-12">
+                <div className={`${DASH_CARD} min-w-0 !p-2 sm:!p-2 lg:col-span-8`}>
                     <NextUp day={day} date={date} today={today} onTick={toggleHabit} />
-                </div>
-                <div className="min-w-0 lg:col-span-8">
-                    <div className="grid gap-8 sm:grid-cols-3 sm:gap-6">
+                    <div className="flex flex-col gap-5 px-3 pb-3 pt-5 sm:px-4">
                         {DAY_PARTS.map((part) => (
-                            <PartColumn key={part} part={part} day={day}>
+                            <PartGroup key={part} label={PART_LABEL[part]} part={part} day={day}>
                                 {day.steps.filter((s) => s.part === part).map(row)}
-                            </PartColumn>
+                            </PartGroup>
                         ))}
-                    </div>
-                    {anyTime.length > 0 && (
-                        <div className="mt-8">
-                            <p className="mb-2 text-[13px] font-medium text-neutral-600">Any time</p>
-                            <ul className="grid border-t border-neutral-200 sm:grid-cols-3 sm:gap-x-6 [&>li]:border-b [&>li]:border-neutral-200">
+                        {anyTime.length > 0 && (
+                            <PartGroup label="Any time" day={day} steps={anyTime}>
                                 {anyTime.map(row)}
-                            </ul>
-                        </div>
-                    )}
+                            </PartGroup>
+                        )}
+                    </div>
                 </div>
+                {aside && <div className="flex min-w-0 flex-col gap-5 lg:col-span-4">{aside}</div>}
             </div>
         </section>
     )
@@ -256,7 +273,7 @@ function Title({ summary }: { summary: string | null }) {
                     <h2 className="text-xl font-semibold tracking-[-0.015em] text-neutral-900">Your day</h2>
                     <Link
                         to="/perfect-day"
-                        className="grid h-7 w-7 place-items-center rounded-full text-[13px] text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                        className="grid h-7 w-7 place-items-center rounded-full text-[13px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                         aria-label="Choose what makes a perfect day"
                         title="Choose what makes a perfect day"
                     >
@@ -306,27 +323,29 @@ function Targets({ day, nutrition }: { day: YourDay; nutrition: NutritionToday }
     )
 }
 
-/** One segment per task: done, still to do, or over / missed. */
-function ScoreBar({ day }: { day: YourDay }) {
-    const tasks = day.steps.filter(isTask)
-    if (tasks.length === 0) return null
-    // Done first, so the bar fills from the left.
-    const order: Record<string, number> = { done: 0, over: 1, missed: 1, todo: 2 }
-    const sorted = [...tasks].sort((a, b) => order[a.state] - order[b.state])
+/** Done out of total as a ring, with the count in the middle. */
+function ScoreRing({ day }: { day: YourDay }) {
+    const r = 21
+    const length = 2 * Math.PI * r
+    const share = day.total ? day.done / day.total : 0
     return (
-        <div className="flex gap-1" role="img" aria-label={`${day.done} of ${day.total} done`}>
-            {sorted.map((s) => (
-                <span
-                    key={s.id}
-                    className={`h-1.5 min-w-0 flex-1 rounded-full ${
-                        s.state === 'done'
-                            ? 'bg-success'
-                            : s.state === 'over' || s.state === 'missed'
-                              ? 'bg-danger'
-                              : 'bg-neutral-200'
-                    }`}
+        <div className="relative grid h-14 w-14 shrink-0 place-items-center" role="img" aria-label={`${day.done} of ${day.total} done`}>
+            <svg className="absolute inset-0 -rotate-90" viewBox="0 0 52 52" aria-hidden="true">
+                <circle cx="26" cy="26" r={r} fill="none" strokeWidth="5" className="stroke-neutral-200" />
+                <circle
+                    cx="26"
+                    cy="26"
+                    r={r}
+                    fill="none"
+                    strokeWidth="5"
+                    strokeLinecap="round"
+                    className={`${day.perfect ? 'stroke-success' : 'stroke-neutral-900'} transition-[stroke-dasharray] duration-500`}
+                    strokeDasharray={`${Math.max(share * length, share > 0 ? 1 : 0)} ${length}`}
                 />
-            ))}
+            </svg>
+            <span className="tabular-nums text-[13px] font-medium text-neutral-900">
+                {day.done}/{day.total}
+            </span>
         </div>
     )
 }
@@ -344,7 +363,7 @@ function NextUp({
     today: string
     onTick: (habitId: string) => void
 }) {
-    const panel = 'rounded-3xl p-6 sm:p-7'
+    const panel = 'rounded-2xl p-5 sm:p-6'
     const overline = 'text-[11px] font-medium uppercase tracking-[0.06em]'
     if (date !== today) {
         const { year, month, day: dayOfMonth } = parseDateKey(date)
@@ -394,14 +413,19 @@ function NextUp({
 
     const action = ACTION[next.kind]
     const button =
-        'mt-6 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-white text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-100'
+        'flex h-11 w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-100 sm:w-auto'
     return (
-        <div className={`${panel} bg-neutral-900 text-white`}>
-            <p className={`${overline} text-neutral-400`}>Next up · {next.part ? PART_LABEL[next.part] : 'Any time'}</p>
-            <p className="mt-3 text-2xl font-semibold leading-tight tracking-[-0.025em]">
-                {next.kind === 'protein' ? `Get to ${next.title}` : next.title}
-            </p>
-            {next.detail && <p className="mt-1.5 text-[14px] leading-6 text-neutral-300">{next.detail}</p>}
+        <div className={`${panel} flex flex-col gap-5 bg-neutral-900 text-white sm:flex-row sm:items-end sm:justify-between`}>
+            <div className="min-w-0">
+                <p className={`${overline} flex items-center gap-2 text-neutral-500`}>
+                    <span className="h-1.5 w-1.5 rounded-full bg-coral-400" aria-hidden="true" />
+                    Next up · {next.part ? PART_LABEL[next.part] : 'Any time'}
+                </p>
+                <p className="mt-2.5 text-2xl font-semibold leading-tight tracking-[-0.025em]">
+                    {next.kind === 'protein' ? `Get to ${next.title}` : next.title}
+                </p>
+                {next.detail && <p className="mt-1.5 text-[14px] leading-6 text-neutral-300">{next.detail}</p>}
+            </div>
             {next.habitId ? (
                 <button type="button" className={button} onClick={() => onTick(next.habitId!)}>
                     <i className="fa-solid fa-check text-xs" aria-hidden="true" />
@@ -419,25 +443,45 @@ function NextUp({
 
 // ── The day in order ─────────────────────────────────────────────────────────
 
-function PartColumn({ part, day, children }: { part: DayPart; day: YourDay; children: ReactNode[] }) {
-    const now = day.nowPart === part
-    const passed = day.nowPart !== null && DAY_PARTS.indexOf(part) < DAY_PARTS.indexOf(day.nowPart)
+/** One part of the day as a group: its name, Now when it's the current one, a count, then its steps. */
+function PartGroup({
+    label,
+    part,
+    day,
+    steps,
+    children,
+}: {
+    label: string
+    part?: DayPart
+    day: YourDay
+    /** The group's steps, when it isn't a part of the day (Any time). */
+    steps?: DayStep[]
+    children: ReactNode[]
+}) {
+    const now = part !== undefined && day.nowPart === part
+    const passed =
+        part !== undefined && day.nowPart !== null && DAY_PARTS.indexOf(part) < DAY_PARTS.indexOf(day.nowPart)
+    const own = (steps ?? day.steps.filter((s) => s.part === part)).filter(isTask)
+    const done = own.filter((s) => s.state === 'done').length
     return (
         <div className="min-w-0">
-            <div className="mb-2 flex h-6 items-center gap-2">
-                <p className={`text-[13px] font-medium ${passed ? 'text-neutral-400' : 'text-neutral-600'}`}>
-                    {PART_LABEL[part]}
-                </p>
+            <div className="mb-1 flex h-6 items-center gap-2 px-2">
+                <p className={`text-[13px] font-semibold ${passed ? 'text-neutral-500' : 'text-neutral-700'}`}>{label}</p>
                 {now && (
-                    <span className="inline-flex h-5 items-center rounded-full bg-coral-50 px-2 text-[11px] font-semibold text-coral-600">
+                    <span className="inline-flex h-5 items-center rounded-full bg-coral-50 px-2 text-[11px] font-semibold text-coral-700">
                         Now
+                    </span>
+                )}
+                {own.length > 0 && (
+                    <span className="tabular-nums ml-auto text-[12px] text-neutral-500">
+                        {done} of {own.length}
                     </span>
                 )}
             </div>
             {children.length === 0 ? (
-                <p className="border-y border-neutral-200 py-3 text-[14px] text-neutral-400">Nothing planned</p>
+                <p className="rounded-xl px-2 py-3 text-[14px] text-neutral-500">Nothing planned</p>
             ) : (
-                <ul className={DASH.list}>{children}</ul>
+                <ul className="flex flex-col">{children}</ul>
             )}
         </div>
     )
@@ -457,12 +501,13 @@ function StepRow({
     onTick: (habitId: string) => void
 }) {
     const quiet = step.state === 'done' || step.state === 'handled'
+    const tag = KIND_TAG[step.kind]
     const body = (
         <>
             <StateMark step={step} isNext={isNext} />
             <div className="min-w-0 flex-1">
                 <p
-                    className={`truncate text-[15px] group-hover:underline group-hover:underline-offset-4 ${
+                    className={`truncate text-[15px] ${
                         quiet ? 'text-neutral-500' : 'text-neutral-900'
                     } ${isNext ? 'font-medium' : ''}`}
                 >
@@ -472,12 +517,24 @@ function StepRow({
                     <p className="mt-0.5 truncate text-[13px] text-neutral-500">{step.detail}</p>
                 )}
             </div>
-            {icon && <i className={`${icon} shrink-0 pt-1 text-xs text-neutral-300`} aria-hidden="true" />}
+            {icon ? (
+                <i className={`${icon} shrink-0 pt-1 text-xs text-neutral-500`} aria-hidden="true" />
+            ) : (
+                tag && (
+                    <span
+                        className={`mt-0.5 hidden h-6 shrink-0 items-center rounded-full px-2.5 text-[12px] font-medium sm:inline-flex ${AREA_TONES[tag.tone].tile}`}
+                    >
+                        {tag.label}
+                    </span>
+                )
+            )}
         </>
     )
-    const cls = 'group flex w-full items-start gap-3 py-3 text-left'
+    const cls = `group flex w-full items-start gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-neutral-50 ${
+        isNext ? 'bg-coral-50/60 hover:bg-coral-50' : ''
+    }`
     return (
-        <li>
+        <li className="border-t border-neutral-100 first:border-t-0">
             {step.habitId ? (
                 <button
                     type="button"
@@ -519,13 +576,13 @@ function StateMark({ step, isNext }: { step: DayStep; isNext: boolean }) {
         )
     if (step.state === 'handled')
         return (
-            <span className={`${box} bg-neutral-100 text-neutral-400`} aria-label="Not happening">
+            <span className={`${box} bg-neutral-100 text-neutral-500`} aria-label="Not happening">
                 <i className="fa-solid fa-minus" aria-hidden="true" />
             </span>
         )
     if (step.state === 'info')
         return (
-            <span className={`${box} text-neutral-400`} aria-hidden="true">
+            <span className={`${box} text-neutral-500`} aria-hidden="true">
                 <i className={'fa-solid fa-mug-hot'} />
             </span>
         )

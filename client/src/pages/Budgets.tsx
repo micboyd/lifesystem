@@ -908,7 +908,7 @@ function RemovedTransactionsDrawer({
                             onClick={() => setShowArchive(true)}
                             aria-label={`Archived (${archived.length})`}
                             title={`Archived (${archived.length})`}
-                            className="grid h-7 w-7 place-items-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                            className="grid h-7 w-7 place-items-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                         >
                             <i className="fa-solid fa-box-archive text-[11px]" aria-hidden="true" />
                         </button>

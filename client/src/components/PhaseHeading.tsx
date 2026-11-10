@@ -97,7 +97,7 @@ export function PhaseLabel({ phase, meta }: { phase: SessionPhase; meta?: ReactN
         <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
             <i className={`${m.icon} text-[10px] ${m.fg}`} aria-hidden="true" />
             {SESSION_PHASE_LABELS[phase]}
-            {meta != null && <span className="text-neutral-400">· {meta}</span>}
+            {meta != null && <span className="text-neutral-500">· {meta}</span>}
         </p>
     )
 }

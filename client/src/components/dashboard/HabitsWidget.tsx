@@ -30,7 +30,7 @@ export default function HabitsWidget({ date = todayKey() }: { date?: string }) {
     }, [])
 
     return (
-        <DashSection title="Habits &amp; goals" icon="fa-solid fa-bullseye" tone="green" to="/goals" action="All">
+        <DashSection title="Habits &amp; goals" icon="fa-solid fa-bullseye" tone="teal" to="/goals" action="All">
             <HabitTiles date={date} />
             {goals.length > 0 && (
                 <ul className={`${DASH.block} ${DASH.list}`}>

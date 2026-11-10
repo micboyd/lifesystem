@@ -181,7 +181,7 @@ function WeekDay({ day }: { day: StepsWeekDay }) {
         >
             <span className={DASH.note}>{name}</span>
             <span
-                className={`text-[13px] nums ${day.steps === null ? 'text-neutral-400' : 'text-neutral-900'}`}
+                className={`text-[13px] nums ${day.steps === null ? 'text-neutral-500' : 'text-neutral-900'}`}
             >
                 {day.steps === null ? '—' : short(day.steps)}
             </span>

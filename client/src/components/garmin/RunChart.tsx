@@ -88,7 +88,7 @@ export default function RunChart({
                 }}
                 onPointerLeave={() => onHover(null)}
             >
-                <path d={shape.line} fill="none" stroke="#171717" strokeWidth={1.75} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+                <path d={shape.line} fill="none" stroke="#1a1917" strokeWidth={1.75} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
                 {cursor && (
                     <line
                         x1={shape.x(cursor.t)}

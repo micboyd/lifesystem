@@ -278,7 +278,7 @@ function OverviewPart({
     return (
         <li className="flex flex-col gap-2.5 px-4 py-3.5">
             <div className="flex items-start gap-3">
-                <span className="w-4 shrink-0 pt-px text-right text-xs font-semibold tabular-nums text-neutral-400">
+                <span className="w-4 shrink-0 pt-px text-right text-xs font-semibold tabular-nums text-neutral-500">
                     {number}
                 </span>
                 <div className="min-w-0 flex-1">

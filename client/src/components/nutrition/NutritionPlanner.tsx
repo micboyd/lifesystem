@@ -1064,7 +1064,7 @@ function DayCard({
                             onClick={onQuickAdd}
                             aria-label={`Quick add to ${weekday}`}
                             title="Quick add"
-                            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                         >
                             <i className="fa-solid fa-plus text-[13px]" aria-hidden="true" />
                         </button>
@@ -1088,7 +1088,7 @@ function DayCard({
 
             {awayAllDay ? (
                 <div className="flex items-center gap-3 rounded-xl bg-neutral-50 px-3 py-3">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-neutral-400 ring-1 ring-neutral-200">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-neutral-500 ring-1 ring-neutral-200">
                         <i className="fa-regular fa-calendar text-sm" aria-hidden="true" />
                     </span>
                     <span className="min-w-0 flex-1">
@@ -1292,7 +1292,7 @@ function PlannedRow({
 
     const trailing = isAwayNote(entry) ? (
         <span
-            className={`grid shrink-0 place-items-center rounded-full bg-neutral-100 text-neutral-400 ${
+            className={`grid shrink-0 place-items-center rounded-full bg-neutral-100 text-neutral-500 ${
                 compact ? 'h-6 w-6' : onToggle ? size : 'h-6 w-6'
             }`}
             title="Away — no meal here"
@@ -1413,7 +1413,7 @@ function DayEnergy({
                 aria-expanded={open}
                 className="flex min-h-10 w-full items-center gap-2 px-3 text-left"
             >
-                <i className="fa-solid fa-bolt text-[11px] text-neutral-400" aria-hidden="true" />
+                <i className="fa-solid fa-bolt text-[11px] text-neutral-500" aria-hidden="true" />
                 <span className="min-w-0 flex-1 truncate text-[13px] text-neutral-600">
                     {net !== null ? (
                         <>
@@ -1429,7 +1429,7 @@ function DayEnergy({
                             {fromGarmin && (
                                 <span title="Calories out from Garmin">
                                     {' '}
-                                    <WatchIcon className="-mt-0.5 align-middle text-neutral-400" />
+                                    <WatchIcon className="-mt-0.5 align-middle text-neutral-500" />
                                 </span>
                             )}
                         </>
@@ -1438,7 +1438,7 @@ function DayEnergy({
                     )}
                 </span>
                 <i
-                    className={`fa-solid fa-chevron-down text-[10px] text-neutral-400 transition-transform ${open ? 'rotate-180' : ''}`}
+                    className={`fa-solid fa-chevron-down text-[10px] text-neutral-500 transition-transform ${open ? 'rotate-180' : ''}`}
                     aria-hidden="true"
                 />
             </button>
@@ -1454,7 +1454,7 @@ function DayEnergy({
                         <span className="flex items-center justify-between gap-2 text-[13px] text-neutral-500">
                             Calories out
                             {fromGarmin && (
-                                <span className="inline-flex items-center gap-1 text-[11px] text-neutral-400">
+                                <span className="inline-flex items-center gap-1 text-[11px] text-neutral-500">
                                     <WatchIcon />
                                     Garmin
                                 </span>
@@ -1536,7 +1536,7 @@ function OutField({
                 onKeyDown={(e) => {
                     if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
                 }}
-                className="h-9 w-full rounded-lg bg-white pl-2 pr-10 text-right text-sm font-semibold tabular-nums text-neutral-900 outline-none ring-1 ring-inset ring-neutral-200 transition-shadow placeholder:font-normal placeholder:text-neutral-400 hover:ring-neutral-300 focus:ring-2 focus:ring-neutral-900"
+                className="h-9 w-full rounded-lg bg-white pl-2 pr-10 text-right text-sm font-semibold tabular-nums text-neutral-900 outline-none ring-1 ring-inset ring-neutral-200 transition-shadow placeholder:font-normal placeholder:text-neutral-500 hover:ring-neutral-300 focus:ring-2 focus:ring-neutral-900"
             />
             <span
                 className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-sm text-neutral-500"

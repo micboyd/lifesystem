@@ -184,7 +184,7 @@ export function ItemCue({ children }: { children?: ReactNode }) {
     if (!children) return null
     return (
         <p className="-mt-1 flex gap-2 text-sm leading-relaxed text-neutral-600">
-            <i className="fa-solid fa-quote-left mt-1 text-[10px] text-neutral-400" aria-hidden="true" />
+            <i className="fa-solid fa-quote-left mt-1 text-[10px] text-neutral-500" aria-hidden="true" />
             <span className="whitespace-pre-wrap">{children}</span>
         </p>
     )
@@ -230,7 +230,7 @@ export function StepChecklist({
                     if (!onToggle) {
                         return (
                             <li key={i} className="flex gap-3 px-2.5 py-2 text-sm text-neutral-700">
-                                <span className="w-4 shrink-0 text-right text-xs font-semibold tabular-nums leading-5 text-neutral-400">
+                                <span className="w-4 shrink-0 text-right text-xs font-semibold tabular-nums leading-5 text-neutral-500">
                                     {i + 1}
                                 </span>
                                 <span className="min-w-0">{step}</span>
@@ -255,7 +255,7 @@ export function StepChecklist({
                                     <i className="fa-solid fa-check text-[9px]" aria-hidden="true" />
                                 </span>
                                 <span
-                                    className={`min-w-0 ${on ? 'text-neutral-400 line-through decoration-neutral-300' : 'text-neutral-800'}`}
+                                    className={`min-w-0 ${on ? 'text-neutral-500 line-through decoration-neutral-300' : 'text-neutral-800'}`}
                                 >
                                     {step}
                                 </span>
@@ -296,7 +296,7 @@ export function StepsInput({
                     const v = e.target.value
                     onChange(v === '' ? undefined : v.split('\n'))
                 }}
-                className="w-full resize-y rounded-[10px] border border-neutral-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-neutral-400 hover:border-neutral-300 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
+                className="w-full resize-y rounded-[10px] border border-neutral-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-neutral-500 hover:border-neutral-300 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
             />
         </label>
     )

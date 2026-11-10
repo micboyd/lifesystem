@@ -35,7 +35,7 @@ export function WatchStepList({ steps, approximated = [] }: { steps: WatchStep[]
                 s.type === 'repeat' ? (
                     <li key={i} className="rounded-xl bg-neutral-50 px-3 py-2.5">
                         <p className="mb-1.5 text-[13px] font-semibold text-neutral-900">
-                            <i className="fa-solid fa-repeat mr-1.5 text-[11px] text-neutral-400" aria-hidden="true" />
+                            <i className="fa-solid fa-repeat mr-1.5 text-[11px] text-neutral-500" aria-hidden="true" />
                             Repeat {s.times}×
                         </p>
                         <WatchStepList steps={s.steps} approximated={approximated} />

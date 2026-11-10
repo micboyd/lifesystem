@@ -299,7 +299,7 @@ function PlanLanes({
             {lanes.map((lane) => (
                 <div key={lane.label} className="flex items-center" style={{ width }}>
                     <span
-                        className="grid shrink-0 place-items-center text-[11px] text-neutral-400"
+                        className="grid shrink-0 place-items-center text-[11px] text-neutral-500"
                         style={{ width: PAD.left }}
                         title={lane.label}
                     >

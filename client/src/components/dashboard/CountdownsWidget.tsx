@@ -91,7 +91,7 @@ export default function CountdownsWidget() {
     const empty = !loading && upcoming.length === 0 && running.length === 0
 
     return (
-        <DashSection title="Countdowns" icon="fa-solid fa-hourglass-half" tone="navy">
+        <DashSection title="Countdowns" icon="fa-solid fa-hourglass-half" tone="amber">
             {loading ? (
                 <SectionLoading />
             ) : empty ? (

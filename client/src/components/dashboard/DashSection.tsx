@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { createContext, useContext, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
 /**
@@ -13,6 +13,8 @@ export const AREA_TONES = {
     amber: { tile: 'bg-warning-bg text-amber-600', bar: 'bg-marigold' },
     sky: { tile: 'bg-sky-50 text-sky-600', bar: 'bg-sky-500' },
     violet: { tile: 'bg-violet-50 text-violet-600', bar: 'bg-violet-500' },
+    orange: { tile: 'bg-orange-50 text-orange-600', bar: 'bg-orange-500' },
+    teal: { tile: 'bg-teal-50 text-teal-600', bar: 'bg-teal-500' },
 } as const
 
 export type AreaTone = keyof typeof AREA_TONES
@@ -51,6 +53,24 @@ export const DASH = {
     dot: 'inline-block h-2 w-2 shrink-0 rounded-full',
 } as const
 
+/** The white card a section sits on when the page asks for cards (Home does). */
+export const DASH_CARD = 'rounded-3xl bg-white p-5 shadow-sm ring-1 ring-neutral-900/[0.06] sm:p-6'
+
+const DashCardContext = createContext(false)
+
+/**
+ * Wrap a page's sections in this to set each one on its own card. Pages that
+ * don't (Timeline, Walking…) keep sections sitting straight on the canvas.
+ */
+export function DashCards({ children }: { children: ReactNode }) {
+    return <DashCardContext.Provider value={true}>{children}</DashCardContext.Provider>
+}
+
+/** Whether sections here sit on cards. */
+export function useDashCards() {
+    return useContext(DashCardContext)
+}
+
 /** The tinted icon tile used beside headings and figures. */
 export function AreaIcon({ icon, tone, size = 'md' }: { icon: string; tone: AreaTone; size?: 'sm' | 'md' }) {
     const box = size === 'sm' ? 'h-7 w-7 rounded-lg text-xs' : 'h-8 w-8 rounded-[10px] text-sm'
@@ -87,13 +107,18 @@ export default function DashSection({
     children: ReactNode
     className?: string
 }) {
+    const card = useDashCards()
     return (
-        <section className={`min-w-0 ${className}`}>
+        <section className={`min-w-0 ${card ? DASH_CARD : ''} ${className}`}>
             <div className="mb-5 flex items-center justify-between gap-4">
                 <div className="flex min-w-0 items-center gap-3">
                     {icon && <AreaIcon icon={icon} tone={tone} />}
                     <div className="min-w-0">
-                        <h2 className="text-xl font-semibold tracking-[-0.015em] text-neutral-900">{title}</h2>
+                        <h2
+                            className={`${card ? 'text-lg' : 'text-xl'} font-semibold tracking-[-0.015em] text-neutral-900`}
+                        >
+                            {title}
+                        </h2>
                         {meta && <p className="mt-0.5 truncate text-[13px] text-neutral-500">{meta}</p>}
                     </div>
                 </div>

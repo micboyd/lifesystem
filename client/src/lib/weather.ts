@@ -951,7 +951,7 @@ export function conditionTone(code: number, isDay = true): string {
     if (code >= 95) return 'text-violet-500'
     if ((code >= 71 && code <= 77) || code === 85 || code === 86) return 'text-sky-400'
     if (code >= 51 && code <= 82) return 'text-sky-500'
-    if (code === 45 || code === 48 || code === 3) return 'text-neutral-400'
+    if (code === 45 || code === 48 || code === 3) return 'text-neutral-500'
     if (!isDay) return 'text-indigo-400'
     return 'text-amber-500'
 }

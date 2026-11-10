@@ -113,6 +113,87 @@
     --shadow-2xl: 0 32px 64px -16px rgba(26, 25, 23, 0.28);
 
     --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+    /* Life areas: each owns one hue, used for its icon tiles, tags and charts,
+       never for buttons. -bg is the tint, the plain token is text and icons on
+       it (each pair passes 5:1). Prefer these in new code. */
+    --color-area-home: #c92343;
+    --color-area-home-bg: #fff1f2;
+    --color-area-fitness: #5b3cc4;
+    --color-area-fitness-bg: #f3f0ff;
+    --color-area-walking: #1f7a45;
+    --color-area-walking-bg: #ecfdf3;
+    --color-area-nutrition: #a14a00;
+    --color-area-nutrition-bg: #fff4e5;
+    --color-area-money: #0b5c7d;
+    --color-area-money-bg: #eef4f7;
+    --color-area-weather: #0b6a9e;
+    --color-area-weather-bg: #eaf5fc;
+    --color-area-countdowns: #9a5200;
+    --color-area-countdowns-bg: #fff7eb;
+    --color-area-habits: #0f6e66;
+    --color-area-habits-bg: #e7f6f3;
+
+    /* The hues screens reach for directly, retuned to the area colours above so
+       every page picks them up without touching its classes. Text steps (600+)
+       pass 4.5:1 on their own 50 and 100 tints. */
+    --color-sky-50: #eaf5fc;
+    --color-sky-100: #d3eaf7;
+    --color-sky-200: #a9d4ee;
+    --color-sky-300: #74b9e2;
+    --color-sky-400: #3e9bd3;
+    --color-sky-500: #1a80bf;
+    --color-sky-600: #0b6a9e;
+    --color-sky-700: #08577f;
+    --color-sky-800: #074566;
+
+    --color-violet-50: #f3f0ff;
+    --color-violet-100: #e6e0ff;
+    --color-violet-200: #cec2fd;
+    --color-violet-300: #af9cf8;
+    --color-violet-400: #8e74ee;
+    --color-violet-500: #7356e2;
+    --color-violet-600: #5b3cc4;
+    --color-violet-700: #4a2fa3;
+    --color-violet-800: #3b2683;
+
+    /* Rose folds into coral, so there's one red-pink in the app. */
+    --color-rose-50: #fff1f2;
+    --color-rose-100: #ffe1e5;
+    --color-rose-200: #ffc2cb;
+    --color-rose-300: #ff8e9f;
+    --color-rose-400: #ff6b80;
+    --color-rose-500: #e0294a;
+    --color-rose-600: #c92343;
+    --color-rose-700: #b81e3b;
+    --color-rose-800: #8a1530;
+
+    --color-teal-50: #e7f6f3;
+    --color-teal-100: #c9ece5;
+    --color-teal-200: #97d8cc;
+    --color-teal-300: #5dbfae;
+    --color-teal-400: #2ea391;
+    --color-teal-500: #138778;
+    --color-teal-600: #0f6e66;
+    --color-teal-700: #0c5a54;
+    --color-teal-800: #0a4843;
+
+    --color-orange-50: #fff4e5;
+    --color-orange-100: #ffe5c2;
+    --color-orange-200: #ffcb8a;
+    --color-orange-300: #fbaa52;
+    --color-orange-400: #ef8a2a;
+    --color-orange-500: #d06e12;
+    --color-orange-600: #a14a00;
+    --color-orange-700: #843d00;
+    --color-orange-800: #6a3100;
+
+    /* Green is success. */
+    --color-green-50: #ecfdf3;
+    --color-green-100: #d3f5e0;
+    --color-green-200: #a8e6bf;
+    --color-green-600: #1f7a45;
+    --color-green-700: #1a6a3c;
 }
 
 body {

@@ -265,13 +265,13 @@ export function DayDrawer({
                                             </span>
                                             <span
                                                 className={`w-11 shrink-0 text-right text-xs tabular-nums ${
-                                                    h.precipitationProbability >= 40 ? 'font-semibold text-sky-600' : 'text-neutral-400'
+                                                    h.precipitationProbability >= 40 ? 'font-semibold text-sky-600' : 'text-neutral-500'
                                                 }`}
                                             >
                                                 {h.precipitationProbability}%
                                             </span>
                                             <span className="flex w-16 shrink-0 items-center justify-end gap-1.5 text-xs tabular-nums text-neutral-500">
-                                                <WindArrow degrees={h.windDirection} className="text-[10px] text-neutral-400" />
+                                                <WindArrow degrees={h.windDirection} className="text-[10px] text-neutral-500" />
                                                 {h.windSpeed} mph
                                             </span>
                                         </li>

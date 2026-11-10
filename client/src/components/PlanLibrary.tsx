@@ -1181,7 +1181,7 @@ function WeekTab({ plan }: { plan: TrainingPlan }) {
                             />
                         )}
                         {!row.strength && !row.conditioning && (
-                            <p className="py-2.5 text-[13px] text-neutral-400">Rest</p>
+                            <p className="py-2.5 text-[13px] text-neutral-500">Rest</p>
                         )}
                     </div>
                 </div>
@@ -1221,7 +1221,7 @@ function SessionsTab({ plan }: { plan: TrainingPlan }) {
                                                 Added
                                             </span>
                                         ) : (
-                                            <span className="shrink-0 text-xs text-neutral-400">
+                                            <span className="shrink-0 text-xs text-neutral-500">
                                                 In library
                                             </span>
                                         )

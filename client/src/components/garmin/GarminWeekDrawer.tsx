@@ -208,7 +208,7 @@ export default function GarminWeekDrawer({
                                         ) : r?.kind === 'failed' ? (
                                             <GarminStateBadge state="failed" />
                                         ) : e.skipped ? (
-                                            <span className="text-[13px] text-neutral-400">Skipped</span>
+                                            <span className="text-[13px] text-neutral-500">Skipped</span>
                                         ) : (
                                             <GarminStateBadge state={state} />
                                         )}

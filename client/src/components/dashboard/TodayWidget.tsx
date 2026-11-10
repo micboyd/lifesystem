@@ -47,7 +47,7 @@ export default function TodayWidget({
         <DashSection
             title="Schedule"
             icon="fa-regular fa-calendar"
-            tone="violet"
+            tone="navy"
             meta={loading ? undefined : count === 0 ? 'A clear day' : `${count} ${count === 1 ? 'event' : 'events'}`}
             to={`/calendar?date=${date}`}
             action="Open day"

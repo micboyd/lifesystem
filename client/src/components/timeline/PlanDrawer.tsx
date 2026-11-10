@@ -177,7 +177,7 @@ function Change({ label, from, to, delta }: { label: string; from: string; to: s
         <div className="min-w-0 rounded-xl bg-white p-4 ring-1 ring-neutral-900/[0.06]">
             <p className="truncate text-[12px] text-neutral-500">{label}</p>
             <p className="nums mt-1 text-[20px] font-semibold tracking-[-0.02em] text-neutral-950">
-                <span className="text-neutral-400">{from} → </span>
+                <span className="text-neutral-500">{from} → </span>
                 {to}
             </p>
             <p className="nums mt-0.5 text-[12px] text-neutral-500">{delta}</p>

@@ -65,7 +65,7 @@ const HISTORY_TRIES = 6
 const HISTORY_RETRY_MS = 5_000
 
 const OVERLINE = 'text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600'
-const HERO_OVERLINE = 'text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-400'
+const HERO_OVERLINE = 'text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500'
 const H2 = 'text-[20px] font-semibold tracking-[-0.015em] text-neutral-950'
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -313,7 +313,7 @@ function Hero({
                 </div>
                 <div className="min-w-0 flex-1">
                     <h1 className="truncate text-xl font-semibold tracking-tight text-white sm:text-[22px]">{nav.label}</h1>
-                    <p className="truncate text-[13px] text-neutral-400">{status}</p>
+                    <p className="truncate text-[13px] text-neutral-500">{status}</p>
                 </div>
             </div>
 
@@ -337,7 +337,7 @@ function Hero({
                         </div>
                         <div className="min-w-0">
                             <PaceChart s={s} />
-                            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-neutral-400">
+                            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-neutral-500">
                                 <span className="inline-flex items-center gap-2">
                                     <span className="h-0.5 w-4 rounded bg-white" aria-hidden="true" />
                                     {nav.label.split(' ')[0]}
@@ -1148,7 +1148,7 @@ function Transactions({ s, eventOf }: { s: MonthStatement; eventOf: (id: string)
                                 >
                                     <i className={`fa-solid ${TAGS[x].icon} text-[11px] opacity-70`} aria-hidden="true" />
                                     {TAGS[x].label}
-                                    <span className={on ? 'text-neutral-400' : 'text-neutral-500'}>{count}</span>
+                                    <span className={on ? 'text-neutral-500' : 'text-neutral-500'}>{count}</span>
                                 </button>
                             )
                         })}

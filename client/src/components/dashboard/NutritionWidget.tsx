@@ -142,7 +142,7 @@ export default function NutritionWidget({ data }: { data: NutritionToday }) {
         <DashSection
             title="Meals"
             icon="fa-solid fa-bowl-food"
-            tone="amber"
+            tone="orange"
             meta={
                 loading
                     ? undefined

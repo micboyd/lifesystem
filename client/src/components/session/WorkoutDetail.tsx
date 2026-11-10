@@ -98,7 +98,7 @@ export default function WorkoutDetail({
                                 {rows.map(({ item, ex, index }, n) => (
                                     <li key={index} className="flex flex-col gap-3 px-4 py-3.5">
                                         <div className="flex items-center gap-3">
-                                            <span className="w-4 shrink-0 text-right text-xs font-semibold tabular-nums text-neutral-400">
+                                            <span className="w-4 shrink-0 text-right text-xs font-semibold tabular-nums text-neutral-500">
                                                 {n + 1}
                                             </span>
                                             <div className="min-w-0 flex-1">

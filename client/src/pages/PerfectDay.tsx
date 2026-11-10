@@ -225,7 +225,7 @@ export default function PerfectDay() {
                             </div>
                         )}
                         {foods.length === 0 ? (
-                            <p className="mt-4 text-[14px] text-neutral-400">No meals or foods in your library yet.</p>
+                            <p className="mt-4 text-[14px] text-neutral-500">No meals or foods in your library yet.</p>
                         ) : (
                             <ul className="mt-3 divide-y divide-neutral-100">
                                 {shownFoods.map((f) => {
@@ -244,14 +244,14 @@ export default function PerfectDay() {
                                                     })
                                                 }
                                             />
-                                            <span className={`min-w-0 flex-1 truncate text-[15px] ${counts ? 'text-neutral-900' : 'text-neutral-400 line-through'}`}>
+                                            <span className={`min-w-0 flex-1 truncate text-[15px] ${counts ? 'text-neutral-900' : 'text-neutral-500 line-through'}`}>
                                                 {f.name}
                                             </span>
-                                            <span className="shrink-0 text-[12px] text-neutral-400">{f.kind}</span>
+                                            <span className="shrink-0 text-[12px] text-neutral-500">{f.kind}</span>
                                         </li>
                                     )
                                 })}
-                                {shownFoods.length === 0 && <li className="py-3 text-[14px] text-neutral-400">No match.</li>}
+                                {shownFoods.length === 0 && <li className="py-3 text-[14px] text-neutral-500">No match.</li>}
                             </ul>
                         )}
                     </section>
@@ -269,7 +269,7 @@ function ItemRow({ row, days, onChange }: { row: Row; days: number[]; onChange: 
             <div className="flex min-w-0 flex-1 basis-56 items-start gap-3">
                 <Checkbox checked={on} onChange={(v) => onChange(v ? ALL_DAYS : [])} className="mt-0.5" />
                 <div className="min-w-0">
-                    <p className={`flex items-center gap-2 text-[15px] ${on ? 'text-neutral-900' : 'text-neutral-400'}`}>
+                    <p className={`flex items-center gap-2 text-[15px] ${on ? 'text-neutral-900' : 'text-neutral-500'}`}>
                         <i className={`${row.icon} w-4 text-center text-xs text-neutral-300`} aria-hidden="true" />
                         <span className="truncate">{row.label}</span>
                     </p>

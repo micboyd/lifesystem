@@ -91,7 +91,7 @@ function RowList({ rows }: { rows: SummaryRow[] }) {
                                     ? 'bg-emerald-600 text-white'
                                     : r.progress === 'some'
                                       ? 'bg-emerald-100 text-emerald-700'
-                                      : 'bg-neutral-100 text-neutral-400'
+                                      : 'bg-neutral-100 text-neutral-500'
                             }`}
                         >
                             <i
@@ -104,7 +104,7 @@ function RowList({ rows }: { rows: SummaryRow[] }) {
                                 {r.name}
                             </span>
                             {r.note && (
-                                <span className="text-[11px] text-neutral-400">{r.note}</span>
+                                <span className="text-[11px] text-neutral-500">{r.note}</span>
                             )}
                             {r.sets?.length ? (
                                 <span className="mt-0.5 flex flex-wrap gap-1.5">

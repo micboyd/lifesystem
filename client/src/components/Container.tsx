@@ -9,6 +9,8 @@ interface ContainerProps {
      * constrained (default) or full — so every screen is one or the other.
      */
     fluid?: boolean
+    /** A wider cap (1280px) for dashboards that lay cards side by side. */
+    wide?: boolean
     children: ReactNode
     className?: string
 }
@@ -21,11 +23,12 @@ interface ContainerProps {
 export default function Container({
     as: Tag = 'div',
     fluid = false,
+    wide = false,
     children,
     className = '',
 }: ContainerProps) {
     return (
-        <Tag className={`mx-auto w-full px-4 sm:px-6 ${fluid ? '' : 'max-w-6xl'} ${className}`}>
+        <Tag className={`mx-auto w-full px-4 sm:px-6 ${fluid ? '' : wide ? 'max-w-7xl' : 'max-w-6xl'} ${className}`}>
             {children}
         </Tag>
     )

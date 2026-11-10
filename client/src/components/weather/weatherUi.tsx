@@ -93,7 +93,7 @@ export function MetricGrid({ children }: { children: ReactNode }) {
 export function WearNote({ children }: { children: ReactNode }) {
     return (
         <div className="flex gap-3 rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-700">
-            <i className="fa-solid fa-shirt mt-0.5 text-neutral-400" aria-hidden="true" />
+            <i className="fa-solid fa-shirt mt-0.5 text-neutral-500" aria-hidden="true" />
             <p className="first-letter:uppercase">{children}</p>
         </div>
     )

@@ -348,7 +348,7 @@ export function ProgressRing({
                             className={`font-bold tabular-nums ${soft ? 'text-base sm:text-lg' : 'text-lg sm:text-xl'}`}
                         >
                             {value}
-                            <span className={soft ? 'text-neutral-400' : 'text-white/50'}>
+                            <span className={soft ? 'text-neutral-500' : 'text-white/50'}>
                                 /{max}
                             </span>
                         </p>

@@ -351,7 +351,7 @@ export default function EventEditor({
                                 placeholder="What's happening?"
                                 aria-label="Title"
                                 autoFocus
-                                className={`w-full border-b bg-transparent pb-1 text-[22px] font-semibold tracking-[-0.02em] text-neutral-950 outline-none transition-colors placeholder:font-medium placeholder:text-neutral-400 focus-visible:outline-none ${
+                                className={`w-full border-b bg-transparent pb-1 text-[22px] font-semibold tracking-[-0.02em] text-neutral-950 outline-none transition-colors placeholder:font-medium placeholder:text-neutral-500 focus-visible:outline-none ${
                                     titleError ? 'border-red-600' : 'border-neutral-200 focus:border-neutral-900'
                                 }`}
                             />

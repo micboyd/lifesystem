@@ -207,7 +207,7 @@ function TickRow({
                 <span className="min-w-0 flex-1">
                     <span
                         className={`block truncate text-sm font-medium ${
-                            done ? 'text-neutral-400 line-through' : 'text-neutral-900'
+                            done ? 'text-neutral-500 line-through' : 'text-neutral-900'
                         }`}
                     >
                         {label}
@@ -215,7 +215,7 @@ function TickRow({
                     {sub && <span className="block truncate text-xs text-neutral-500">{sub}</span>}
                 </span>
                 {amount && (
-                    <span className={`shrink-0 text-sm tabular-nums ${done ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                    <span className={`shrink-0 text-sm tabular-nums ${done ? 'text-neutral-500' : 'text-neutral-600'}`}>
                         {amount}
                     </span>
                 )}
@@ -400,7 +400,7 @@ export function ShoppingDrawer({
                                                     type="button"
                                                     aria-label={`Remove ${l.name}`}
                                                     onClick={() => void run(() => deleteShoppingGroup(item.id))}
-                                                    className="grid h-11 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 transition-colors hover:text-neutral-700"
+                                                    className="grid h-11 w-9 shrink-0 place-items-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-700"
                                                 >
                                                     <i className="fa-solid fa-xmark" aria-hidden="true" />
                                                 </button>

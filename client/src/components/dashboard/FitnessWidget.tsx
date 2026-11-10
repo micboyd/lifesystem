@@ -98,7 +98,7 @@ function TodayFitness({ date }: { date: string }) {
         <DashSection
             title="Training"
             icon="fa-solid fa-dumbbell"
-            tone="coral"
+            tone="violet"
             meta={loading ? undefined : count === 0 ? 'Rest day' : `${count} ${count === 1 ? 'session' : 'sessions'} today`}
             to="/fitness"
             action="Planner"

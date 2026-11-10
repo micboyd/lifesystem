@@ -594,7 +594,7 @@ function WeekCell({ week, today, onClick }: WeekCellProps) {
         <div className="flex items-center justify-between gap-2">
             <div className="flex items-baseline gap-1.5">
                 <span className="text-sm font-bold text-neutral-900">{week.label}</span>
-                {length && <span className="text-xs text-neutral-400">{length}</span>}
+                {length && <span className="text-xs text-neutral-500">{length}</span>}
             </div>
             {!allExcluded && (
                 <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${chip.cls}`}>{chip.text}</span>

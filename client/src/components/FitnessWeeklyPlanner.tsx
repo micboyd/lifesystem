@@ -220,10 +220,10 @@ const FLAG_TONE: Record<
     },
     slate: {
         name: 'Slate',
-        dot: 'bg-slate-500',
-        chip: 'bg-slate-100 text-slate-700',
-        banner: 'border-slate-200 bg-slate-50 text-slate-700',
-        bar: 'bg-slate-500',
+        dot: 'bg-neutral-500',
+        chip: 'bg-neutral-100 text-neutral-700',
+        banner: 'border-neutral-200 bg-neutral-50 text-neutral-700',
+        bar: 'bg-neutral-500',
     },
 }
 
@@ -2669,7 +2669,7 @@ function SlotSection({
             compact={compact}
             marker={
                 <i
-                    className={`${meta.icon} w-3 shrink-0 text-center text-[11px] text-neutral-400`}
+                    className={`${meta.icon} w-3 shrink-0 text-center text-[11px] text-neutral-500`}
                     aria-hidden="true"
                 />
             }
@@ -2794,7 +2794,7 @@ function PlannedRow({
             title={name}
             titleTone={
                 skipped
-                    ? 'text-neutral-400 line-through decoration-neutral-300'
+                    ? 'text-neutral-500 line-through decoration-neutral-300'
                     : done
                       ? 'text-neutral-500'
                       : 'text-neutral-900'

@@ -224,7 +224,7 @@ function AimLine({ aim, keys, open }: { aim: Macros; keys: (keyof Macros)[]; ope
     ].filter(Boolean)
     return (
         <p className="flex items-center gap-2 rounded-xl bg-neutral-50 px-3 py-2 text-[13px] text-neutral-600">
-            <i className="fa-solid fa-bullseye text-[11px] text-neutral-400" aria-hidden="true" />
+            <i className="fa-solid fa-bullseye text-[11px] text-neutral-500" aria-hidden="true" />
             <span className="min-w-0">
                 <span className="font-medium text-neutral-900">Aim</span> ~{parts.join(' · ')}
             </span>

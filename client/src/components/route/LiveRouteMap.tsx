@@ -45,7 +45,7 @@ const ATTRIBUTION =
     '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 const CORAL = '#e0294a'
 const BLUE = '#2563eb'
-const INK = '#171717'
+const INK = '#1a1917'
 
 const pill = (text: string, bg: string, fg = '#fff') =>
     `<div style="display:grid;place-items:center;height:100%;border-radius:999px;background:${bg};color:${fg};font:600 11px/1 Geist,system-ui,sans-serif;box-shadow:0 0 0 2px #fff,0 1px 3px rgba(0,0,0,.3)">${text}</div>`
@@ -147,12 +147,12 @@ export default function LiveRouteMap({
         m.attributionControl.setPrefix(false)
         const latlngs = coords.map((c) => [c[1], c[0]] as [number, number])
         const line = L.polyline(latlngs, { color: CORAL, weight: 6, opacity: 0.9 }).addTo(m)
-        doneLine.current = L.polyline([], { color: '#737373', weight: 7, opacity: 0.85 }).addTo(m)
+        doneLine.current = L.polyline([], { color: '#716d66', weight: 7, opacity: 0.85 }).addTo(m)
         for (const s of steps) {
             if (s.atM <= 0) continue
             const p = pointAt(coords, cum, s.atM)
             L.marker([p.lat, p.lng], {
-                icon: dot(pill('', s.kind === 'run' ? INK : '#a3a3a3'), 12),
+                icon: dot(pill('', s.kind === 'run' ? INK : '#a8a39a'), 12),
                 keyboard: false,
                 interactive: false,
             }).addTo(m)
@@ -166,7 +166,7 @@ export default function LiveRouteMap({
         }
         const s = toLatLng(coords[0])
         L.marker([s.lat, s.lng], {
-            icon: dot(pill('S', '#10b981'), 26),
+            icon: dot(pill('S', '#1f7a45'), 26),
             keyboard: false,
             interactive: false,
         }).addTo(m)

@@ -39,7 +39,7 @@ export default function WeekList({
 
                             <span
                                 className={`w-14 shrink-0 text-right text-[13px] tabular-nums ${
-                                    p >= 40 ? 'font-semibold text-sky-600' : 'text-neutral-400'
+                                    p >= 40 ? 'font-semibold text-sky-600' : 'text-neutral-500'
                                 }`}
                             >
                                 <i className="fa-solid fa-droplet mr-1 text-[10px]" aria-hidden="true" />
@@ -48,7 +48,7 @@ export default function WeekList({
 
                             <span className="w-20 shrink-0 text-right text-[15px]">
                                 <span className="font-semibold text-neutral-900">{d.tempMax}°</span>
-                                <span className="text-neutral-400"> / {d.tempMin}°</span>
+                                <span className="text-neutral-500"> / {d.tempMin}°</span>
                             </span>
 
                             <i

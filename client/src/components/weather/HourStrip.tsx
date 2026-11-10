@@ -130,7 +130,7 @@ export default function HourStrip({
                                 </div>
                                 <span
                                     className={`text-[11px] tabular-nums ${
-                                        p >= 40 ? 'font-semibold text-sky-600' : 'text-neutral-400'
+                                        p >= 40 ? 'font-semibold text-sky-600' : 'text-neutral-500'
                                     }`}
                                 >
                                     {p}%

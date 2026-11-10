@@ -269,7 +269,7 @@ export default function DaysUntil() {
                                                 {formatTargetDate(item.targetDate)}
                                                 {item.followNext && (
                                                     <i
-                                                        className="fa-solid fa-repeat text-[10px] text-neutral-400"
+                                                        className="fa-solid fa-repeat text-[10px] text-neutral-500"
                                                         title="Rolls on to the next one"
                                                         aria-label="Repeats"
                                                     />

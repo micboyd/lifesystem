@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Container from '../components/Container'
 import Button from '../components/Button'
+import ConfirmModal from '../components/ConfirmModal'
 import DashboardDateNav from '../components/dashboard/DashboardDateNav'
 import { DASH, SectionLoading } from '../components/dashboard/DashSection'
 import { useWalks } from '../components/walking/useWalks'
@@ -10,7 +11,7 @@ import { useAuth } from '../context/AuthContext'
 import { todayKey } from '../lib/calendar'
 import { DAY_PARTS, partAt, type DayPart } from '../lib/yourDay'
 import { formatGoal, libraryTitle, formatMinutes, formatWalkKm, nextWalk, walkDayTotals, walkEstimate, walkFacts, walkPart, walkTitle, finishTime, type WalkDayTotals } from '../lib/walking'
-import { listLibrary, setWalkDone, type Walk, type WalkLibraryItem } from '../services/walks'
+import { deleteWalk, listLibrary, setWalkDone, type Walk, type WalkLibraryItem } from '../services/walks'
 
 /**
  * Walking: a day of planned walks, laid out like Your day — the next one on the
@@ -30,7 +31,8 @@ function dateFromLink(raw: string | null): string {
 export default function Walking() {
     const [params] = useSearchParams()
     const [date, setDate] = useState(() => dateFromLink(params.get('date')))
-    const { walks, failed, weightKg, upsert } = useWalks(date)
+    const { walks, failed, weightKg, upsert, remove } = useWalks(date)
+    const [removing, setRemoving] = useState<Walk | null>(null)
     const navigate = useNavigate()
     const [error, setError] = useState('')
     const stepGoal = useAuth().user?.settings?.stepGoal
@@ -68,6 +70,17 @@ export default function Walking() {
         } catch {
             upsert(walk)
             setError('Couldn’t save that. Check your connection and try again.')
+        }
+    }
+
+    async function removeWalk(walk: Walk) {
+        setError('')
+        remove(walk._id)
+        try {
+            await deleteWalk(walk._id)
+        } catch {
+            upsert(walk)
+            setError('Couldn’t remove that walk. Check your connection and try again.')
         }
     }
 
@@ -117,7 +130,7 @@ export default function Walking() {
                                         {walks
                                             .filter((w) => walkPart(w.time) === part)
                                             .map((w) => (
-                                                <WalkRow key={w._id} walk={w} weightKg={weightKg} isNext={next?._id === w._id} onOpen={open} onToggle={toggle} />
+                                                <WalkRow key={w._id} walk={w} weightKg={weightKg} isNext={next?._id === w._id} onOpen={open} onToggle={toggle} onRemove={setRemoving} />
                                             ))}
                                     </PartColumn>
                                 ))}
@@ -128,6 +141,20 @@ export default function Walking() {
                     <Library items={library} failed={libraryFailed} weightKg={weightKg} onOpen={(id) => navigate(`/walking/library/${id}`)} onNew={() => navigate('/walking/library/new')} />
                 </>
             )}
+
+            <ConfirmModal
+                open={!!removing}
+                title="Remove this walk?"
+                message={
+                    removing?.series
+                        ? 'Just this day. It keeps repeating on the others — to stop it, open it and set Repeat to Just this day.'
+                        : 'It comes off this day. Anything in your library stays.'
+                }
+                confirmLabel="Remove walk"
+                danger
+                onConfirm={() => removing && void removeWalk(removing)}
+                onClose={() => setRemoving(null)}
+            />
 
             <LibraryPicker open={!!slot} part={slot ?? lastSlot} date={date} items={library ?? []} weightKg={weightKg} onClose={() => setSlot(null)} onAssigned={upsert} />
         </Container>
@@ -214,7 +241,7 @@ function NextWalk({
     const lightButton = 'flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-medium transition-colors'
     return (
         <div className={`${panel} bg-neutral-900 text-white`}>
-            <p className={`${overline} text-neutral-400`}>
+            <p className={`${overline} text-neutral-500`}>
                 Next walk · {walk.time}
                 {e ? `–${finishTime(walk.time, e.minutes)}` : ''}
             </p>
@@ -224,7 +251,7 @@ function NextWalk({
                     {[formatWalkKm(e.distanceM), `${fmt(e.steps)} steps`, e.kcal === null ? null : `${fmt(e.kcal)} kcal`].filter(Boolean).join(' · ')}
                 </p>
             )}
-            <p className="mt-1 truncate text-[13px] text-neutral-400">
+            <p className="mt-1 truncate text-[13px] text-neutral-500">
                 From {walk.start.label || 'your start'}
                 {stops > 0 ? ` · passing ${stops} ${stops === 1 ? 'place' : 'places'}` : ''}
                 {!walk.route ? ' · no route yet' : ''}
@@ -302,7 +329,7 @@ function PartColumn({ part, now, onAdd, children }: { part: DayPart; now: boolea
                 {now && <span className="inline-flex h-5 items-center rounded-full bg-coral-50 px-2 text-[11px] font-semibold text-coral-600">Now</span>}
             </div>
             {children.length === 0 ? (
-                <p className="border-y border-neutral-200 py-3 text-[14px] text-neutral-400">Nothing planned</p>
+                <p className="border-y border-neutral-200 py-3 text-[14px] text-neutral-500">Nothing planned</p>
             ) : (
                 <ul className={DASH.list}>{children}</ul>
             )}
@@ -320,12 +347,14 @@ function WalkRow({
     isNext,
     onOpen,
     onToggle,
+    onRemove,
 }: {
     walk: Walk
     weightKg: number | null
     isNext: boolean
     onOpen: (walk: Walk) => void
     onToggle: (walk: Walk) => void
+    onRemove: (walk: Walk) => void
 }) {
     const done = !!walk.doneAt
     const title = walkTitle(walk)
@@ -357,6 +386,15 @@ function WalkRow({
                     {walk.series && <i className="fa-solid fa-repeat mr-1.5 text-[11px]" aria-label="Repeats" />}
                     {walkFacts(walk, weightKg)}
                 </p>
+            </button>
+            <button
+                type="button"
+                onClick={() => onRemove(walk)}
+                aria-label={`Remove ${title}`}
+                title="Remove from this day"
+                className="-mr-2 grid h-11 w-11 shrink-0 place-items-center self-center rounded-lg text-xs text-neutral-300 transition-colors hover:bg-neutral-100 hover:text-neutral-700 focus-visible:text-neutral-700"
+            >
+                <i className="fa-solid fa-xmark" aria-hidden="true" />
             </button>
         </li>
     )

@@ -138,7 +138,7 @@ export default function Weather() {
                         >
                             <i className="fa-solid fa-location-dot text-coral-500" aria-hidden="true" />
                             <span className="truncate">{location.name}</span>
-                            <i className="fa-solid fa-chevron-down text-[10px] text-neutral-400" aria-hidden="true" />
+                            <i className="fa-solid fa-chevron-down text-[10px] text-neutral-500" aria-hidden="true" />
                         </button>
                     </div>
                 )}
@@ -245,7 +245,7 @@ export function ForecastView({
                         <Fact label="Wind">
                             <span className="inline-flex items-center gap-1.5">
                                 {current.windSpeed} mph
-                                <WindArrow degrees={current.windDirection} className="text-[11px] text-neutral-400" />
+                                <WindArrow degrees={current.windDirection} className="text-[11px] text-neutral-500" />
                             </span>
                             <span className="block text-xs font-normal text-neutral-500">
                                 From {compass(current.windDirection)} · gusts {current.windGust}
@@ -272,7 +272,7 @@ export function ForecastView({
 
                 {wear && (
                     <p className="mt-6 flex gap-3 border-t border-neutral-100 pt-5 text-sm text-neutral-700">
-                        <i className="fa-solid fa-shirt mt-0.5 text-neutral-400" aria-hidden="true" />
+                        <i className="fa-solid fa-shirt mt-0.5 text-neutral-500" aria-hidden="true" />
                         <span className="first-letter:uppercase">{whatToWear(wear)}</span>
                     </p>
                 )}

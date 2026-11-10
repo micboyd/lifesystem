@@ -354,7 +354,7 @@ function RunView({
                                             </p>
                                         </>
                                     ) : (
-                                        <p className="text-[13px] text-neutral-400">Not run</p>
+                                        <p className="text-[13px] text-neutral-500">Not run</p>
                                     )}
                                 </div>
                             </li>

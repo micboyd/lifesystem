@@ -48,7 +48,7 @@ export default function PlaceSearch({
     return (
         <div className="flex flex-col gap-2">
             <div className="relative">
-                <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-xs text-neutral-400" aria-hidden="true" />
+                <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-xs text-neutral-500" aria-hidden="true" />
                 <input
                     type="search"
                     value={query}

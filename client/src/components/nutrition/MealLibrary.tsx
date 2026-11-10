@@ -785,7 +785,7 @@ function MealFormDrawer({
                                         type="button"
                                         aria-label="Remove part"
                                         onClick={() => setParts((prev) => prev.filter((_, j) => j !== i))}
-                                        className="grid h-11 w-9 shrink-0 place-items-center rounded-xl text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                        className="grid h-11 w-9 shrink-0 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                                     >
                                         <i className="fa-solid fa-xmark" aria-hidden="true" />
                                     </button>
@@ -876,7 +876,7 @@ function MealFormDrawer({
                                     type="button"
                                     aria-label="Remove ingredient"
                                     onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}
-                                    className="grid h-11 w-9 shrink-0 place-items-center rounded-xl text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                    className="grid h-11 w-9 shrink-0 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                                 >
                                     <i className="fa-solid fa-xmark" aria-hidden="true" />
                                 </button>

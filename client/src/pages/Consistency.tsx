@@ -261,7 +261,7 @@ function Headline({ scores, label }: { scores: Scores; label: string }) {
             <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <p className="nums text-[56px] font-semibold leading-none tracking-[-0.04em] text-neutral-950 sm:text-[64px]">
                     {overall}
-                    <span className="ml-0.5 text-[28px] font-medium tracking-[-0.02em] text-neutral-400">
+                    <span className="ml-0.5 text-[28px] font-medium tracking-[-0.02em] text-neutral-500">
                         %
                     </span>
                 </p>
@@ -334,7 +334,7 @@ function AreaRow({
             </div>
             <Score value={score} className="text-[22px]" />
             <i
-                className="fa-solid fa-chevron-right text-[11px] text-neutral-400"
+                className="fa-solid fa-chevron-right text-[11px] text-neutral-500"
                 aria-hidden="true"
             />
         </button>
@@ -414,7 +414,7 @@ function RatioRow({
     sub?: ReactNode
 }) {
     if (ratio.of === 0)
-        return <Row label={label} value={<span className="text-neutral-400">{none}</span>} />
+        return <Row label={label} value={<span className="text-neutral-500">{none}</span>} />
     return (
         <Row
             label={label}
@@ -499,7 +499,7 @@ function BodyDetail({ scores, rate }: { scores: Scores; rate: ConsistencyData['r
                     rate.actual !== null ? (
                         `${signed(rate.actual, 2)} kg/wk`
                     ) : (
-                        <span className="text-neutral-400">—</span>
+                        <span className="text-neutral-500">—</span>
                     )
                 }
                 sub={

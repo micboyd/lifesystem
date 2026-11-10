@@ -68,7 +68,7 @@ function formatMonth(ym: string): string {
 }
 
 // The hero sits on ink, so its labels use the lighter stone.
-const HERO_OVERLINE = 'text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-400'
+const HERO_OVERLINE = 'text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500'
 
 function MonthArrow({ dir, onClick, disabled = false }: { dir: 'prev' | 'next'; onClick: () => void; disabled?: boolean }) {
     const label = dir === 'prev' ? 'Previous month' : 'Next month'
@@ -576,7 +576,7 @@ export default function Finances() {
                         <h1 className="truncate text-xl font-semibold tracking-tight text-white sm:text-[22px]">
                             {monthLabel}
                         </h1>
-                        <p className="truncate text-[13px] text-neutral-400">
+                        <p className="truncate text-[13px] text-neutral-500">
                             {isCurrent ? 'This month' : (
                                 <button
                                     type="button"
@@ -601,7 +601,7 @@ export default function Finances() {
                                 {net > 0 ? '+' : ''}
                                 {formatMoney(net, 0)}
                             </p>
-                            <p className="mt-2 text-[13px] text-neutral-400">
+                            <p className="mt-2 text-[13px] text-neutral-500">
                                 {net < 0 ? (
                                     <span className="inline-flex rounded-full bg-coral-500/20 px-2 py-0.5 text-xs font-medium text-coral-300">
                                         More going out than coming in
@@ -629,7 +629,7 @@ export default function Finances() {
                                     'Everything’s paid'
                                 )}
                             </p>
-                            <p className="text-[13px] text-neutral-400">
+                            <p className="text-[13px] text-neutral-500">
                                 <span className="tabular-nums">{formatMoney(totalPaid, 0)}</span> of{' '}
                                 <span className="tabular-nums">{formatMoney(totalOwed, 0)}</span> paid
                             </p>

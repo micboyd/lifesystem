@@ -98,7 +98,7 @@ export default function LibraryPicker({
                                                     {[e ? formatWalkKm(e.distanceM) : null, formatGoal(item.goal), item.route ? null : 'No route yet'].filter(Boolean).join(' · ')}
                                                 </span>
                                             </span>
-                                            <i className={`fa-solid ${busyId === item._id ? 'fa-spinner fa-spin' : 'fa-plus'} shrink-0 text-xs text-neutral-400`} aria-hidden="true" />
+                                            <i className={`fa-solid ${busyId === item._id ? 'fa-spinner fa-spin' : 'fa-plus'} shrink-0 text-xs text-neutral-500`} aria-hidden="true" />
                                         </button>
                                     </li>
                                 )

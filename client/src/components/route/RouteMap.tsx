@@ -31,7 +31,7 @@ const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
 const ATTRIBUTION =
     '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · Routes: <a href="https://openrouteservice.org/">openrouteservice</a>'
 
-const INK = '#171717'
+const INK = '#1a1917'
 const CORAL = '#e0294a'
 
 const dot = (html: string, size: number) =>
@@ -243,7 +243,7 @@ export default function RouteMap({
             planned && planned.length > 1
                 ? L.polyline(
                       planned.map((c) => [c[1], c[0]] as [number, number]),
-                      { color: '#737373', weight: 4, opacity: 0.7, dashArray: '6 8', interactive: false }
+                      { color: '#716d66', weight: 4, opacity: 0.7, dashArray: '6 8', interactive: false }
                   ).addTo(g)
                 : null
         if (coords && coords.length > 1) {
@@ -272,7 +272,7 @@ export default function RouteMap({
                 if (s.atM <= 0) continue
                 const p = pointAt(coords, cum, s.atM)
                 L.marker([p.lat, p.lng], {
-                    icon: dot(pill('', s.kind === 'run' ? INK : '#a3a3a3'), 12),
+                    icon: dot(pill('', s.kind === 'run' ? INK : '#a8a39a'), 12),
                     title: `${s.kind === 'run' ? 'Run' : 'Walk'} starts — ${s.label}`,
                     keyboard: false,
                 }).addTo(g)
@@ -306,7 +306,7 @@ export default function RouteMap({
                 L.marker([f.lat, f.lng], { icon: dot(pill('F', INK), 26), title: 'Finish' }).addTo(g)
             dragStart(
                 L.marker([s.lat, s.lng], {
-                    icon: dot(pill(closed ? 'S/F' : 'S', '#10b981'), closed ? 32 : 26),
+                    icon: dot(pill(closed ? 'S/F' : 'S', '#1f7a45'), closed ? 32 : 26),
                     title: closed ? 'Start and finish' : 'Start',
                     zIndexOffset: 1000,
                     draggable: canDragStart,
@@ -319,7 +319,7 @@ export default function RouteMap({
         } else if (start || waypoints?.length) {
             if (start)
                 dragStart(
-                    L.marker([start.lat, start.lng], { icon: dot(pill('S', '#10b981'), 26), title: 'Start', draggable: canDragStart, zIndexOffset: 1000 })
+                    L.marker([start.lat, start.lng], { icon: dot(pill('S', '#1f7a45'), 26), title: 'Start', draggable: canDragStart, zIndexOffset: 1000 })
                 ).addTo(g)
             const all = [...(start ? [start] : []), ...(waypoints ?? [])]
             bounds.current = L.latLngBounds(all.map((p) => [p.lat, p.lng] as [number, number]))
