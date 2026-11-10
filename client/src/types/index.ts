@@ -1179,8 +1179,15 @@ export interface Event {
     recurrence?: Recurrence
     /** YYYY-MM-DD occurrence dates removed from a recurring series. */
     exdates?: string[]
+    /** 'ical' for meetings imported from Google Calendar — read-only here. */
+    source?: 'ical'
     createdAt: string
     updatedAt: string
+}
+
+/** Whether an event was imported from a calendar feed (and so can't be edited here). */
+export function isImportedEvent(event: Pick<Event, 'source'> | null | undefined): boolean {
+    return !!event?.source
 }
 
 export const DAY_STATUSES = [

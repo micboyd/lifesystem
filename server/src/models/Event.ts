@@ -20,6 +20,10 @@ export const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
 
 export type IRecurrence = RecurrenceSpec
 
+/** Where an event came from. Absent = made in the app; 'ical' = imported from a calendar feed. */
+export const EVENT_SOURCES = ['ical'] as const
+export type EventSource = (typeof EVENT_SOURCES)[number]
+
 export interface IEvent extends Document {
     user: Types.ObjectId
     /** Which calendar (layer) this event lives on. Slot exclusivity is scoped to it. */
@@ -39,6 +43,12 @@ export interface IEvent extends Document {
     recurrence?: IRecurrence
     /** YYYY-MM-DD occurrence dates removed from a recurring series ("this event only" deletes). */
     exdates?: string[]
+    /** Set on imported meetings, which are read-only and replaced by each sync. */
+    source?: EventSource
+    /** The feed's UID for the meeting (shared by every occurrence of a series). */
+    externalUid?: string
+    /** London date of the occurrence's original start — with the UID, its identity across syncs. */
+    occurrenceDate?: string
     createdAt: Date
     updatedAt: Date
 }
@@ -68,8 +78,16 @@ const eventSchema = new Schema<IEvent>(
         ignoreClash: { type: Boolean, default: false },
         recurrence: { type: recurrenceSchema, default: undefined },
         exdates: { type: [String], default: undefined },
+        source: { type: String, enum: EVENT_SOURCES },
+        externalUid: { type: String },
+        occurrenceDate: { type: String, match: DATE_PATTERN },
     },
     { timestamps: true }
+)
+
+eventSchema.index(
+    { user: 1, source: 1, externalUid: 1, occurrenceDate: 1 },
+    { partialFilterExpression: { source: { $exists: true } } }
 )
 
 export default model<IEvent>('Event', eventSchema)

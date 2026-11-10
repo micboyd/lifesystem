@@ -114,7 +114,7 @@ export default function EventStack({
     // Cursor-anchored menu; `event` is null when opened over an empty slot.
     const [menu, setMenu] = useState<{ x: number; y: number; event: Event | null } | null>(null)
 
-    const canDelete = (event: Event | null) => !!event && !!onDeleteEvent
+    const canDelete = (event: Event | null) => !!event && !!onDeleteEvent && !event.source
 
     function openMenu(e: ReactMouseEvent, event: Event | null) {
         const canCopy = !!event && !!onCopyEvent

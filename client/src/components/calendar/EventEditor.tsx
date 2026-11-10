@@ -28,6 +28,7 @@ import {
     EVENT_TYPE_LABELS,
     EVENT_TYPE_COLORS,
     CALENDAR_COLOR_CLASSES,
+    isImportedEvent,
     type Event,
     type EventType,
     type Part,
@@ -148,6 +149,9 @@ export default function EventEditor({
     const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency>('weekly')
     const [recurrenceEndsOn, setRecurrenceEndsOn] = useState('')
 
+    // Meetings imported from Google Calendar are shown, never saved from here.
+    const readOnly = isImportedEvent(event)
+
     // Derived — no separate allDay state needed
     const isNa = startPart === 'na'
     const isAllDay = !isNa && startPart === 'morning' && endPart === 'evening'
@@ -238,6 +242,7 @@ export default function EventEditor({
     }
 
     function handleSave() {
+        if (readOnly) return
         if (!title.trim()) {
             setError('Give the event a title.')
             return
@@ -309,9 +314,14 @@ export default function EventEditor({
             onClose={onClose}
             side="right"
             size="xl"
-            title={event ? 'Edit event' : 'New event'}
+            title={readOnly ? 'Meeting' : event ? 'Edit event' : 'New event'}
             badge={startDate ? relativeDay(startDate) : undefined}
             footer={
+                readOnly ? (
+                    <Button variant="ghost" onClick={onClose}>
+                        Close
+                    </Button>
+                ) : (
                 <>
                     {event && (
                         <Button
@@ -331,9 +341,16 @@ export default function EventEditor({
                         {saving ? 'Saving…' : event ? 'Save' : 'Add event'}
                     </Button>
                 </>
+                )
             }
         >
-            <div className="flex flex-col gap-7">
+            {readOnly && (
+                <p className="mb-5 flex items-center gap-2 rounded-xl bg-neutral-100 px-3 py-2.5 text-[13px] text-neutral-700">
+                    <i className="fa-solid fa-link text-xs" aria-hidden="true" />
+                    From Google Calendar — read-only here. Change it in Google and it updates on the next sync.
+                </p>
+            )}
+            <fieldset disabled={readOnly} className={`flex min-w-0 flex-col gap-7 ${readOnly ? 'pointer-events-none' : ''}`}>
                 {/* What — the type's tile, the title, and a live summary of when. */}
                 <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-3.5">
@@ -548,7 +565,7 @@ export default function EventEditor({
                         />
                     </SettingList>
                 </Section>
-            </div>
+            </fieldset>
         </Drawer>
     )
 }

@@ -34,6 +34,14 @@ function isFrequency(value: unknown): value is RecurrenceFrequency {
     )
 }
 
+const READ_ONLY_MESSAGE = 'Imported meetings are read-only — change them in Google Calendar'
+
+/** True when the event was imported from a calendar feed (and so can't be edited here). */
+async function isImported(userId: string, id: string): Promise<boolean> {
+    if (!Types.ObjectId.isValid(id)) return false
+    return !!(await Event.exists({ _id: id, user: userId, source: { $exists: true } }))
+}
+
 /** Epoch days × 4 slots/day + part index. */
 function slotOrdinal(date: string, part: Part) {
     const [y, m, d] = date.split('-').map(Number)
@@ -227,9 +235,15 @@ export async function updateEvent(req: AuthRequest, res: Response) {
         res.status(400).json({ message: fields })
         return
     }
-    const current = await Event.findOne({ _id: req.params.id, user: req.userId }).select('calendar')
+    const current = await Event.findOne({ _id: req.params.id, user: req.userId }).select(
+        'calendar source'
+    )
     if (!current) {
         res.status(404).json({ message: 'Event not found' })
+        return
+    }
+    if (current.source) {
+        res.status(400).json({ message: READ_ONLY_MESSAGE })
         return
     }
     // Only move the event when a calendar is explicitly named. Callers that save
@@ -341,6 +355,10 @@ export async function updateEventOccurrence(req: AuthRequest, res: Response) {
  */
 export async function deleteEvent(req: AuthRequest, res: Response) {
     const { date } = req.query
+    if (await isImported(req.userId!, req.params.id)) {
+        res.status(400).json({ message: READ_ONLY_MESSAGE })
+        return
+    }
 
     if (date !== undefined) {
         if (!isValidDate(date)) {

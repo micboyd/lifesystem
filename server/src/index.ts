@@ -10,6 +10,7 @@ import { connectDB } from './config/db'
 import cors from 'cors'
 import birthdayRoutes from './routes/birthdayRoutes'
 import calendarRoutes from './routes/calendarRoutes'
+import icalRoutes from './routes/icalRoutes'
 import conditioningRoutes from './routes/conditioningRoutes'
 import conditioningLogRoutes from './routes/conditioningLogRoutes'
 import daysSinceRoutes from './routes/daysSinceRoutes'
@@ -79,6 +80,7 @@ app.use(express.json({ limit: '5mb' }))
 app.use('/api/users', userRoutes)
 app.use('/api/events', eventRoutes)
 app.use('/api/calendars', calendarRoutes)
+app.use('/api/ical', icalRoutes)
 app.use('/api/habits', habitRoutes)
 app.use('/api/day-status', dayStatusRoutes)
 app.use('/api/month-notes', monthNoteRoutes)
