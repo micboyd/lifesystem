@@ -21,6 +21,7 @@ import {
     boxedMinutes,
     dayBounds,
     nowOrNext,
+    ownBlocks,
     planSuggestions,
     unboxedWorkMinutes,
     workWindow,
@@ -124,8 +125,10 @@ export default function Timebox() {
     const list = useMemo(() => items ?? [], [items])
     const work = workWindow(date, user?.settings)
     const bounds = dayBounds(user?.settings?.wakeTime, user?.settings?.bedTime, list, work)
-    const boxed = boxedMinutes(list, bounds.start, bounds.end)
-    const working = unboxedWorkMinutes(list, work)
+    // Meetings inside working hours are part of the work, not boxed time of their own.
+    const own = ownBlocks(list, work)
+    const boxed = boxedMinutes(own, bounds.start, bounds.end)
+    const working = unboxedWorkMinutes(own, work)
     const free = bounds.end - bounds.start - boxed - working
     const current = isToday ? nowOrNext(list, now) : null
     const lunch = work?.lunch
@@ -248,10 +251,12 @@ export default function Timebox() {
                     </div>
                     <DayAgenda
                         rows={rows}
+                        work={work}
                         nowMin={isToday ? now : null}
                         onOpen={openBlock}
                         onFill={fillGap}
                         onWork={fillWork}
+                        onOpenMeeting={openBlock}
                         onLunch={fillLunch}
                         onPlan={addSuggestion}
                     />

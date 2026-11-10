@@ -20,6 +20,14 @@ function dowOf(date: string): number {
     return new Date(Date.UTC(y, m - 1, d)).getUTCDay()
 }
 
+/** The Monday of `date`'s week (YYYY-MM-DD). */
+export function mondayOf(date: string): string {
+    const [y, m, d] = date.split('-').map(Number)
+    const day = new Date(Date.UTC(y, m - 1, d))
+    day.setUTCDate(day.getUTCDate() - ((day.getUTCDay() + 6) % 7))
+    return day.toISOString().slice(0, 10)
+}
+
 /** Whether a repeating block lands on `date`. */
 function repeatsOn(
     start: string,
@@ -119,8 +127,12 @@ export async function createTimebox(req: AuthRequest, res: Response) {
 }
 
 /**
- * POST /api/timeboxes/import — body: { date, items: [{ title, start|startTime, end|endTime, notes?, category?, date? }] }
- * Adds one-off blocks; each item can name its own date, else it lands on `date`.
+ * POST /api/timeboxes/import — body: { date, items: [{ title, start|startTime, end|endTime, notes?, category?, date?, recurrence? }] }
+ * Adds blocks; each item can name its own date, else it lands on `date`. With
+ * `recurrence` ({ freq, days?, until? }) the block repeats — and, without a
+ * date of its own, from the Monday of `date`'s week, so importing a week's
+ * routine mid-week still fills the days before. Weekly repeats keep `date`,
+ * since their weekday comes from it.
  * Bad items are skipped and counted rather than failing the lot.
  */
 export async function importTimeboxes(req: AuthRequest, res: Response) {
@@ -151,13 +163,14 @@ export async function importTimeboxes(req: AuthRequest, res: Response) {
             ...r,
             startTime: r.startTime ?? r.start,
             endTime: r.endTime ?? r.end,
-            recurrence: undefined,
         })
         if (typeof fields === 'string') {
             errors.push(`#${i + 1}: ${fields}`)
             return
         }
-        docs.push({ user: req.userId, date, ...fields })
+        const seriesStart =
+            fields.recurrence && fields.recurrence.freq !== 'weekly' && !isDate(r.date) ? mondayOf(date) : date
+        docs.push({ user: req.userId, date: seriesStart, ...fields })
     })
 
     const created = docs.length ? await Timebox.insertMany(docs) : []

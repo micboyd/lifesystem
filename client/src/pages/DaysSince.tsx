@@ -89,6 +89,7 @@ export default function DaysSince() {
     const [checkIns, setCheckIns] = useState<DaysSinceCheckIn[]>([])
     const [resetTarget, setResetTarget] = useState<DaysSinceItem | null>(null)
     const [resetReason, setResetReason] = useState('')
+    const [resetDate, setResetDate] = useState('')
     const [resetting, setResetting] = useState(false)
     const [historyTarget, setHistoryTarget] = useState<DaysSinceItem | null>(null)
 
@@ -173,6 +174,7 @@ export default function DaysSince() {
 
     function openReset(item: DaysSinceItem) {
         setResetReason('')
+        setResetDate(today)
         setResetTarget(item)
     }
 
@@ -181,7 +183,7 @@ export default function DaysSince() {
         setResetting(true)
         try {
             const updated = await resetDaysSince(resetTarget._id, {
-                startDate: today,
+                startDate: resetDate || today,
                 reason: resetReason.trim() || undefined,
             })
             setItems((prev) => prev.map((i) => (i._id === updated._id ? updated : i)))
@@ -287,7 +289,7 @@ export default function DaysSince() {
                                                     onClick: () => openEdit(item),
                                                 },
                                                 {
-                                                    label: 'Reset to today',
+                                                    label: 'Reset',
                                                     icon: 'fa-solid fa-rotate-left',
                                                     onClick: () => openReset(item),
                                                 },
@@ -497,7 +499,7 @@ export default function DaysSince() {
                             Cancel
                         </Button>
                         <Button onClick={handleConfirmReset} disabled={resetting}>
-                            {resetting ? 'Resetting…' : 'Reset to today'}
+                            {resetting ? 'Resetting…' : 'Reset'}
                         </Button>
                     </>
                 }
@@ -505,12 +507,26 @@ export default function DaysSince() {
                 {resetTarget && (
                     <div className="flex flex-col gap-4">
                         <p className="text-sm text-neutral-500">
-                            This logs your current run of{' '}
+                            This logs your run of{' '}
                             <strong className="font-semibold text-neutral-700">
-                                {daysBetween(resetTarget.startDate, today)} days
+                                {daysBetween(resetTarget.startDate, resetDate || today)} days
                             </strong>{' '}
-                            to its history and starts counting again from today.
+                            to its history and starts counting again from{' '}
+                            {resetDate && resetDate !== today ? formatStartDate(resetDate) : 'today'}.
                         </p>
+                        <div className="flex flex-col gap-2">
+                            <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
+                                Reset on
+                            </span>
+                            <DatePicker
+                                value={resetDate}
+                                minDate={resetTarget.startDate}
+                                maxDate={today}
+                                onChange={(v: DatePickerValue) =>
+                                    setResetDate(typeof v === 'string' && v ? v : today)
+                                }
+                            />
+                        </div>
                         <Textarea
                             label="What happened? (optional)"
                             placeholder="What triggered it — worth remembering for next time."

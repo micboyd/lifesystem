@@ -88,7 +88,7 @@ export async function applyFeed(
             category: 'work',
         }
         const $unset: Record<string, 1> = {}
-        for (const key of ['location', 'notes'] as const) {
+        for (const key of ['location', 'notes', 'joinUrl'] as const) {
             if (o[key] !== undefined) $set[key] = o[key]
             else $unset[key] = 1
         }

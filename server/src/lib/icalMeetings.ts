@@ -26,6 +26,8 @@ export interface MeetingOccurrence {
     title: string
     location?: string
     notes?: string
+    /** The video call link (Google Meet, Zoom, Teams), when there is one. */
+    joinUrl?: string
     /** YYYY-MM-DD the block sits on. */
     date: string
     /** HH:MM. */
@@ -107,6 +109,38 @@ export function isDeclined(event: VEvent, ownerEmail: string | undefined): boole
     })
 }
 
+const CALL_LINK =
+    /https:\/\/(?:meet\.google\.com\/[a-z0-9-]+|[\w.-]*zoom\.us\/j\/[^\s<>"]+|teams\.microsoft\.com\/l\/meetup-join\/[^\s<>"]+)/i
+
+/**
+ * The meeting's video call link: Google's own conference field first, else the
+ * first Meet / Zoom / Teams link in the location or description.
+ */
+export function joinUrlOf(event: VEvent): string | undefined {
+    const conference = text(
+        (event as Record<string, unknown>)['GOOGLE-CONFERENCE'] as ParameterValue
+    )
+    if (conference && /^https:\/\//i.test(conference)) return conference
+    for (const field of [text(event.location), text(event.description)]) {
+        const match = field?.match(CALL_LINK)
+        if (match) return match[0]
+    }
+    return undefined
+}
+
+/** Google's "Join with Google Meet … Learn more about Meet" footer, between its -::~:~:: rules. */
+const MEET_FOOTER = /-::~[:~]*::-[\s\S]*?-::~[:~]*::-/g
+
+/** The description with Google's Meet boilerplate taken out; undefined when nothing else is left. */
+export function cleanNotes(description: string | undefined): string | undefined {
+    if (!description) return undefined
+    const cleaned = description
+        .replace(MEET_FOOTER, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim()
+    return cleaned || undefined
+}
+
 function isCancelled(event: VEvent): boolean {
     return typeof event.status === 'string' && event.status.toUpperCase() === 'CANCELLED'
 }
@@ -123,8 +157,9 @@ export function occurrenceFrom(input: {
     title: string
     location?: string
     notes?: string
+    joinUrl?: string
 }): MeetingOccurrence {
-    const { uid, start, end, title, location, notes } = input
+    const { uid, start, end, title, location, notes, joinUrl } = input
     const from = toLondon(start)
     const to = toLondon(end.getTime() > start.getTime() ? end : start)
     const startMin = toMinutes(from.time)
@@ -138,6 +173,7 @@ export function occurrenceFrom(input: {
         title,
         location,
         notes,
+        joinUrl,
         date: from.date,
         startTime: from.time,
         endTime,
@@ -179,16 +215,20 @@ export function meetingsFromIcs(
             if (inst.isFullDay || isCancelled(ev) || isDeclined(ev, owner)) continue
             const originalStart =
                 inst.isOverride && ev.recurrenceid ? (ev.recurrenceid as Date) : inst.start
-            const notes = text(ev.description)
+            const notes = cleanNotes(text(ev.description))
+            const joinUrl = joinUrlOf(ev)
+            const location = text(ev.location)
             const occ = occurrenceFrom({
                 uid: base.uid,
                 originalStart,
                 start: inst.start,
                 end: inst.end ?? inst.start,
                 title: text(ev.summary) ?? '(No title)',
-                location: text(ev.location),
+                // A location that is only the call link adds nothing beside the Join button.
+                location: location && location !== joinUrl ? location : undefined,
                 notes:
                     notes && notes.length > NOTES_MAX ? `${notes.slice(0, NOTES_MAX - 1)}…` : notes,
+                joinUrl,
             })
             const key = `${occ.uid}|${occ.occurrenceDate}`
             if (!out.has(key)) out.set(key, occ)

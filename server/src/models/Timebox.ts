@@ -3,7 +3,7 @@ import { Schema, model, Document, Types } from 'mongoose'
 export const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 export const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
 
-export const TIMEBOX_CATEGORIES = ['work', 'personal', 'health', 'learning', 'social'] as const
+export const TIMEBOX_CATEGORIES = ['work', 'personal', 'health', 'learning', 'social', 'travel'] as const
 export type TimeboxCategory = (typeof TIMEBOX_CATEGORIES)[number]
 
 export const RECURRENCE_FREQS = ['daily', 'weekly', 'weekdays', 'custom'] as const
@@ -33,6 +33,8 @@ export interface ITimebox extends Document {
     /** London date of the occurrence's original start — with the UID, its identity across syncs. */
     occurrenceDate?: string
     location?: string
+    /** Video call link on an imported meeting. */
+    joinUrl?: string
     createdAt: Date
     updatedAt: Date
 }
@@ -62,6 +64,7 @@ const timeboxSchema = new Schema<ITimebox>(
         externalUid: { type: String },
         occurrenceDate: { type: String, match: DATE_PATTERN },
         location: { type: String, trim: true, maxlength: 500 },
+        joinUrl: { type: String, trim: true, maxlength: 1000 },
     },
     { timestamps: true }
 )

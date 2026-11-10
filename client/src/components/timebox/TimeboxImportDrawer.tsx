@@ -10,11 +10,14 @@ import { importTimeboxes, type TimeboxImportResult } from '../../services/timebo
 
 const SAMPLE = `{
   "blocks": [
-    { "title": "Deep work", "start": "09:00", "end": "11:00", "category": "work" },
-    { "title": "Gym", "start": "12:00", "end": "13:00", "category": "health" },
+    { "title": "Deep work", "start": "09:00", "end": "11:00", "category": "work", "repeat": "weekdays" },
+    { "title": "Gym", "start": "07:00", "end": "08:00", "category": "health", "repeat": ["mon", "wed", "fri"] },
     { "title": "Read", "start": "21:00", "end": "21:30", "notes": "Chapter 4" }
   ]
 }`
+
+const REPEAT_HELP =
+    'Repeat (optional): "daily", "weekdays", "weekly", or days like ["mon", "tue", "thu"]. Add "until": "2026-12-31" to stop it. A repeating block starts from its date and carries on from there.'
 
 interface Props {
     open: boolean
@@ -105,8 +108,9 @@ export default function TimeboxImportDrawer({ open, date, onClose, onImported }:
                         {SAMPLE}
                     </pre>
                     <p className="mt-2 text-xs text-neutral-500">
-                        Categories: work, personal, health, learning, social. Comments are fine.
+                        Categories: work, personal, health, learning, social, travel. Comments are fine.
                     </p>
+                    <p className="mt-1 text-xs text-neutral-500">{REPEAT_HELP}</p>
                 </div>
             </div>
         </Drawer>

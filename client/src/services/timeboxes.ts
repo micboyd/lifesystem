@@ -20,6 +20,7 @@ export interface TimeboxImportItem {
     notes?: string
     category?: string
     date?: string
+    recurrence?: { freq: TimeboxRepeat; days?: number[]; until?: string }
 }
 
 export interface TimeboxImportResult {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+    cleanNotes,
     maskFeedUrl,
     meetingsFromIcs,
     normaliseFeedUrl,
@@ -277,5 +278,74 @@ describe('feed address', () => {
             'calendar.google.com/calendar/ical/me%40example.com/private-0123••••/basic.ics'
         )
         expect(masked).not.toContain('abcdef0123456789')
+    })
+})
+
+describe('join links and notes', () => {
+    const RULE = '-::~:~::~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~::~:~::-'
+    const footer = `${RULE}\\nJoin with Google Meet: https://meet.google.com/abc-defg-hij\\n\\nLearn more about Meet at: https://support.google.com/a/users/answer/9282720\\n\\n${RULE}`
+
+    it("takes Google's conference link and drops the Meet footer from the notes", () => {
+        const ics = feed(
+            [
+                'BEGIN:VEVENT',
+                'DTSTART:20261112T090000Z',
+                'DTEND:20261112T093000Z',
+                'UID:meet@google.com',
+                'SUMMARY:Planning',
+                'X-GOOGLE-CONFERENCE:https://meet.google.com/abc-defg-hij',
+                `DESCRIPTION:Bring the roadmap\\n\\n${footer}`,
+                'END:VEVENT',
+            ].join('\r\n')
+        )
+        expect(meetingsFromIcs(ics, WINDOW)[0]).toMatchObject({
+            joinUrl: 'https://meet.google.com/abc-defg-hij',
+            notes: 'Bring the roadmap',
+        })
+    })
+
+    it('finds a Zoom link in the location and leaves no notes when only the footer was there', () => {
+        const ics = feed(
+            [
+                'BEGIN:VEVENT',
+                'DTSTART:20261112T130000Z',
+                'DTEND:20261112T140000Z',
+                'UID:zoom@google.com',
+                'SUMMARY:Vendor call',
+                'LOCATION:https://acme.zoom.us/j/123456789?pwd=abc',
+                `DESCRIPTION:${footer}`,
+                'END:VEVENT',
+            ].join('\r\n')
+        )
+        const [occ] = meetingsFromIcs(ics, WINDOW)
+        expect(occ.joinUrl).toBe('https://acme.zoom.us/j/123456789?pwd=abc')
+        // The location was only the link, so it isn't repeated beside the Join button.
+        expect(occ.location).toBeUndefined()
+        expect(occ.notes).toBeUndefined()
+    })
+
+    it('leaves meetings without a call link alone', () => {
+        const ics = feed(
+            [
+                'BEGIN:VEVENT',
+                'DTSTART:20261112T150000Z',
+                'DTEND:20261112T153000Z',
+                'UID:room@google.com',
+                'SUMMARY:1:1',
+                'LOCATION:Room 4',
+                'DESCRIPTION:See https://example.com/doc',
+                'END:VEVENT',
+            ].join('\r\n')
+        )
+        expect(meetingsFromIcs(ics, WINDOW)[0]).toMatchObject({
+            location: 'Room 4',
+            notes: 'See https://example.com/doc',
+        })
+        expect(meetingsFromIcs(ics, WINDOW)[0].joinUrl).toBeUndefined()
+    })
+
+    it('cleanNotes keeps ordinary text', () => {
+        expect(cleanNotes('  Agenda  ')).toBe('Agenda')
+        expect(cleanNotes(undefined)).toBeUndefined()
     })
 })

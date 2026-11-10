@@ -1730,7 +1730,7 @@ export interface ShoppingList {
     ticked: string[]
 }
 
-export const TIMEBOX_CATEGORIES = ['work', 'personal', 'health', 'learning', 'social'] as const
+export const TIMEBOX_CATEGORIES = ['work', 'personal', 'health', 'learning', 'social', 'travel'] as const
 export type TimeboxCategory = (typeof TIMEBOX_CATEGORIES)[number]
 
 export const TIMEBOX_REPEATS = ['daily', 'weekdays', 'weekly', 'custom'] as const
@@ -1760,6 +1760,8 @@ export interface Timebox {
     /** 'ical' on meetings imported from Google Calendar — read-only here. */
     source?: 'ical'
     location?: string
+    /** Video call link (Google Meet, Zoom, Teams) on an imported meeting. */
+    joinUrl?: string
     createdAt: string
     updatedAt: string
 }

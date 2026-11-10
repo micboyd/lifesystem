@@ -129,9 +129,22 @@ export default function TimeboxDrawer({ open, date, editing, draft, onClose, onS
                 title="Meeting"
                 size="lg"
                 footer={
-                    <Button variant="ghost" className="ml-auto" onClick={onClose}>
-                        Close
-                    </Button>
+                    <div className="flex w-full items-center gap-2">
+                        <Button variant="ghost" className="ml-auto" onClick={onClose}>
+                            Close
+                        </Button>
+                        {editing.joinUrl && (
+                            <a
+                                href={editing.joinUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex h-11 items-center gap-2 rounded-xl bg-coral-500 px-4 text-[15px] font-semibold text-white transition-colors hover:bg-coral-600 active:bg-coral-700"
+                            >
+                                <i className="fa-solid fa-video text-sm" aria-hidden="true" />
+                                Join
+                            </a>
+                        )}
+                    </div>
                 }
             >
                 <div className="flex flex-col gap-5">

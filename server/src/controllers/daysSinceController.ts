@@ -98,6 +98,11 @@ export async function resetDaysSince(req: AuthRequest, res: Response) {
         return
     }
 
+    if (req.body.startDate < item.startDate) {
+        res.status(400).json({ message: 'Reset date can’t be before the run started' })
+        return
+    }
+
     const days = daysBetween(item.startDate, req.body.startDate)
     item.history.push({ startDate: item.startDate, endDate: req.body.startDate, days, reason })
     item.bestStreakDays = Math.max(item.bestStreakDays, days)
