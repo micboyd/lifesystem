@@ -55,8 +55,6 @@ import { clearDraft } from '../lib/workoutLogDraft'
 import { seedFromLog } from '../lib/workoutLogEdit'
 import { useToast } from '../context/ToastContext'
 import { listEvents } from '../services/events'
-import { listMeetings } from '../services/ical'
-import { meetingAsEvent } from '../lib/meetingClashes'
 import {
     listPlanEntries,
     addPlanEntry,
@@ -129,7 +127,6 @@ import {
     PICK_LABEL,
 } from './planner/PlannerParts'
 import { estimateWorkoutMinutes } from '../lib/phases'
-import { restDayNote } from '../lib/restDayMessage'
 
 // ─── Kind presentation ────────────────────────────────────────────────────────
 
@@ -748,13 +745,8 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         Promise.all([
             listPlanEntries(range.start, range.end),
             listPlanNotes(range.start, range.end),
-            // Google meetings live in Timebox, but still block a slot like an event does.
-            Promise.all([
-                listEvents(range.start, range.end).catch(() => [] as Event[]),
-                listMeetings(range.start, range.end)
-                    .then((ms) => ms.map(meetingAsEvent))
-                    .catch(() => [] as Event[]),
-            ]).then(([evs, meetings]) => [...evs, ...meetings]),
+            // Only calendar events clash — Timebox (and its Google meetings) stays separate.
+            listEvents(range.start, range.end).catch(() => [] as Event[]),
             listWorkoutLogs().catch(() => []),
             listConditioningLogs().catch(() => []),
         ])
@@ -2444,8 +2436,6 @@ function DayCard({
     const toDo = total - skippedCount
     const rest = total === 0
     const calendarCount = calendarEvents.length
-    // On a rest day, what the calendar says you're doing instead.
-    const restNote = rest ? restDayNote(calendarEvents, date) : null
     const tone = note ? FLAG_TONE[note.color] : null
 
     // Minutes across the day: sessions carry a duration; workouts use the same
@@ -2463,18 +2453,6 @@ function DayCard({
     const summary = rest ? (
         <p className="text-[13px] text-neutral-500">
             Rest day
-            {restNote && (
-                <>
-                    {' · '}
-                    <button
-                        type="button"
-                        onClick={onShowEvents}
-                        className="text-left text-sky-700 hover:underline"
-                    >
-                        {restNote.text}
-                    </button>
-                </>
-            )}
         </p>
     ) : (
         <div className="flex flex-col gap-1.5">

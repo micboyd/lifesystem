@@ -438,8 +438,8 @@ async function applyUpdate(
  *
  * Every phase is checked before any is written, so a typo in the fifth phase
  * doesn't leave the first four half-imported. A name the user chose to
- * overwrite updates that phase in place (keeping its id, so Life Plan season
- * links survive) and goes through the same history rules as an edit.
+ * overwrite updates that phase in place (keeping its id, so anything that links
+ * to it still finds it) and goes through the same history rules as an edit.
  */
 export async function importNutritionPhases(req: AuthRequest, res: Response) {
     const body = req.body as unknown

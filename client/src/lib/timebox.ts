@@ -1,5 +1,4 @@
 import type {
-    FitnessPlanEntry,
     MealPlanEntry,
     MealType,
     Timebox,
@@ -369,9 +368,8 @@ export function stripSegments(
 
 export interface PlanSuggestion {
     key: string
-    kind: 'training' | 'meal'
     title: string
-    /** e.g. "Morning · 45 min" / "Lunch". */
+    /** e.g. "Lunch", or the meals in a merged slot. */
     detail: string
     startTime: string
     endTime: string
@@ -380,12 +378,7 @@ export interface PlanSuggestion {
     boxed: boolean
 }
 
-/** Where a training slot or meal lands when it's first boxed. */
-const PART_START: Record<FitnessPlanEntry['part'], number> = {
-    morning: 7 * 60,
-    afternoon: 13 * 60,
-    evening: 18 * 60,
-}
+/** Where a meal lands when it's first boxed. */
 const MEAL_SLOT: Record<MealType, { start: number; len: number; label: string }> = {
     breakfast: { start: 8 * 60, len: 30, label: 'Breakfast' },
     lunch: { start: 12 * 60 + 30, len: 30, label: 'Lunch' },
@@ -393,17 +386,15 @@ const MEAL_SLOT: Record<MealType, { start: number; len: number; label: string }>
     dinner: { start: 19 * 60, len: 45, label: 'Dinner' },
 }
 const MEAL_ORDER: MealType[] = ['breakfast', 'lunch', 'snack', 'dinner']
-const PART_LABEL = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' } as const
 
 const norm = (s: string) => s.trim().toLowerCase()
 
 /**
- * The day's planned training and meals, ready to drop onto the timeline.
- * Skipped sessions and away notes are left out; a meal slot with several
- * items becomes one block.
+ * The day's planned meals, ready to drop onto the timeline. Training stays in
+ * the fitness planner — Timebox and fitness are kept separate. Away notes are
+ * left out; a meal slot with several items becomes one block.
  */
 export function planSuggestions(
-    fitness: FitnessPlanEntry[],
     meals: MealPlanEntry[],
     boxes: Timebox[],
     /** The day's lunch break, when set: the planned lunch goes there. */
@@ -411,28 +402,6 @@ export function planSuggestions(
 ): PlanSuggestion[] {
     const titles = new Set(boxes.map((b) => norm(b.title)))
     const out: PlanSuggestion[] = []
-
-    const training = fitness
-        .filter((e) => !e.skipped && (e.workout || e.session))
-        .sort((a, b) => PART_START[a.part] - PART_START[b.part] || a.order - b.order)
-    // Sessions sharing a part follow on from each other.
-    const cursor: Record<string, number> = {}
-    for (const e of training) {
-        const lib = e.workout ?? e.session!
-        const len = lib.duration > 0 ? lib.duration : 60
-        const start = cursor[e.part] ?? PART_START[e.part]
-        cursor[e.part] = start + len
-        out.push({
-            key: `fit-${e._id}`,
-            kind: 'training',
-            title: lib.name,
-            detail: `${PART_LABEL[e.part]} · ${len} min`,
-            startTime: minutesToTime(start),
-            endTime: minutesToTime(Math.min(start + len, 24 * 60 - 1)),
-            category: 'health',
-            boxed: titles.has(norm(lib.name)),
-        })
-    }
 
     for (const slot of MEAL_ORDER) {
         const inSlot = meals
@@ -448,7 +417,6 @@ export function planSuggestions(
         const others = inSlot.map((m) => m.name).join(', ')
         out.push({
             key: `meal-${slot}`,
-            kind: 'meal',
             title,
             detail: inSlot.length === 1 ? label : others,
             startTime: minutesToTime(start),

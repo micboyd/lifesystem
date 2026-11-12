@@ -606,7 +606,7 @@ function Free({
     )
 }
 
-/** Planned training or a meal not boxed yet: a dashed outline to tap and add. */
+/** A planned meal not boxed yet: a dashed outline to tap and add. */
 function Planned({
     row,
     onPlan,
@@ -631,7 +631,7 @@ function Planned({
                 </span>
                 <span className="block truncate text-[13px] text-neutral-500">
                     <i
-                        className={`fa-solid ${s.kind === 'training' ? 'fa-dumbbell' : 'fa-bowl-food'} mr-1.5 text-[11px] text-neutral-400`}
+                        className={`fa-solid fa-bowl-food mr-1.5 text-[11px] text-neutral-400`}
                         aria-hidden="true"
                     />
                     Planned · {s.detail}

@@ -35,23 +35,21 @@ import {
     updateTimebox,
     type TimeboxInput,
 } from '../services/timeboxes'
-import { listPlanEntries as listFitnessPlan } from '../services/fitnessPlan'
 import { listPlanEntries as listMealPlan } from '../services/mealPlan'
-import type { FitnessPlanEntry, MealPlanEntry, Timebox as TimeboxItem } from '../types'
+import type { MealPlanEntry, Timebox as TimeboxItem } from '../types'
 
 const nowMinutes = () => {
     const n = new Date()
     return n.getHours() * 60 + n.getMinutes()
 }
 
-/** Timebox: plan one day block by block, with the day's training and meals to hand. */
+/** Timebox: plan one day block by block, with the day's meals to hand. */
 export default function Timebox() {
     const { user } = useAuth()
     const toast = useToast()
     const navigate = useNavigate()
     const [date, setDate] = useState(todayKey)
     const [items, setItems] = useState<TimeboxItem[] | null>(null)
-    const [fitness, setFitness] = useState<FitnessPlanEntry[]>([])
     const [meals, setMeals] = useState<MealPlanEntry[]>([])
     const [failed, setFailed] = useState(false)
     const [version, setVersion] = useState(0)
@@ -102,14 +100,12 @@ export default function Timebox() {
                 setItems([])
                 setFailed(true)
             })
-        // The plans are a bonus — a failure there just leaves the side list empty.
-        Promise.all([listFitnessPlan(date, date).catch(() => []), listMealPlan(date, date).catch(() => [])]).then(
-            ([f, m]) => {
-                if (!live) return
-                setFitness(f)
-                setMeals(m)
-            }
-        )
+        // The meal plan is a bonus — a failure there just leaves no suggestions.
+        listMealPlan(date, date)
+            .catch(() => [])
+            .then((m) => {
+                if (live) setMeals(m)
+            })
         return () => {
             live = false
         }
@@ -133,9 +129,9 @@ export default function Timebox() {
     const current = isToday ? nowOrNext(list, now) : null
     const lunch = work?.lunch
     const suggestions = useMemo(
-        () => planSuggestions(fitness, meals, list, lunch),
+        () => planSuggestions(meals, list, lunch),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [fitness, meals, list, lunch?.start, lunch?.end]
+        [meals, list, lunch?.start, lunch?.end]
     )
     const rows = agendaRows(list, suggestions, bounds, work)
 

@@ -16,7 +16,7 @@ import {
     workWindow,
     type PlanSuggestion,
 } from './timebox'
-import type { FitnessPlanEntry, MealPlanEntry, Timebox } from '../types'
+import type { MealPlanEntry, Timebox } from '../types'
 
 const box = (id: string, startTime: string, endTime: string, title = id): Timebox => ({
     _id: id,
@@ -56,20 +56,16 @@ describe('nowOrNext', () => {
 })
 
 describe('planSuggestions', () => {
-    const fit = (id: string, part: FitnessPlanEntry['part'], name: string, duration: number, skipped = false) =>
-        ({ _id: id, part, order: 0, skipped, workout: { name, duration }, session: null }) as unknown as FitnessPlanEntry
     const meal = (slot: MealPlanEntry['slot'], name: string, away = false) =>
         ({ _id: name, slot, name, away, order: 0 }) as unknown as MealPlanEntry
 
-    it('chains sessions in one part, skips skipped ones and away notes, merges a meal slot', () => {
+    it('skips away notes, merges a meal slot and spots one already boxed', () => {
         const out = planSuggestions(
-            [fit('1', 'morning', 'Push', 45), fit('2', 'morning', 'Run', 30), fit('3', 'evening', 'Pull', 60, true)],
-            [meal('lunch', 'Chicken rice'), meal('lunch', 'Yoghurt'), meal('dinner', 'Work do', true)],
-            [box('x', '07:00', '07:45', 'push')]
+            [meal('breakfast', 'Oats'), meal('lunch', 'Chicken rice'), meal('lunch', 'Yoghurt'), meal('dinner', 'Work do', true)],
+            [box('x', '08:00', '08:30', 'oats')]
         )
         expect(out.map((s) => [s.title, s.startTime, s.endTime, s.boxed])).toEqual([
-            ['Push', '07:00', '07:45', true],
-            ['Run', '07:45', '08:15', false],
+            ['Oats', '08:00', '08:30', true],
             ['Lunch', '12:30', '13:00', false],
         ])
     })
@@ -109,7 +105,6 @@ describe('parseTimeboxImport', () => {
 describe('agendaRows', () => {
     const plan = (title: string, startTime: string, endTime: string, boxed = false): PlanSuggestion => ({
         key: title,
-        kind: 'meal',
         title,
         detail: '',
         startTime,

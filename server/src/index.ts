@@ -26,7 +26,6 @@ import fitnessPlanRoutes from './routes/fitnessPlanRoutes'
 import garminRoutes from './routes/garminRoutes'
 import { registerGarminCleanup } from './garmin/account'
 import habitRoutes from './routes/habitRoutes'
-import lifePlanRoutes from './routes/lifePlanRoutes'
 import mealRoutes from './routes/mealRoutes'
 import mealPlanRoutes from './routes/mealPlanRoutes'
 import shoppingRoutes from './routes/shoppingRoutes'
@@ -108,7 +107,6 @@ app.use('/api/garmin', garminRoutes)
 app.use('/api/plans', trainingPlanRoutes)
 app.use('/api/notes', noteRoutes)
 app.use('/api/savings-targets', savingsTargetRoutes)
-app.use('/api/life-plans', lifePlanRoutes)
 app.use('/api/nutrition-phases', nutritionPhaseRoutes)
 app.use('/api/routes', routeRoutes)
 app.use('/api/walks', walkRoutes)

@@ -39,15 +39,34 @@ export interface ShoppingLine {
     item?: ShoppingGroup
 }
 
-export const lineKey = (name: string) => name.trim().toLowerCase()
+/** One word, singular: berries → berry, tomatoes → tomato, peaches → peach, eggs → egg. Leaves hummus, couscous, grass alone. */
+function singular(word: string): string {
+    if (word.length <= 3) return word
+    if (word.endsWith('ies')) return `${word.slice(0, -3)}y`
+    if (/(o|ch|sh|x)es$/.test(word)) return word.slice(0, -2)
+    if (word.endsWith('s') && !/(ss|us|is)$/.test(word)) return word.slice(0, -1)
+    return word
+}
 
-export function mergeLines(groups: ShoppingGroup[], mode: ShopMode = 'servings'): ShoppingLine[] {
+/**
+ * What a line is merged and ticked by: lower case, spaces tidied, the last
+ * word made singular — so "Onions", "onion" and "red  onions " land on the
+ * right lines and a name typed two ways still makes one line.
+ */
+export function lineKey(name: string): string {
+    const words = name.trim().toLowerCase().split(/\s+/).filter(Boolean)
+    if (words.length === 0) return ''
+    words[words.length - 1] = singular(words[words.length - 1])
+    return words.join(' ')
+}
+
+export function mergeLines(groups: ShoppingGroup[], mode: ShopMode = 'batch'): ShoppingLine[] {
     const lines = new Map<string, ShoppingLine>()
     const line = (name: string) => {
         const key = lineKey(name)
         let l = lines.get(key)
         if (!l) {
-            l = { key, name: name.trim(), grams: 0, qty: 0, from: [] }
+            l = { key, name: name.trim().replace(/\s+/g, ' '), grams: 0, qty: 0, from: [] }
             lines.set(key, l)
         }
         return l
@@ -62,7 +81,7 @@ export function mergeLines(groups: ShoppingGroup[], mode: ShopMode = 'servings')
                 else l.grams += i.grams * n
                 if (!l.from.includes(g.name)) l.from.push(g.name)
             }
-        } else {
+        } else if (g.name.trim()) {
             const l = line(g.name)
             l.qty += g.count
             if (g.kind === 'item') l.item = g
@@ -88,3 +107,9 @@ export function lineAmount(l: ShoppingLine): string {
     const qty = l.qty > 1 || (l.qty > 0 && l.grams > 0) ? `×${l.qty}` : ''
     return [weight, qty].filter(Boolean).join(' · ')
 }
+
+/** The ticked names as line keys — older ticks were saved before names were made singular. */
+export const tickedKeys = (ticked: string[]) => new Set(ticked.map(lineKey))
+
+/** How many times over a group's ingredients are bought — trays whole. */
+export const timesBought = (g: ShoppingGroup) => times(g, 'batch')

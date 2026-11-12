@@ -1,6 +1,6 @@
 import api from './api'
 import type { ApiResponse } from '../types'
-import type { MeetingBlock } from '../lib/meetingClashes'
+import type { MeetingBlock } from '../lib/meetings'
 
 /** The Google Calendar feed as the server describes it — the address only ever masked. */
 export interface MeetingsFeed {

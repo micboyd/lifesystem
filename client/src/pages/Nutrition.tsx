@@ -8,16 +8,18 @@ import { LARGE_QUERY, useMediaQuery } from '../components/planner/WeekPlannerUI'
 import MealLibrary from '../components/nutrition/MealLibrary'
 import NutritionStats from '../components/nutrition/NutritionStats'
 import PhasesTab from '../components/nutrition/PhasesTab'
-import { ShoppingDrawer, ShoppingPill, useShopping } from '../components/nutrition/ShoppingList'
+import { ShoppingPill, useShopping } from '../components/nutrition/ShoppingList'
+import ThinkingAhead from '../components/nutrition/ThinkingAhead'
 import { useAuth } from '../context/AuthContext'
 import { listMeals } from '../services/meals'
 import type { Meal } from '../types'
 
-const TABS = ['Planner', 'Library', 'Plans', 'Stats'] as const
+const TABS = ['Planner', 'Thinking ahead', 'Library', 'Plans', 'Stats'] as const
 type Tab = (typeof TABS)[number]
 
 const SUBTITLE: Record<Tab, string> = {
     Planner: 'Plan your meals — drop them into each day, then tick them off as you eat.',
+    'Thinking ahead': 'Plan your next batch cook — what you’re making and how many, with one shopping list for all of it.',
     Library: 'Your meals and their macros. Made a batch? It splits it into meals for you.',
     Plans: 'Dated cuts, bulks and maintenance stretches — each plan sets the daily targets the planner judges against.',
     Stats: 'Calories in and out over a week, a month or a plan.',
@@ -46,7 +48,6 @@ export default function Nutrition() {
     }, [reloadMeals])
 
     const shopping = useShopping()
-    const [shoppingOpen, setShoppingOpen] = useState(false)
 
     const isLarge = useMediaQuery(LARGE_QUERY)
     // The week board spans the screen below the tabs, as in Fitness; the header,
@@ -63,14 +64,16 @@ export default function Nutrition() {
                         </h1>
                         <p className="mt-1 text-sm text-neutral-500">{SUBTITLE[tab]}</p>
                     </div>
-                    <ShoppingPill list={shopping.list} mode={shopping.mode} onOpen={() => setShoppingOpen(true)} />
+                    {tab !== 'Thinking ahead' && (
+                        <ShoppingPill list={shopping.list} onOpen={() => setTab('Thinking ahead')} />
+                    )}
                 </header>
 
                 <Tabs tabs={[...TABS]} value={tab} onChange={(t) => setTab(t as Tab)} className="self-start" />
             </Container>
 
             <Container fluid={fluid} className="mt-6">
-                {loading && (tab === 'Planner' || tab === 'Library') ? (
+                {loading && (tab === 'Planner' || tab === 'Library' || tab === 'Thinking ahead') ? (
                     <div className="grid place-items-center py-16">
                         <Spinner />
                     </div>
@@ -80,6 +83,8 @@ export default function Nutrition() {
                         settingsGoals={user?.settings?.macroGoals}
                         onMealsChanged={reloadMeals}
                     />
+                ) : tab === 'Thinking ahead' ? (
+                    <ThinkingAhead meals={meals} list={shopping.list} onChange={shopping.setList} />
                 ) : tab === 'Library' ? (
                     <MealLibrary
                         meals={meals}
@@ -93,15 +98,6 @@ export default function Nutrition() {
                     <PhasesTab openPhaseId={openPhaseId} onOpened={clearOpenPhase} />
                 )}
             </Container>
-
-            <ShoppingDrawer
-                open={shoppingOpen}
-                onClose={() => setShoppingOpen(false)}
-                list={shopping.list}
-                onChange={shopping.setList}
-                mode={shopping.mode}
-                onMode={shopping.setMode}
-            />
         </main>
     )
 }

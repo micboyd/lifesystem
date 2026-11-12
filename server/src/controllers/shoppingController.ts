@@ -18,7 +18,22 @@ async function listFor(userId: string): Promise<List> {
     return (await ShoppingList.findOne({ user: userId })) ?? (await ShoppingList.create({ user: userId, groups: [] }))
 }
 
-const keyOf = (name: string) => name.trim().toLowerCase()
+/** One word, singular — mirrors the client's lib/shopping.ts lineKey, so ticks match its lines. */
+function singular(word: string): string {
+    if (word.length <= 3) return word
+    if (word.endsWith('ies')) return `${word.slice(0, -3)}y`
+    if (/(o|ch|sh|x)es$/.test(word)) return word.slice(0, -2)
+    if (word.endsWith('s') && !/(ss|us|is)$/.test(word)) return word.slice(0, -1)
+    return word
+}
+
+/** A line's key: lower case, spaces tidied, last word singular ("Red onions" → "red onion"). */
+function keyOf(name: string): string {
+    const words = name.trim().toLowerCase().split(/\s+/).filter(Boolean)
+    if (words.length === 0) return ''
+    words[words.length - 1] = singular(words[words.length - 1])
+    return words.join(' ')
+}
 
 /** The line names a group puts on the list: a box's or meal's ingredients, else itself. */
 function linesOf(g: IShoppingGroup): string[] {

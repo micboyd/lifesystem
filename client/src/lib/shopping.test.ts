@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { lineAmount, mergeLines } from './shopping'
+import { lineAmount, lineKey, mergeLines, tickedKeys } from './shopping'
 import type { ShoppingGroup } from '../types'
 
 const box = (name: string, count: number, ingredients: [string, number][]): ShoppingGroup => ({
@@ -96,13 +96,13 @@ describe('mergeLines with trays', () => {
         const lines = mergeLines([tray(2)], 'servings')
         expect(get(lines, 'chicken breast').grams).toBe(400)
         // 0.8 of a lime is still one lime.
-        expect(get(lines, 'limes').qty).toBe(1)
+        expect(get(lines, 'lime').qty).toBe(1)
     })
 
     it('buys whole trays by batch, enough to cover the boxes', () => {
         expect(get(mergeLines([tray(5)], 'batch'), 'chicken breast').grams).toBe(1000)
         expect(get(mergeLines([tray(7)], 'batch'), 'chicken breast').grams).toBe(2000)
-        expect(get(mergeLines([tray(2)], 'batch'), 'limes').qty).toBe(2)
+        expect(get(mergeLines([tray(2)], 'batch'), 'lime').qty).toBe(2)
     })
 
     it('leaves single meals alone either way', () => {
@@ -113,8 +113,8 @@ describe('mergeLines with trays', () => {
             count: 2,
             ingredients: [{ name: 'Eggs', grams: 0, items: 3 }],
         }
-        expect(get(mergeLines([meal], 'batch'), 'eggs').qty).toBe(6)
-        expect(get(mergeLines([meal], 'servings'), 'eggs').qty).toBe(6)
+        expect(get(mergeLines([meal], 'batch'), 'egg').qty).toBe(6)
+        expect(get(mergeLines([meal], 'servings'), 'egg').qty).toBe(6)
     })
 })
 
@@ -125,5 +125,45 @@ describe('lineAmount', () => {
         expect(lineAmount({ key: 'a', name: 'a', grams: 0, qty: 1, from: [] })).toBe('')
         expect(lineAmount({ key: 'a', name: 'a', grams: 0, qty: 2, from: [] })).toBe('×2')
         expect(lineAmount({ key: 'a', name: 'a', grams: 400, qty: 1, from: [] })).toBe('400 g · ×1')
+    })
+})
+
+describe('lineKey', () => {
+    it('makes one line of a name written two ways', () => {
+        expect(lineKey('Onions')).toBe('onion')
+        expect(lineKey(' red  onions ')).toBe('red onion')
+        expect(lineKey('Cherry tomatoes')).toBe('cherry tomato')
+        expect(lineKey('Berries')).toBe('berry')
+        expect(lineKey('Peaches')).toBe('peach')
+        expect(lineKey('Chicken breasts')).toBe(lineKey('chicken breast'))
+    })
+
+    it('leaves words that only look plural alone', () => {
+        expect(lineKey('Hummus')).toBe('hummus')
+        expect(lineKey('Couscous')).toBe('couscous')
+        expect(lineKey('Gas')).toBe('gas')
+        expect(lineKey('Rice')).toBe('rice')
+    })
+
+    it('reads older ticks as today’s keys', () => {
+        expect(tickedKeys(['chicken breasts', 'rice']).has('chicken breast')).toBe(true)
+    })
+})
+
+describe('mergeLines for batch cooking', () => {
+    it('adds the same ingredient across meals written differently, keeping the first name', () => {
+        const lines = mergeLines([
+            { id: 'a', kind: 'meal', name: 'Chilli', count: 7, ingredients: [{ name: 'Onions', grams: 100 }] },
+            { id: 'b', kind: 'meal', name: 'Curry', count: 2, ingredients: [{ name: 'onion', grams: 150 }] },
+        ])
+        expect(lines).toHaveLength(1)
+        expect(lines[0]).toMatchObject({ name: 'Onions', grams: 1000, from: ['Chilli', 'Curry'] })
+    })
+
+    it('buys trays whole by default', () => {
+        const lines = mergeLines([
+            { id: 't', kind: 'meal', name: 'Tray', count: 6, batchOf: 5, ingredients: [{ name: 'Mince', grams: 1000 }] },
+        ])
+        expect(lines[0].grams).toBe(2000)
     })
 })
