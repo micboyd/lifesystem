@@ -2,6 +2,7 @@ import type {
     BodyGoals,
     BodyProfile,
     ConditioningLog,
+    DailyEnergy,
     MealPlanEntry,
     NutritionPhase,
     NutritionPhaseKind,
@@ -36,6 +37,9 @@ import { bodyFatSeries, daysBetween, trendSeries } from './weightTrend'
  *      adherence gives way to what the logs show: sessions done against the
  *      schedule, days eaten on target against days logged. Every new weigh-in or
  *      logged session moves the projection; nothing has to be pressed.
+ *      The watch's whole-day burn does the same for maintenance: a week of it
+ *      and the projection runs on what was burned, not on what the plan assumed,
+ *      and days with a full food log too are replayed exactly as they went.
  *
  * Weight is split into fat and lean so body fat can be projected honestly: lean
  * gain is capped by training age and the energy balance, and only what's left of
@@ -101,6 +105,18 @@ export const ADHERENCE_WINDOW_DAYS = 28
 /** Days of evidence before a measured adherence is used at all. */
 export const MIN_ADHERENCE_DAYS = 7
 
+/** How far back the watch's burn is read. */
+export const ENERGY_WINDOW_DAYS = 28
+/** Finished days of watch burn before it's used at all, and the count at which it's fully trusted. */
+export const MIN_ENERGY_DAYS = 7
+export const FULL_ENERGY_DAYS = 14
+/** A watch that last reported longer ago than this has stopped being worn or synced. */
+const ENERGY_STALE_DAYS = 10
+/** The watch can move maintenance this far from the formula and no further. */
+const ENERGY_SCALE = { min: 0.7, max: 1.6 }
+/** Food logged below this share of the day's burn reads as a half-logged day, not a crash diet. */
+const MIN_LOGGED_SHARE = 0.4
+
 /** The weight a lift's own six-week trend carries against the model. */
 const LIFT_TREND_WEIGHT = 0.4
 
@@ -118,6 +134,8 @@ export interface TimelineInputs {
     conditioningLogs?: ConditioningLog[]
     /** The meal plan over at least the last four weeks, for measured nutrition adherence. */
     mealEntries?: MealPlanEntry[]
+    /** Whole-day burn from the watch over at least the last four weeks. */
+    energy?: DailyEnergy[]
     profile: BodyProfile | undefined
     quiz: TimelineQuiz
     bodyGoals?: BodyGoals
@@ -193,6 +211,25 @@ export interface Calibration {
     /** kg/week, net of water. */
     observedRate: number
     predictedRate: number
+}
+
+/** What the watch says is burned, against what the plans assumed. */
+export interface MeasuredEnergy {
+    /** Average whole-day burn over the finished days the watch reported, kcal. */
+    burnKcal: number
+    burnDays: number
+    /** What the plans assumed for the same days, kcal. */
+    assumedKcal: number
+    /** What the projection runs on: the two blended by `weight`. */
+    usedKcal: number
+    /** 0–1: the share the watch carries. */
+    weight: number
+    /** The multiplier on the formula burn that gives `usedKcal`. */
+    scale: number
+    /** Days with a full food log as well, replayed as eaten against burned. */
+    balanceDays: number
+    /** Their average eaten − burned, kcal a day. Null when there are none. */
+    balanceKcal: number | null
 }
 
 export interface TimelineEnd {
@@ -279,6 +316,8 @@ export interface Timeline {
     final: TimelineEnd
     /** Null until there are enough weigh-ins. */
     calibration: Calibration | null
+    /** Null until the watch has reported a week of finished days. */
+    energy: MeasuredEnergy | null
     /** Stated against measured adherence; `used` is what every run but "all in" projects. */
     adherence: Adherence
     /** The same plans followed to the letter — only when the adherence used says otherwise. */
@@ -354,6 +393,8 @@ interface Context {
     intakeShift: number
     /** kcal/day added to the burn — the "walk more" what-if. */
     burnShift: number
+    /** Past days known in full: eaten and burned as recorded, not modelled. */
+    known: Map<string, KnownDay>
     water: (date: string) => number
 }
 
@@ -557,7 +598,7 @@ function step(state: State, date: string, day: number, ctx: Context, liftRates: 
     // explains. Kept to 3% at most: for a moderate cut that's what's measured, and
     // more would quietly cancel a modest planned deficit.
     const adaptation = Math.min(0.03, (state.deficitDays / 7) * 0.002)
-    const burn =
+    let burn =
         (bmr * ACTIVITY_FACTOR[quiz.activity] * (1 - adaptation) +
             (sessions.strength * SESSION_KCAL.strength + sessions.cardio * SESSION_KCAL.cardio) *
                 ctx.trainingAdherence) *
@@ -571,6 +612,12 @@ function step(state: State, date: string, day: number, ctx: Context, liftRates: 
         target = targetOn(phase, date, burn) + ctx.intakeShift
         const a = ctx.nutritionAdherence
         intake = a * target + (1 - a) * offPlanIntake(phase.kind, burn)
+    }
+    // A day already lived with both sides recorded needs no model.
+    const known = ctx.known.get(date)
+    if (known) {
+        burn = known.out
+        intake = known.eaten
     }
     const balance = intake - burn + ctx.offset
 
@@ -648,6 +695,7 @@ function makeContext(
         trainingAdherence: perfect ? 1 : quiz.trainingAdherence,
         nutritionAdherence: perfect ? 1 : quiz.nutritionAdherence,
         offset,
+        known: knownDays(inputs),
         water: makeWater(quiz, phases),
     }
 }
@@ -795,13 +843,95 @@ export function startingPoint(inputs: TimelineInputs): TimelineStart {
     return { weight, bodyFat, bodyFatSource, lifts }
 }
 
+// ── The watch's burn ─────────────────────────────────────────────────────────
+
+interface KnownDay {
+    eaten: number
+    out: number
+}
+
+/** The watch's finished days in the window. Today is left out: it isn't over. */
+function watchDays(inputs: TimelineInputs): Map<string, number> {
+    const { today } = inputs
+    const from = addDays(today, -ENERGY_WINDOW_DAYS)
+    const days = new Map<string, number>()
+    for (const e of inputs.energy ?? []) {
+        if (e.date >= from && e.date < today && e.caloriesOut > 0) days.set(e.date, e.caloriesOut)
+    }
+    return days
+}
+
+/**
+ * Days with both a watch burn and a full food log. A day counts as fully logged
+ * when nothing on it is still waiting to be ticked off and what was eaten isn't
+ * implausibly little: a day with only breakfast marked would otherwise read as
+ * a 2,500 kcal deficit.
+ */
+export function knownDays(inputs: TimelineInputs): Map<string, KnownDay> {
+    const out = watchDays(inputs)
+    const known = new Map<string, KnownDay>()
+    if (out.size === 0) return known
+    const entries = inputs.mealEntries ?? []
+    const open = new Set(entries.filter((e) => e.status === 'planned').map((e) => e.date))
+    for (const [date, eaten] of dailyIntake(entries)) {
+        const burn = out.get(date)
+        if (!burn || open.has(date) || eaten < burn * MIN_LOGGED_SHARE) continue
+        known.set(date, { eaten, out: burn })
+    }
+    return known
+}
+
+/**
+ * Maintenance as the watch measures it. The plan's figure (anchorBurn,
+ * solveForGoal) is an assumption; a week of whole-day burn is a reading, so it
+ * takes over, fully by a fortnight. The formula is rescaled rather than
+ * replaced, so the burn still falls as weight does and rises with sessions.
+ * A watch can be 10–20% out: weigh-in calibration runs on top and absorbs it.
+ */
+export function measureEnergy(inputs: TimelineInputs, weight: number, planScale: number): MeasuredEnergy | null {
+    const { today, profile, quiz } = inputs
+    const out = watchDays(inputs)
+    if (out.size < MIN_ENERGY_DAYS) return null
+    const last = [...out.keys()].sort().pop()!
+    if (daysBetween(last, today) > ENERGY_STALE_DAYS) return null
+
+    const sessions = sessionsByDate(inputs.plans)
+    let burned = 0
+    let formula = 0
+    for (const [date, kcal] of out) {
+        const s = sessions.get(date) ?? { strength: 0, cardio: 0 }
+        const bmr = mifflinStJeor(weight, profile!.heightCm!, ageOn(profile!.birthDate!, date), profile!.sex!)
+        burned += kcal
+        formula +=
+            bmr * ACTIVITY_FACTOR[quiz.activity] +
+            (s.strength * SESSION_KCAL.strength + s.cardio * SESSION_KCAL.cardio) * quiz.trainingAdherence
+    }
+    const share = Math.min(1, out.size / FULL_ENERGY_DAYS)
+    const watchScale = Math.max(ENERGY_SCALE.min, Math.min(ENERGY_SCALE.max, burned / formula))
+    const scale = planScale * (1 - share) + watchScale * share
+
+    const known = [...knownDays(inputs).values()]
+    return {
+        burnKcal: burned / out.size,
+        burnDays: out.size,
+        assumedKcal: (formula / out.size) * planScale,
+        usedKcal: (formula / out.size) * scale,
+        weight: share,
+        scale,
+        balanceDays: known.length,
+        balanceKcal: known.length ? known.reduce((sum, d) => sum + d.eaten - d.out, 0) / known.length : null,
+    }
+}
+
 // ── Calibration ──────────────────────────────────────────────────────────────
 
 /**
  * Replay the last four weeks of weigh-ins through the model. Whatever the trend
  * did that the model didn't predict — an underestimated burn, weekends eating
  * more than the quiz admitted — becomes a kcal/day correction carried forward,
- * trusted more the longer the span it was measured over.
+ * trusted more the longer the span it was measured over. Days the watch and the
+ * food log cover in full are replayed as recorded, so there the correction is
+ * for what the watch and the log get wrong, not for what the model guessed.
  */
 export function calibrate(inputs: TimelineInputs, bodyFatPct: number, burnScale = 1): Calibration | null {
     const { today, weightLogs } = inputs
@@ -987,17 +1117,21 @@ export function buildTimeline(given: TimelineInputs): Timeline {
 
     const initial = startingPoint(measured)
     const burn = solveForGoal(inputs, initial, end, anchorBurn(measured, initial.weight))
-    const calibration = calibrate(measured, initial.bodyFat, burn.scale)
+    // The watch's burn replaces the plan's assumed maintenance, in every run: "all
+    // in" on a different burn from "your pace" could come out the worse of the two.
+    const energy = measureEnergy(measured, initial.weight, burn.scale)
+    const scale = energy?.scale ?? burn.scale
+    const calibration = calibrate(measured, initial.bodyFat, scale)
     const offset = calibration?.offsetKcal ?? 0
     const burnError =
         BURN_ERROR.uncalibrated * (1 - (calibration?.weight ?? 0)) + BURN_ERROR.calibrated * (calibration?.weight ?? 0)
 
     // The whole chain stays on screen: it starts at the earliest plan still running.
     const chainStart = [from, ...plans.map((p) => p.planStart), ...phases.map((p) => p.startDate)].sort()[0]
-    const main = run(inputs, initial, end, makeContext(inputs, offset, burn.scale), burnError, true, chainStart)
+    const main = run(inputs, initial, end, makeContext(inputs, offset, scale), burnError, true, chainStart)
     const imperfect = inputs.quiz.trainingAdherence < 1 || inputs.quiz.nutritionAdherence < 1
     const perfect = imperfect
-        ? run(inputs, initial, end, makeContext(inputs, offset, burn.scale, true), burnError, true, chainStart)
+        ? run(inputs, initial, end, makeContext(inputs, offset, scale, true), burnError, true, chainStart)
         : null
     const goal = goalOf(phases, inputs.bodyGoals)
     const { suggestions, combined } = suggest(
@@ -1005,7 +1139,7 @@ export function buildTimeline(given: TimelineInputs): Timeline {
         initial,
         end,
         offset,
-        burn.scale,
+        scale,
         burnError,
         main.final,
         adherence,
@@ -1022,6 +1156,7 @@ export function buildTimeline(given: TimelineInputs): Timeline {
         weeks: main.weeks,
         final: main.final,
         calibration,
+        energy,
         adherence,
         perfect,
         suggestions,

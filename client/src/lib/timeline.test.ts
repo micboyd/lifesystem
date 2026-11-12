@@ -4,7 +4,9 @@ import {
     buildTimeline,
     calibrate,
     cutRuns,
+    knownDays,
     makeWater,
+    measureEnergy,
     measureNutrition,
     measureTraining,
     sessionsByDate,
@@ -14,6 +16,7 @@ import {
 } from './timeline'
 import type {
     ConditioningLog,
+    DailyEnergy,
     MealPlanEntry,
     NutritionPhase,
     NutritionPhaseKind,
@@ -559,5 +562,121 @@ describe('measured adherence', () => {
         expect(measured.final.weight.mid).toBeGreaterThan(stated.final.weight.mid)
         const training = measured.suggestions.find((s) => s.key === 'training')
         expect(training?.detail).toContain('10 of 20 sessions')
+    })
+})
+
+describe('the watch’s burn', () => {
+    const START = addDays(TODAY, -28)
+    const running = (over: Partial<TimelineInputs> = {}) =>
+        inputs({
+            plans: [plan(START, 16)],
+            phases: [phase(START, addDays(TODAY, 83), 'cut', 2100)],
+            ...over,
+        })
+
+    /** The last `days` finished days at `kcal` each. */
+    function watch(days: number, kcal: number, endOffset = -1): DailyEnergy[] {
+        return Array.from({ length: days }, (_, i) => {
+            const date = addDays(TODAY, endOffset - i)
+            return { _id: date, date, caloriesOut: kcal, source: 'garmin', createdAt: '', updatedAt: '' } as DailyEnergy
+        })
+    }
+
+    function meal(date: string, calories: number, status: MealPlanEntry['status'] = 'eaten'): MealPlanEntry {
+        return {
+            _id: `${date}-${calories}-${status}`,
+            date,
+            slot: 'lunch',
+            name: 'Food',
+            macros: { calories, protein: 0, carbs: 0, fat: 0 },
+            status,
+            extra: false,
+            order: 0,
+            createdAt: '',
+            updatedAt: '',
+        } as MealPlanEntry
+    }
+
+    it('waits for a week of finished days, and ignores a watch gone quiet', () => {
+        expect(measureEnergy(running({ energy: watch(6, 3000) }), 90, 1)).toBeNull()
+        expect(measureEnergy(running({ energy: watch(14, 3000, -12) }), 90, 1)).toBeNull()
+        // Today isn't over, so it doesn't count.
+        expect(measureEnergy(running({ energy: watch(7, 3000, 0) }), 90, 1)).toBeNull()
+        expect(measureEnergy(running(), 90, 1)).toBeNull()
+    })
+
+    it('blends with the plan’s figure at a week and stands alone by a fortnight', () => {
+        const week = measureEnergy(running({ energy: watch(7, 3000) }), 90, 1)!
+        expect(week.weight).toBe(0.5)
+        expect(week.burnKcal).toBe(3000)
+        expect(week.usedKcal).toBeCloseTo((week.assumedKcal + 3000) / 2, 0)
+
+        const fortnight = measureEnergy(running({ energy: watch(14, 3000) }), 90, 1)!
+        expect(fortnight.weight).toBe(1)
+        expect(fortnight.usedKcal).toBeCloseTo(3000, 0)
+        expect(fortnight.scale).toBeCloseTo(3000 / fortnight.assumedKcal, 3)
+    })
+
+    it('holds a wild figure to a believable maintenance', () => {
+        const wild = measureEnergy(running({ energy: watch(14, 9000) }), 90, 1)!
+        expect(wild.scale).toBe(1.6)
+    })
+
+    it('only replays days with a watch figure and a full food log', () => {
+        const d = (n: number) => addDays(TODAY, -n)
+        const known = knownDays(
+            running({
+                energy: watch(5, 3000),
+                mealEntries: [
+                    meal(d(1), 2100),
+                    // Dinner never ticked off: the day is unknown.
+                    meal(d(2), 1500),
+                    meal(d(2), 700, 'planned'),
+                    // Only breakfast logged.
+                    meal(d(3), 400),
+                    // A skipped meal is settled.
+                    meal(d(4), 2000),
+                    meal(d(4), 600, 'skipped'),
+                    // No watch figure that day.
+                    meal(d(9), 2100),
+                ],
+            })
+        )
+        expect([...known.keys()].sort()).toEqual([d(4), d(1)])
+        expect(known.get(d(1))).toEqual({ eaten: 2100, out: 3000 })
+    })
+
+    it('leaves the timeline as it was without a watch', () => {
+        const t = buildTimeline(running())
+        expect(t.energy).toBeNull()
+        expect(buildTimeline(running({ energy: watch(3, 3500) })).final).toEqual(t.final)
+    })
+
+    it('projects more loss on a higher measured burn and less on a lower one', () => {
+        const plain = buildTimeline(running())
+        const assumed = measureEnergy(running({ energy: watch(14, 3000) }), 90, plain.burn.scale)!.assumedKcal
+        const high = buildTimeline(running({ energy: watch(14, assumed + 300) }))
+        const low = buildTimeline(running({ energy: watch(14, assumed - 300) }))
+        expect(high.energy!.burnDays).toBe(14)
+        expect(high.final.weight.mid).toBeLessThan(plain.final.weight.mid)
+        expect(low.final.weight.mid).toBeGreaterThan(plain.final.weight.mid)
+        // The watch moves both scenarios: all in is never the worse one.
+        expect(low.perfect!.final.weight.mid).toBeLessThan(low.final.weight.mid)
+        expect(high.perfect!.final.weight.mid).toBeLessThan(high.final.weight.mid)
+    })
+
+    it('replays fully logged days as they went when calibrating', () => {
+        const weightLogs = Array.from({ length: 29 }, (_, i) => weigh(addDays(START, i), 94 - (2 * i) / 28))
+        const energy = watch(28, 3000)
+        const onTarget = energy.map((e) => meal(e.date, 2100))
+        const over = energy.map((e) => meal(e.date, 2900))
+        const scale = 1
+        const lean = calibrate(running({ weightLogs, energy, mealEntries: onTarget }), 22, scale)!
+        const heavy = calibrate(running({ weightLogs, energy, mealEntries: over }), 22, scale)!
+        // Eating 800 more against the same burn predicts much less loss.
+        expect(heavy.predictedRate).toBeGreaterThan(lean.predictedRate + 0.5)
+        // 2,900 in, 3,000 out: about a tenth of a kilo a week.
+        expect(heavy.predictedRate).toBeGreaterThan(-0.2)
+        expect(heavy.predictedRate).toBeLessThan(0)
     })
 })

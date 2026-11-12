@@ -6,9 +6,26 @@ import { listWeightLogs } from '../../services/weightLogs'
 import { listLogs } from '../../services/workoutLogs'
 import { listLogs as listConditioningLogs } from '../../services/conditioningLogs'
 import { listPlanEntries as listMealEntries } from '../../services/mealPlan'
+import { listDailyEnergy } from '../../services/dailyEnergy'
+import { GARMIN_CALORIES_PULLED, pullGarminCaloriesQuietly } from '../../services/garmin'
 import { addDays, todayKey } from '../../lib/calendar'
-import { ADHERENCE_WINDOW_DAYS, buildTimeline, timelineGaps, type Timeline, type TimelineGap } from '../../lib/timeline'
-import type { ConditioningLog, MealPlanEntry, NutritionPhase, TrainingPlan, WeightLog, WorkoutLog } from '../../types'
+import {
+    ADHERENCE_WINDOW_DAYS,
+    ENERGY_WINDOW_DAYS,
+    buildTimeline,
+    timelineGaps,
+    type Timeline,
+    type TimelineGap,
+} from '../../lib/timeline'
+import type {
+    ConditioningLog,
+    DailyEnergy,
+    MealPlanEntry,
+    NutritionPhase,
+    TrainingPlan,
+    WeightLog,
+    WorkoutLog,
+} from '../../types'
 
 /** Everything the timeline is built from. */
 export interface TimelineSources {
@@ -18,6 +35,8 @@ export interface TimelineSources {
     workoutLogs: WorkoutLog[]
     conditioningLogs: ConditioningLog[]
     mealEntries: MealPlanEntry[]
+    /** The watch's whole-day burn for the finished days of the last four weeks. */
+    energy: DailyEnergy[]
 }
 
 export interface TimelineState {
@@ -29,6 +48,10 @@ export interface TimelineState {
     gaps: TimelineGap[]
     /** Null until the data, the setup and the quiz are all there. */
     timeline: Timeline | null
+}
+
+function loadEnergy(today: string): Promise<DailyEnergy[]> {
+    return listDailyEnergy(addDays(today, -ENERGY_WINDOW_DAYS), addDays(today, -1))
 }
 
 /**
@@ -55,13 +78,26 @@ export function useTimeline(): TimelineState {
             listConditioningLogs(),
             // Measured nutrition adherence looks back four weeks (lib/timeline.ts).
             listMealEntries(addDays(today, -ADHERENCE_WINDOW_DAYS), addDays(today, -1)),
+            // The timeline stands without the watch, so a failure here isn't one.
+            loadEnergy(today).catch(() => [] as DailyEnergy[]),
         ])
-            .then(([plans, phases, weightLogs, workoutLogs, conditioningLogs, mealEntries]) => {
-                if (active) setData({ plans, phases, weightLogs, workoutLogs, conditioningLogs, mealEntries })
+            .then(([plans, phases, weightLogs, workoutLogs, conditioningLogs, mealEntries, energy]) => {
+                if (active) setData({ plans, phases, weightLogs, workoutLogs, conditioningLogs, mealEntries, energy })
             })
             .catch(() => active && setError(true))
+
+        // Days the watch has finished since the last visit are fetched in the
+        // background (the same week Home asks for); the projection moves when they land.
+        void pullGarminCaloriesQuietly(addDays(today, -7), addDays(today, -1), today)
+        const onPulled = () => {
+            loadEnergy(today)
+                .then((energy) => active && setData((now) => (now ? { ...now, energy } : now)))
+                .catch(() => undefined)
+        }
+        window.addEventListener(GARMIN_CALORIES_PULLED, onPulled)
         return () => {
             active = false
+            window.removeEventListener(GARMIN_CALORIES_PULLED, onPulled)
         }
     }, [today])
 

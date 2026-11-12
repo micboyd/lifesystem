@@ -279,12 +279,16 @@ function Overview({
                             ·{' '}
                             {allIn
                                 ? 'both plans followed to the letter'
-                                : timeline.calibration
-                                  ? 'at your pace, calibrated on your weigh-ins'
-                                  : timeline.adherence.training.measured !== null ||
-                                      timeline.adherence.nutrition.measured !== null
-                                    ? 'at your pace, from your logs and the quiz'
-                                    : 'at the pace you said in the quiz'}
+                                : timeline.energy
+                                  ? timeline.calibration
+                                      ? 'at your pace, from your watch and your weigh-ins'
+                                      : 'at your pace, on the burn your watch measures'
+                                  : timeline.calibration
+                                    ? 'at your pace, calibrated on your weigh-ins'
+                                    : timeline.adherence.training.measured !== null ||
+                                        timeline.adherence.nutrition.measured !== null
+                                      ? 'at your pace, from your logs and the quiz'
+                                      : 'at the pace you said in the quiz'}
                         </p>
                     </div>
                     {timeline.perfect && (
@@ -844,10 +848,31 @@ function MilestoneLine({ milestone }: { milestone: Milestone }) {
 // ── How it's worked out ──────────────────────────────────────────────────────
 
 function HowItWorks({ timeline }: { timeline: TimelineData }) {
-    const { burn, calibration, trainingGaps, initial, adherence } = timeline
+    const { burn, calibration, energy, trainingGaps, initial, adherence } = timeline
     const items: ReactNode[] = [
         <>Built from {timeline.plans.map((p) => p.name).join(', ')}, and how closely you follow them:</>,
     ]
+    if (energy) {
+        const gap = Math.round((energy.burnKcal - energy.assumedKcal) / 10) * 10
+        const balance = energy.balanceKcal === null ? 0 : Math.round(energy.balanceKcal / 10) * 10
+        items.push(
+            <>
+                Your watch has you burning about {kcal(energy.burnKcal)} kcal a day over {energy.burnDays} finished days
+                {Math.abs(gap) >= 50
+                    ? `; your plans assumed ${kcal(energy.assumedKcal)}, ${kcal(Math.abs(gap))} ${gap > 0 ? 'less' : 'more'}`
+                    : ', about what your plans assumed'}
+                .{' '}
+                {energy.weight < 1
+                    ? `The projection runs on ${kcal(energy.usedKcal)} for now, and on the watch alone once it has two weeks.`
+                    : 'The projection runs on the watch’s figure.'}
+                {energy.balanceDays > 0 &&
+                    ` ${energy.balanceDays} of those days have a full food log too, averaging ${kcal(Math.abs(balance))} kcal ${
+                        balance > 0 ? 'over' : 'under'
+                    } what you burned; they’re replayed as they happened.`}
+                {!calibration && ' A couple of weeks of weigh-ins will check the watch.'}
+            </>
+        )
+    }
     if (calibration) {
         const off = Math.round(calibration.offsetKcal / 10) * 10
         items.push(
@@ -857,6 +882,8 @@ function HowItWorks({ timeline }: { timeline: TimelineData }) {
                 {Math.abs(off) >= 20 ? `, so each day carries a ${signed(off)} kcal correction.` : ' — close enough to leave alone.'}
             </>
         )
+    } else if (energy) {
+        // The watch has replaced the plan's assumed maintenance: nothing more to say about it.
     } else if (burn.source === 'goal' && burn.planKcal) {
         items.push(
             <>
