@@ -9,6 +9,7 @@ import { ensureDefaultCalendar } from './lib/calendars'
 import { connectDB } from './config/db'
 import cors from 'cors'
 import birthdayRoutes from './routes/birthdayRoutes'
+import progressPhotoRoutes from './routes/progressPhotoRoutes'
 import calendarRoutes from './routes/calendarRoutes'
 import icalRoutes from './routes/icalRoutes'
 import conditioningRoutes from './routes/conditioningRoutes'
@@ -98,6 +99,7 @@ app.use('/api/exercises', exerciseRoutes)
 app.use('/api/workouts', workoutRoutes)
 app.use('/api/workout-logs', workoutLogRoutes)
 app.use('/api/weight-logs', weightLogRoutes)
+app.use('/api/progress-photos', progressPhotoRoutes)
 app.use('/api/daily-energy', dailyEnergyRoutes)
 app.use('/api/meals', mealRoutes)
 app.use('/api/meal-plan', mealPlanRoutes)

@@ -1765,3 +1765,29 @@ export interface Timebox {
     createdAt: string
     updatedAt: string
 }
+
+// ─── Body photos ────────────────────────────────────────────────────────────────
+
+export type PhotoKind = 'progress' | 'goal'
+export type PhotoPose = 'front' | 'side' | 'back'
+
+/** A body photo stored in Cloudinary; URLs are signed by the server on every list. */
+export interface ProgressPhoto {
+    _id: string
+    kind: PhotoKind
+    pose: PhotoPose
+    /** YYYY-MM-DD */
+    date: string
+    publicId: string
+    format: string
+    version?: number
+    width?: number
+    height?: number
+    note?: string
+    /** 3:4 crop for grids and the side-by-side. */
+    thumbUrl: string
+    /** Full photo, capped at 1600px. */
+    url: string
+    createdAt: string
+    updatedAt: string
+}

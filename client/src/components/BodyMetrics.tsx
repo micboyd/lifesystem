@@ -9,6 +9,7 @@ import Spinner from './Spinner'
 import EmptyState from './EmptyState'
 import ConfirmModal from './ConfirmModal'
 import Drawer from './Drawer'
+import BodyPhotos from './BodyPhotos'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { todayKey, parseDateKey, MONTHS } from '../lib/calendar'
@@ -145,7 +146,11 @@ export default function BodyMetrics() {
                     >
                         Targets
                     </Button>
-                    <Button size="sm" icon="fa-solid fa-plus" onClick={() => setEntry({ log: null })}>
+                    <Button
+                        size="sm"
+                        icon="fa-solid fa-plus"
+                        onClick={() => setEntry({ log: null })}
+                    >
                         Log weigh-in
                     </Button>
                 </div>
@@ -211,7 +216,10 @@ export default function BodyMetrics() {
                             aside={
                                 <PillToggle
                                     label="Rate window"
-                                    options={WINDOWS.map((w) => ({ value: w.days, label: w.label }))}
+                                    options={WINDOWS.map((w) => ({
+                                        value: w.days,
+                                        label: w.label,
+                                    }))}
                                     value={windowDays}
                                     onChange={setWindowDays}
                                 />
@@ -234,9 +242,11 @@ export default function BodyMetrics() {
                 </>
             )}
 
+            <BodyPhotos logs={logs} />
+
             <WeighInDrawer
                 // Remounted per reading so the fields start from it.
-                key={entry ? (entry.log?._id ?? 'new') : 'closed'}
+                key={entry ? `weighin-${entry.log?._id ?? 'new'}` : 'weighin-closed'}
                 open={!!entry}
                 initial={entry?.log ?? null}
                 onSave={handleSave}
@@ -245,7 +255,7 @@ export default function BodyMetrics() {
             />
 
             <GoalsModal
-                key={goalsOpen ? 'open' : 'closed'}
+                key={goalsOpen ? 'goals-open' : 'goals-closed'}
                 open={goalsOpen}
                 initial={goals}
                 onClose={() => setGoalsOpen(false)}
@@ -357,7 +367,11 @@ function WeighInDrawer({
                     <Button variant="ghost" onClick={onClose}>
                         Cancel
                     </Button>
-                    <Button icon="fa-solid fa-check" onClick={() => void submit()} disabled={saving}>
+                    <Button
+                        icon="fa-solid fa-check"
+                        onClick={() => void submit()}
+                        disabled={saving}
+                    >
                         {saving ? 'Saving…' : 'Save'}
                     </Button>
                 </div>
@@ -583,7 +597,9 @@ function RecentLog({
                 <PanelHeader
                     title="Weigh-ins"
                     hint="Tap one to correct or delete it."
-                    aside={<span className="text-[13px] text-neutral-500">{logs.length} recorded</span>}
+                    aside={
+                        <span className="text-[13px] text-neutral-500">{logs.length} recorded</span>
+                    }
                 />
             </div>
             <ul className="divide-y divide-neutral-100">
