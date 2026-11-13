@@ -5,6 +5,8 @@ import Input from '../Input'
 import EmptyState from '../EmptyState'
 import ConfirmModal from '../ConfirmModal'
 import { CategoryIcon } from './mealUi'
+import Portioning from './Portioning'
+import { useSideMarks } from './useSideMarks'
 import { countLabel, plural } from './ShoppingList'
 import {
     addShoppingItem,
@@ -14,7 +16,14 @@ import {
     setShoppingCount,
     tickShopping,
 } from '../../services/shopping'
-import { lineAmount, mergeLines, tickedKeys, timesBought, trayOf, traysFor } from '../../lib/shopping'
+import {
+    lineAmount,
+    mergeLines,
+    tickedKeys,
+    timesBought,
+    trayOf,
+    traysFor,
+} from '../../lib/shopping'
 import { useToast } from '../../context/ToastContext'
 import type { Meal, ShoppingGroup, ShoppingList } from '../../types'
 
@@ -57,18 +66,29 @@ function CountStepper({
     const commit = () => {
         const n = Math.round(Number(draft))
         setDraft(null)
-        if (draft && Number.isFinite(n) && n >= 1 && Math.min(n, max) !== value) onChange(Math.min(n, max))
+        if (draft && Number.isFinite(n) && n >= 1 && Math.min(n, max) !== value)
+            onChange(Math.min(n, max))
     }
     const btn =
         'grid h-9 w-9 place-items-center rounded-full text-neutral-600 transition-colors hover:bg-white hover:text-neutral-900 disabled:opacity-40'
     return (
         <div className="flex shrink-0 items-center rounded-full bg-neutral-100 p-0.5">
             {value > 1 ? (
-                <button type="button" aria-label={`One fewer ${name}`} onClick={() => onChange(value - 1)} className={btn}>
+                <button
+                    type="button"
+                    aria-label={`One fewer ${name}`}
+                    onClick={() => onChange(value - 1)}
+                    className={btn}
+                >
                     <i className="fa-solid fa-minus text-[11px]" aria-hidden="true" />
                 </button>
             ) : (
-                <button type="button" aria-label={`Take ${name} off`} onClick={onRemove} className={btn}>
+                <button
+                    type="button"
+                    aria-label={`Take ${name} off`}
+                    onClick={onRemove}
+                    className={btn}
+                >
                     <i className="fa-solid fa-trash-can text-[11px]" aria-hidden="true" />
                 </button>
             )}
@@ -137,12 +157,21 @@ function CookRow({
                         </span>
                     )}
                     <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold text-neutral-900">{group.name}</span>
+                        <span className="block truncate text-sm font-semibold text-neutral-900">
+                            {group.name}
+                        </span>
                         <span className="block truncate text-xs text-neutral-500">
                             {countLabel(group)}
-                            {hasIngredients ? (
-                                <> · {plural(group.ingredients.length, 'ingredient')}</>
-                            ) : (
+                            {meal && (
+                                <>
+                                    {' · '}
+                                    <span className="tabular-nums">
+                                        {Math.round(meal.macros.calories)}
+                                    </span>{' '}
+                                    kcal each
+                                </>
+                            )}
+                            {!hasIngredients && (
                                 <span className="text-amber-700"> · no ingredients yet</span>
                             )}
                         </span>
@@ -165,9 +194,14 @@ function CookRow({
             {open && hasIngredients && (
                 <ul className="mx-3 mb-3 divide-y divide-neutral-100 rounded-xl bg-neutral-50 px-3">
                     {mergeLines([group]).map((l) => (
-                        <li key={l.key} className="flex items-center justify-between gap-3 py-2 text-sm">
+                        <li
+                            key={l.key}
+                            className="flex items-center justify-between gap-3 py-2 text-sm"
+                        >
                             <span className="truncate text-neutral-700">{l.name}</span>
-                            <span className="shrink-0 tabular-nums text-neutral-500">{lineAmount(l) || '×1'}</span>
+                            <span className="shrink-0 tabular-nums text-neutral-500">
+                                {lineAmount(l) || '×1'}
+                            </span>
                         </li>
                     ))}
                     <li className="py-2 text-xs text-neutral-500">
@@ -239,9 +273,13 @@ function MealPicker({
                                             <span className="h-7 w-7 shrink-0" />
                                         )}
                                         <span className="min-w-0 flex-1">
-                                            <span className="block truncate text-sm font-medium text-neutral-900">{m.name}</span>
+                                            <span className="block truncate text-sm font-medium text-neutral-900">
+                                                {m.name}
+                                            </span>
                                             <span className="block truncate text-xs text-neutral-500">
-                                                {m.batchOf && m.batchOf > 1 ? `Tray · ${m.batchOf} boxes · ` : ''}
+                                                {m.batchOf && m.batchOf > 1
+                                                    ? `Tray · ${m.batchOf} boxes · `
+                                                    : ''}
                                                 {m.ingredients.length > 0
                                                     ? plural(m.ingredients.length, 'ingredient')
                                                     : 'No ingredients yet'}
@@ -249,7 +287,9 @@ function MealPicker({
                                         </span>
                                         <i
                                             className={`fa-solid ${added ? 'fa-check text-emerald-600' : 'fa-plus text-neutral-400'} text-xs`}
-                                            aria-label={added ? 'Already added — adds one more' : undefined}
+                                            aria-label={
+                                                added ? 'Already added — adds one more' : undefined
+                                            }
                                         />
                                     </button>
                                 </li>
@@ -259,6 +299,91 @@ function MealPicker({
                 )}
             </div>
         </BottomSheet>
+    )
+}
+
+type Step = 'plan' | 'shop' | 'portion'
+const STEP_KEY = 'nutrition.aheadStep'
+
+function readStep(): Step {
+    try {
+        const v = localStorage.getItem(STEP_KEY)
+        return v === 'shop' || v === 'portion' ? v : 'plan'
+    } catch {
+        return 'plan'
+    }
+}
+
+/** Plan · Shop · Portion — the order a batch cook happens in, each with where it stands. */
+function StepBar({
+    step,
+    onStep,
+    steps,
+}: {
+    step: Step
+    onStep: (s: Step) => void
+    steps: { key: Step; label: string; status: string; done: boolean }[]
+}) {
+    return (
+        <nav aria-label="Batch cook steps" className="grid grid-cols-3 gap-2">
+            {steps.map((s, n) => {
+                const on = s.key === step
+                return (
+                    <button
+                        key={s.key}
+                        type="button"
+                        aria-current={on ? 'step' : undefined}
+                        onClick={() => onStep(s.key)}
+                        className={`flex min-h-16 min-w-0 flex-col justify-center gap-1 rounded-2xl bg-white px-3 py-2.5 text-left transition-shadow sm:px-4 ${
+                            on
+                                ? 'ring-2 ring-neutral-900'
+                                : 'ring-1 ring-neutral-900/[0.06] hover:ring-neutral-300'
+                        }`}
+                    >
+                        <span className="flex items-center gap-2">
+                            <span
+                                className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-semibold ${
+                                    s.done && !on
+                                        ? 'bg-emerald-600 text-white'
+                                        : on
+                                          ? 'bg-neutral-900 text-white'
+                                          : 'bg-neutral-100 text-neutral-600'
+                                }`}
+                            >
+                                {s.done && !on ? (
+                                    <i
+                                        className="fa-solid fa-check text-[9px]"
+                                        aria-hidden="true"
+                                    />
+                                ) : (
+                                    n + 1
+                                )}
+                            </span>
+                            <span className="truncate text-sm font-semibold text-neutral-900">
+                                {s.label}
+                            </span>
+                        </span>
+                        <span className="truncate text-xs text-neutral-500">{s.status}</span>
+                    </button>
+                )
+            })}
+        </nav>
+    )
+}
+
+/** A quiet "carry on" link at the foot of a step. */
+function NextStep({ label, onClick }: { label: string; onClick: () => void }) {
+    return (
+        <div className="flex justify-end">
+            <Button
+                variant="secondary"
+                icon="fa-solid fa-arrow-right"
+                iconPosition="right"
+                onClick={onClick}
+            >
+                {label}
+            </Button>
+        </div>
     )
 }
 
@@ -275,6 +400,18 @@ export default function ThinkingAhead({
     const [picking, setPicking] = useState(false)
     const [text, setText] = useState('')
     const [confirmClear, setConfirmClear] = useState(false)
+    const [step, setStepState] = useState<Step>(readStep)
+    const sides = useSideMarks()
+
+    const setStep = (s: Step) => {
+        setStepState(s)
+        try {
+            localStorage.setItem(STEP_KEY, s)
+        } catch {
+            /* not remembered */
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
 
     function run(fn: () => Promise<ShoppingList>) {
         fn()
@@ -306,27 +443,130 @@ export default function ThinkingAhead({
         const tray = trayOf(g)
         return n + (tray ? traysFor(g.count, tray) * tray : g.count)
     }, 0)
+    const portionable = cooking.filter((g) => g.ref && byId.has(g.ref)).length
+
+    const steps = [
+        {
+            key: 'plan' as const,
+            label: 'Plan',
+            status: cooking.length
+                ? `${plural(cooking.length, 'meal')} · ${plural(portions, 'portion')}`
+                : 'Pick meals',
+            done: cooking.length > 0,
+        },
+        {
+            key: 'shop' as const,
+            label: 'Shop',
+            status:
+                lines.length === 0
+                    ? 'Nothing yet'
+                    : toGet.length
+                      ? `${toGet.length} to buy`
+                      : 'All bought',
+            done: lines.length > 0 && toGet.length === 0,
+        },
+        {
+            key: 'portion' as const,
+            label: 'Portion',
+            status: portionable ? 'Weigh & split' : 'After cooking',
+            done: false,
+        },
+    ]
+
+    const line = (l: (typeof lines)[number]) => {
+        const done = ticked.has(l.key)
+        const item = l.item
+        const side = sides.isSide(l.name)
+        return (
+            <li key={l.key} className="flex min-h-14 items-center gap-1 pr-1">
+                <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={done}
+                    onClick={() => run(() => tickShopping(l.name, !done))}
+                    className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pl-4 pr-2 text-left"
+                >
+                    <span
+                        className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border transition-colors ${
+                            done
+                                ? 'border-neutral-900 bg-neutral-900 text-white'
+                                : 'border-neutral-300'
+                        }`}
+                    >
+                        {done && <i className="fa-solid fa-check text-[10px]" aria-hidden="true" />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                        <span
+                            className={`block truncate text-sm font-medium ${
+                                done ? 'text-neutral-400 line-through' : 'text-neutral-900'
+                            }`}
+                        >
+                            {l.name}
+                        </span>
+                        {l.from.length > 0 && (
+                            <span className="block truncate text-xs text-neutral-500">
+                                {l.from.join(', ')}
+                            </span>
+                        )}
+                    </span>
+                    {lineAmount(l) && (
+                        <span
+                            className={`shrink-0 text-sm font-medium tabular-nums ${done ? 'text-neutral-400' : 'text-neutral-700'}`}
+                        >
+                            {lineAmount(l)}
+                        </span>
+                    )}
+                </button>
+                {l.from.length > 0 && (
+                    <button
+                        type="button"
+                        aria-pressed={side}
+                        aria-label={`${l.name} is a side`}
+                        title="A side is cooked in its own pot and weighed out on its own"
+                        onClick={() => sides.setSide(l.name, !side)}
+                        className="grid h-11 shrink-0 place-items-center px-1.5"
+                    >
+                        <span
+                            className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                                side
+                                    ? 'bg-neutral-900 text-white'
+                                    : 'text-neutral-400 ring-1 ring-inset ring-neutral-200 hover:text-neutral-700'
+                            }`}
+                        >
+                            Side
+                        </span>
+                    </button>
+                )}
+                {item && (
+                    <button
+                        type="button"
+                        aria-label={`Remove ${l.name}`}
+                        onClick={() => run(() => deleteShoppingGroup(item.id))}
+                        className="grid h-11 w-9 shrink-0 place-items-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-700"
+                    >
+                        <i className="fa-solid fa-xmark" aria-hidden="true" />
+                    </button>
+                )}
+            </li>
+        )
+    }
 
     return (
-        <div className="flex flex-col gap-8">
-            {cooking.length > 0 && (
-                <p className="text-sm text-neutral-600">
-                    <span className="font-semibold text-neutral-900">{plural(cooking.length, 'meal')}</span>
-                    {' · '}
-                    {plural(portions, 'portion')}
-                    {' · '}
-                    {lines.length ? `${toGet.length} of ${plural(lines.length, 'thing')} left to buy` : 'nothing to buy'}
-                </p>
-            )}
+        <div className="flex max-w-3xl flex-col gap-6">
+            <StepBar step={step} onStep={setStep} steps={steps} />
 
-            <div className="grid gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start">
-                <section className="flex flex-col gap-2">
+            {step === 'plan' && (
+                <section className="flex flex-col gap-3">
                     <SectionHead
-                        title="Cooking"
+                        title="What you’re cooking"
                         aside={
-                            cooking.length > 0 && (
-                                <Button size="sm" variant="secondary" icon="fa-solid fa-plus" onClick={() => setPicking(true)}>
-                                    Add a meal
+                            list.groups.length > 0 && (
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setConfirmClear(true)}
+                                >
+                                    Start over
                                 </Button>
                             )
                         }
@@ -338,7 +578,10 @@ export default function ThinkingAhead({
                                 title="Plan your next cook"
                                 description="Add the meals you’re batching and how many of each. Their ingredients become one shopping list."
                                 action={
-                                    <Button icon="fa-solid fa-plus" onClick={() => setPicking(true)}>
+                                    <Button
+                                        icon="fa-solid fa-plus"
+                                        onClick={() => setPicking(true)}
+                                    >
                                         Add a meal
                                     </Button>
                                 }
@@ -347,36 +590,77 @@ export default function ThinkingAhead({
                     ) : (
                         <ul className={`${CARD} divide-y divide-neutral-100`}>
                             {cooking.map((g) => (
-                                <CookRow key={g.id} group={g} meal={g.ref ? byId.get(g.ref) : undefined} run={run} />
+                                <CookRow
+                                    key={g.id}
+                                    group={g}
+                                    meal={g.ref ? byId.get(g.ref) : undefined}
+                                    run={run}
+                                />
                             ))}
+                            <li>
+                                <button
+                                    type="button"
+                                    onClick={() => setPicking(true)}
+                                    className="flex min-h-14 w-full items-center gap-3 px-3 text-left text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                                >
+                                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-dashed border-neutral-300 text-neutral-500">
+                                        <i
+                                            className="fa-solid fa-plus text-xs"
+                                            aria-hidden="true"
+                                        />
+                                    </span>
+                                    Add a meal
+                                </button>
+                            </li>
                         </ul>
                     )}
                     {cooking.some((g) => g.ingredients.length === 0) && (
                         <p className="px-1 text-xs text-neutral-500">
-                            A meal with no ingredients goes on the list as itself. Add its ingredients in the Library to
-                            split it out.
+                            A meal with no ingredients goes on the list as itself. Add its
+                            ingredients in the Library to split it out.
                         </p>
                     )}
+                    {cooking.length > 0 && (
+                        <NextStep
+                            label={
+                                toGet.length ? `Shop · ${plural(toGet.length, 'thing')}` : 'Shop'
+                            }
+                            onClick={() => setStep('shop')}
+                        />
+                    )}
                 </section>
+            )}
 
-                <section className="flex flex-col gap-2">
+            {step === 'shop' && (
+                <section className="flex flex-col gap-3">
                     <SectionHead
                         title="Shopping list"
                         aside={
-                            list.groups.length > 0 && (
-                                <div className="flex items-center gap-1">
-                                    {inBasket.length > 0 && (
-                                        <Button size="sm" variant="ghost" onClick={() => run(() => clearShopping(true))}>
-                                            Clear bought
-                                        </Button>
-                                    )}
-                                    <Button size="sm" variant="ghost" onClick={() => setConfirmClear(true)}>
-                                        Start over
-                                    </Button>
-                                </div>
+                            inBasket.length > 0 && (
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => run(() => clearShopping(true))}
+                                >
+                                    Clear bought
+                                </Button>
                             )
                         }
                     />
+                    {lines.length > 0 && (
+                        <div className="flex items-center gap-3 px-1">
+                            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-neutral-200">
+                                <div
+                                    className="h-full rounded-full bg-neutral-900 transition-[width] duration-300"
+                                    style={{ width: `${(inBasket.length / lines.length) * 100}%` }}
+                                />
+                            </div>
+                            <span className="shrink-0 text-xs text-neutral-500">
+                                <span className="tabular-nums">{inBasket.length}</span> of{' '}
+                                <span className="tabular-nums">{lines.length}</span> bought
+                            </span>
+                        </div>
+                    )}
                     <div className={CARD}>
                         <form
                             className="flex items-center gap-2 border-b border-neutral-100 p-2"
@@ -394,77 +678,87 @@ export default function ThinkingAhead({
                                     onChange={(e) => setText(e.target.value)}
                                 />
                             </div>
-                            <Button type="submit" icon="fa-solid fa-plus" disabled={!text.trim()} aria-label="Add">
+                            <Button
+                                type="submit"
+                                icon="fa-solid fa-plus"
+                                disabled={!text.trim()}
+                                aria-label="Add"
+                            >
                                 <span className="hidden sm:inline">Add</span>
                             </Button>
                         </form>
                         {lines.length === 0 ? (
-                            <p className="px-4 py-8 text-center text-sm text-neutral-500">
-                                Ingredients from what you’re cooking land here, one line each.
+                            <p className="px-4 py-10 text-center text-sm text-neutral-500">
+                                Add meals in Plan and their ingredients land here, one line each.
                             </p>
                         ) : (
-                            <ul className="divide-y divide-neutral-100">
-                                {[...toGet, ...inBasket].map((l) => {
-                                    const done = ticked.has(l.key)
-                                    const item = l.item
-                                    return (
-                                        <li key={l.key} className="flex min-h-12 items-center gap-1 pr-1">
-                                            <button
-                                                type="button"
-                                                role="checkbox"
-                                                aria-checked={done}
-                                                onClick={() => run(() => tickShopping(l.name, !done))}
-                                                className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pl-4 pr-2 text-left"
-                                            >
-                                                <span
-                                                    className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border transition-colors ${
-                                                        done ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300'
-                                                    }`}
-                                                >
-                                                    {done && <i className="fa-solid fa-check text-[10px]" aria-hidden="true" />}
-                                                </span>
-                                                <span className="min-w-0 flex-1">
-                                                    <span
-                                                        className={`block truncate text-sm font-medium ${
-                                                            done ? 'text-neutral-500 line-through' : 'text-neutral-900'
-                                                        }`}
-                                                    >
-                                                        {l.name}
-                                                    </span>
-                                                    {l.from.length > 0 && (
-                                                        <span className="block truncate text-xs text-neutral-500">
-                                                            {l.from.join(', ')}
-                                                        </span>
-                                                    )}
-                                                </span>
-                                                {lineAmount(l) && (
-                                                    <span
-                                                        className={`shrink-0 text-sm font-medium tabular-nums ${done ? 'text-neutral-400' : 'text-neutral-700'}`}
-                                                    >
-                                                        {lineAmount(l)}
-                                                    </span>
-                                                )}
-                                            </button>
-                                            {item && (
-                                                <button
-                                                    type="button"
-                                                    aria-label={`Remove ${l.name}`}
-                                                    onClick={() => run(() => deleteShoppingGroup(item.id))}
-                                                    className="grid h-11 w-9 shrink-0 place-items-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-700"
-                                                >
-                                                    <i className="fa-solid fa-xmark" aria-hidden="true" />
-                                                </button>
-                                            )}
-                                        </li>
-                                    )
-                                })}
-                            </ul>
+                            <>
+                                {toGet.length > 0 ? (
+                                    <ul className="divide-y divide-neutral-100">
+                                        {toGet.map(line)}
+                                    </ul>
+                                ) : (
+                                    <p className="px-4 py-6 text-center text-sm text-neutral-600">
+                                        <i
+                                            className="fa-solid fa-check mr-1.5 text-emerald-600"
+                                            aria-hidden="true"
+                                        />
+                                        Everything’s in the basket.
+                                    </p>
+                                )}
+                                {inBasket.length > 0 && (
+                                    <>
+                                        <p
+                                            className={`${OVERLINE} border-t border-neutral-100 bg-neutral-50 px-4 py-2`}
+                                        >
+                                            In the basket
+                                        </p>
+                                        <ul className="divide-y divide-neutral-100">
+                                            {inBasket.map(line)}
+                                        </ul>
+                                    </>
+                                )}
+                            </>
                         )}
                     </div>
+                    {lines.length > 0 && (
+                        <p className="px-1 text-xs text-neutral-500">
+                            Tap <span className="font-medium text-neutral-700">Side</span> on
+                            anything cooked in its own pot (rice, pasta) — you’ll weigh it on its
+                            own when portioning.
+                        </p>
+                    )}
+                    {portionable > 0 && (
+                        <NextStep label="Portion" onClick={() => setStep('portion')} />
+                    )}
                 </section>
-            </div>
+            )}
 
-            <MealPicker open={picking} onClose={() => setPicking(false)} meals={meals} onPick={pick} onList={onList} />
+            {step === 'portion' &&
+                (portionable > 0 ? (
+                    <Portioning cooking={cooking} byId={byId} sides={sides} />
+                ) : (
+                    <div className={CARD}>
+                        <EmptyState
+                            icon="fa-solid fa-scale-balanced"
+                            title="Nothing to portion yet"
+                            description="Add the meals you’re cooking in Plan. After cooking, weigh each pot here and it tells you what goes in every box."
+                            action={
+                                <Button variant="secondary" onClick={() => setStep('plan')}>
+                                    Go to Plan
+                                </Button>
+                            }
+                        />
+                    </div>
+                ))}
+
+            <MealPicker
+                open={picking}
+                onClose={() => setPicking(false)}
+                meals={meals}
+                onPick={pick}
+                onList={onList}
+            />
             <ConfirmModal
                 open={confirmClear}
                 onClose={() => setConfirmClear(false)}

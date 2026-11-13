@@ -19,7 +19,7 @@ type Tab = (typeof TABS)[number]
 
 const SUBTITLE: Record<Tab, string> = {
     Planner: 'Plan your meals — drop them into each day, then tick them off as you eat.',
-    'Thinking ahead': 'Plan your next batch cook — what you’re making and how many, with one shopping list for all of it.',
+    'Thinking ahead': 'Batch cooking in three steps: plan what you’re making, shop for it, then portion it into boxes.',
     Library: 'Your meals and their macros. Made a batch? It splits it into meals for you.',
     Plans: 'Dated cuts, bulks and maintenance stretches — each plan sets the daily targets the planner judges against.',
     Stats: 'Calories in and out over a week, a month or a plan.',
@@ -84,7 +84,11 @@ export default function Nutrition() {
                         onMealsChanged={reloadMeals}
                     />
                 ) : tab === 'Thinking ahead' ? (
-                    <ThinkingAhead meals={meals} list={shopping.list} onChange={shopping.setList} />
+                    <ThinkingAhead
+                        meals={meals}
+                        list={shopping.list}
+                        onChange={shopping.setList}
+                    />
                 ) : tab === 'Library' ? (
                     <MealLibrary
                         meals={meals}

@@ -30,15 +30,13 @@ import {
 import type { FinanceGroup, FinanceRow } from '../types'
 
 /**
- * Safe to spend today, and the quickest way to log a spend. `float` is the pill
- * pinned bottom-right on phones and tablets; `rail` sits in the desktop sidebar.
+ * Safe to spend today, and the quickest way to log a spend. Sits in the desktop
+ * sidebar; phones and tablets don't show it (the floating pill got in the way).
  */
 export default function QuickLog({
-    variant = 'float',
     collapsed = false,
 }: {
-    variant?: 'float' | 'rail'
-    /** Rail only: the sidebar is collapsed to icons. */
+    /** The sidebar is collapsed to icons. */
     collapsed?: boolean
 } = {}) {
     useMoneyHidden() // re-render when money is hidden/shown
@@ -146,74 +144,45 @@ export default function QuickLog({
 
     return (
         <>
-            {variant === 'rail' ? (
-                <button
-                    type="button"
-                    onClick={() => setOpen(true)}
-                    title={
-                        collapsed
-                            ? `${overShort ? 'Over today' : 'Safe today'}: ${formatMoney(safeToday)} · Log a spend`
-                            : 'Log a spend'
-                    }
-                    className={`group flex w-full items-center gap-3 rounded-[14px] bg-white text-left shadow-sm ring-1 ring-neutral-900/[0.06] transition-shadow hover:shadow-md ${
-                        collapsed ? 'justify-center p-2' : 'px-3 py-2.5'
-                    }`}
+            <button
+                type="button"
+                onClick={() => setOpen(true)}
+                title={
+                    collapsed
+                        ? `${overShort ? 'Over today' : 'Safe today'}: ${formatMoney(safeToday)} · Log a spend`
+                        : 'Log a spend'
+                }
+                className={`group flex w-full items-center gap-3 rounded-[14px] bg-white text-left shadow-sm ring-1 ring-neutral-900/[0.06] transition-shadow hover:shadow-md ${
+                    collapsed ? 'justify-center p-2' : 'px-3 py-2.5'
+                }`}
+            >
+                <span
+                    className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-area-money-bg text-[12px] text-area-money"
+                    aria-hidden="true"
                 >
-                    <span
-                        className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-area-money-bg text-[12px] text-area-money"
-                        aria-hidden="true"
-                    >
-                        <i className="fa-solid fa-wallet" />
-                    </span>
-                    {!collapsed && (
-                        <>
-                            <span className="min-w-0 flex-1">
-                                <span className="block text-xs text-neutral-500">
-                                    {overShort ? 'Over today' : 'Safe to spend today'}
-                                </span>
-                                <span
-                                    className={`block text-[15px] font-medium tabular-nums ${safeToday >= 0 ? 'text-success' : 'text-danger'}`}
-                                >
-                                    {formatMoney(safeToday)}
-                                </span>
+                    <i className="fa-solid fa-wallet" />
+                </span>
+                {!collapsed && (
+                    <>
+                        <span className="min-w-0 flex-1">
+                            <span className="block text-xs text-neutral-500">
+                                {overShort ? 'Over today' : 'Safe to spend today'}
                             </span>
                             <span
-                                className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-neutral-500 transition-colors group-hover:bg-neutral-100 group-hover:text-neutral-900"
-                                aria-hidden="true"
+                                className={`block text-[15px] font-medium tabular-nums ${safeToday >= 0 ? 'text-success' : 'text-danger'}`}
                             >
-                                <i className="fa-solid fa-plus text-xs" />
+                                {formatMoney(safeToday)}
                             </span>
-                        </>
-                    )}
-                </button>
-            ) : (
-                <button
-                    type="button"
-                    onClick={() => setOpen(true)}
-                    className="fixed bottom-5 right-5 z-40 flex items-center gap-2.5 rounded-full bg-neutral-950 py-2.5 pl-4 pr-3 text-white shadow-lg shadow-neutral-950/20 transition-all duration-150 hover:bg-neutral-800 active:scale-[0.97]"
-                    title="Log a spend"
-                >
-                    <i
-                        className="fa-solid fa-wallet text-[11px] text-neutral-400"
-                        aria-hidden="true"
-                    />
-                    <span className="flex flex-col items-start leading-none">
-                        <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-400">
-                            {overShort ? 'Over today' : 'Safe today'}
                         </span>
                         <span
-                            className={`text-sm font-bold tabular-nums ${
-                                safeToday >= 0 ? 'text-emerald-400' : 'text-red-400'
-                            }`}
+                            className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-neutral-500 transition-colors group-hover:bg-neutral-100 group-hover:text-neutral-900"
+                            aria-hidden="true"
                         >
-                            {formatMoney(safeToday)}
+                            <i className="fa-solid fa-plus text-xs" />
                         </span>
-                    </span>
-                    <span className="ml-1 grid h-7 w-7 place-items-center rounded-full bg-white/10">
-                        <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
-                    </span>
-                </button>
-            )}
+                    </>
+                )}
+            </button>
 
             {open && (
                 <Drawer

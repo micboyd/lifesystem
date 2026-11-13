@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { lineAmount, lineKey, mergeLines, tickedKeys } from './shopping'
+import { lineAmount, lineKey, mergeLines, sideMarked, tickedKeys } from './shopping'
 import type { ShoppingGroup } from '../types'
 
 const box = (name: string, count: number, ingredients: [string, number][]): ShoppingGroup => ({
@@ -165,5 +165,14 @@ describe('mergeLines for batch cooking', () => {
             { id: 't', kind: 'meal', name: 'Tray', count: 6, batchOf: 5, ingredients: [{ name: 'Mince', grams: 1000 }] },
         ])
         expect(lines[0].grams).toBe(2000)
+    })
+})
+
+describe('sideMarked', () => {
+    it('guesses from the name until marked on the list', () => {
+        expect(sideMarked('Basmati rice', {})).toBe(true)
+        expect(sideMarked('Chicken thigh', {})).toBe(false)
+        expect(sideMarked('Wraps', { wrap: true })).toBe(true)
+        expect(sideMarked('Basmati Rice', { 'basmati rice': false })).toBe(false)
     })
 })

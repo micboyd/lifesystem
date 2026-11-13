@@ -194,3 +194,15 @@ export function boxParts(
         if (i.apart && i.grams > 0) parts.push({ name: i.name, grams: to5(i.grams / n) })
     return parts.filter((p) => p.grams > 0)
 }
+
+/** One box's share of everything cooked together, to the whole gram. */
+export function potShare(cookedGrams: number, portions: number): number {
+    const n = Math.max(1, Math.round(portions))
+    return cookedGrams > 0 ? Math.round(cookedGrams / n) : 0
+}
+
+/** Starchy sides usually cooked in their own pot and weighed out apart from the main. */
+const SIDE = /\b(rice|pasta|potato(es)?|couscous|noodles?|quinoa|bulgur|orzo|spaghetti|penne|fusilli|gnocchi)\b/i
+
+/** True for an ingredient that's a side (rice, pasta, potatoes), not part of the main. */
+export const isSide = (name: string) => SIDE.test(name)

@@ -3,8 +3,6 @@ import { Routes, Route, Outlet, Navigate, useLocation, useParams } from 'react-r
 import { documentTitleForPath } from './lib/pageTitle'
 import Sidebar from './components/Sidebar'
 import ProtectedRoute from './components/ProtectedRoute'
-import { useMediaQuery } from './components/planner/WeekPlannerUI'
-import QuickLog from './components/QuickLog'
 import Home from './pages/Home'
 import Calendar from './pages/Calendar'
 import Fitness from './pages/Fitness'
@@ -37,7 +35,6 @@ import NotFound from './pages/NotFound'
 /** The signed-in app shell: sidebar nav plus the matched page. */
 function AppLayout() {
     // Persist the desktop rail's collapsed state across reloads.
-    const wide = useMediaQuery('(min-width: 1024px)')
     const [collapsed, setCollapsed] = useState(
         () => localStorage.getItem('sidebarCollapsed') === '1'
     )
@@ -55,8 +52,6 @@ function AppLayout() {
                 <main className="flex-1">
                     <Outlet />
                 </main>
-                {/* Below lg the spend pill floats; on wide screens it lives in the sidebar. */}
-                {!wide && <QuickLog />}
             </div>
         </div>
     )

@@ -63,9 +63,17 @@ export function isHighProtein(m: Macros): boolean {
 /** The meal-of-the-day icon in its coloured tile. */
 export function CategoryIcon({ type, size = 'md' }: { type: MealType; size?: 'sm' | 'md' | 'lg' }) {
     const c = CATEGORY[type]
-    const box = size === 'sm' ? 'h-7 w-7 text-[11px] rounded-lg' : size === 'lg' ? 'h-12 w-12 text-lg rounded-2xl' : 'h-9 w-9 text-sm rounded-xl'
+    const box =
+        size === 'sm'
+            ? 'h-7 w-7 text-[11px] rounded-lg'
+            : size === 'lg'
+              ? 'h-12 w-12 text-lg rounded-2xl'
+              : 'h-9 w-9 text-sm rounded-xl'
     return (
-        <span className={`grid shrink-0 place-items-center ${box} ${c.tile} ${c.text}`} aria-hidden="true">
+        <span
+            className={`grid shrink-0 place-items-center ${box} ${c.tile} ${c.text}`}
+            aria-hidden="true"
+        >
             <i className={c.icon} />
         </span>
     )
@@ -105,11 +113,18 @@ export function MacroBar({ macros, thick = false }: { macros: Macros; thick?: bo
 /** "● 45 g protein ● 60 g carbs ● 12 g fat" under a macro bar. */
 export function MacroLegend({ macros, compact = false }: { macros: Macros; compact?: boolean }) {
     return (
-        <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 tabular-nums text-neutral-500 ${compact ? 'text-[11px]' : 'text-xs'}`}>
+        <div
+            className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-neutral-500 ${compact ? 'text-[11px]' : 'text-xs'}`}
+        >
             {(['protein', 'carbs', 'fat'] as const).map((k) => (
                 <span key={k} className="inline-flex items-center gap-1.5">
-                    <span className={`h-2 w-2 rounded-full ${MACRO_STYLE[k].dot}`} aria-hidden="true" />
-                    <span className="font-semibold text-neutral-800">{fmt(Math.round(macros[k]))} g</span>
+                    <span
+                        className={`h-2 w-2 rounded-full ${MACRO_STYLE[k].dot}`}
+                        aria-hidden="true"
+                    />
+                    <span className="font-semibold tabular-nums text-neutral-800">
+                        {fmt(Math.round(macros[k]))} g
+                    </span>
                     {!compact && MACRO_STYLE[k].label}
                     {compact && MACRO_STYLE[k].label[0].toUpperCase()}
                 </span>
@@ -130,7 +145,9 @@ export function BoxParts({ parts, weighHint }: { parts: BoxPart[]; weighHint?: s
     const approx = parts.some((p) => p.approx)
     return (
         <section className="flex flex-col gap-2">
-            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">In each box</p>
+            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
+                In each box
+            </p>
             <ul className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200">
                 {parts.map((p, n) => (
                     <li key={n} className="flex items-baseline gap-3 px-4 py-3">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { batchTotal, boxParts, fitCost, mealSize, perPortion, slotBudget, suggestPortions } from './mealAim'
+import { batchTotal, boxParts, isSide, fitCost, mealSize, perPortion, potShare, slotBudget, suggestPortions } from './mealAim'
 import type { Macros } from '../types'
 
 const goals = { calories: 2000, protein: 160, carbs: 200, fat: 60 }
@@ -131,5 +131,23 @@ describe('boxParts', () => {
 
     it('has no tray part when everything is kept apart', () => {
         expect(boxParts([{ name: 'Rice', grams: 500, apart: true }], 4, null)).toEqual([{ name: 'Rice', grams: 125 }])
+    })
+})
+
+describe('portioning a cooked pot', () => {
+    it('splits the cooked weight evenly to the gram', () => {
+        expect(potShare(2884, 7)).toBe(412)
+        expect(potShare(0, 7)).toBe(0)
+        expect(potShare(1000, 0)).toBe(1000)
+    })
+})
+
+describe('isSide', () => {
+    it('spots starchy sides and leaves the main alone', () => {
+        expect(isSide('Basmati rice')).toBe(true)
+        expect(isSide('Rice (cooked)')).toBe(true)
+        expect(isSide('Sweet potatoes')).toBe(true)
+        expect(isSide('Chicken thigh')).toBe(false)
+        expect(isSide('Riced cauliflower')).toBe(false)
     })
 })

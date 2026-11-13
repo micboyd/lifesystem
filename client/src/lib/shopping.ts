@@ -1,4 +1,5 @@
 import type { ShoppingGroup } from '../types'
+import { isSide } from './mealAim'
 
 /**
  * The shopping list you shop from: everything added, merged into one line
@@ -113,3 +114,11 @@ export const tickedKeys = (ticked: string[]) => new Set(ticked.map(lineKey))
 
 /** How many times over a group's ingredients are bought — trays whole. */
 export const timesBought = (g: ShoppingGroup) => times(g, 'batch')
+
+/**
+ * Whether an ingredient is a side (cooked in its own pot, weighed out apart),
+ * by what's been marked on the shopping list — else a guess from its name.
+ */
+export function sideMarked(name: string, marks: Record<string, boolean>): boolean {
+    return marks[lineKey(name)] ?? isSide(name)
+}

@@ -142,7 +142,7 @@ export default function Sidebar({
                 <NavLinks pathname={pathname} items={NAV_ITEMS} collapsed={collapsed} />
                 <div className="flex shrink-0 flex-col gap-2 p-3">
                     {/* Safe to spend today, and where a spend is logged, on wide screens. */}
-                    {wide && <QuickLog variant="rail" collapsed={collapsed} />}
+                    {wide && <QuickLog collapsed={collapsed} />}
                     <ProfileChip active={profileActive} collapsed={collapsed} />
                 </div>
 
