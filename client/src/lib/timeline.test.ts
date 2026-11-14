@@ -439,6 +439,34 @@ describe('calibrate', () => {
     })
 })
 
+describe('calibration and the start of a Plan', () => {
+    it('ignores weigh-ins from before the Plan began', () => {
+        // Three weeks of losing before any Plan, then a cut that started five days ago.
+        const started = addDays(TODAY, -5)
+        const base = inputs({
+            plans: [plan(started, 16)],
+            phases: [phase(started, addDays(TODAY, 120), 'cut', 2100)],
+        })
+        const logs = Array.from({ length: 27 }, (_, i) => weigh(addDays(TODAY, i - 26), 94 - (2.5 * i) / 26))
+        expect(calibrate({ ...base, weightLogs: logs }, 22)).toBeNull()
+        // The same weigh-ins inside the Plan do calibrate.
+        const inside = { ...base, phases: [phase(addDays(TODAY, -26), addDays(TODAY, 120), 'cut', 2100)] }
+        expect(calibrate({ ...inside, weightLogs: logs }, 22)).not.toBeNull()
+    })
+
+    it('counts back-to-back cuts as one way of eating', () => {
+        const base = inputs({
+            plans: [plan(addDays(TODAY, -26), 16)],
+            phases: [
+                phase(addDays(TODAY, -26), addDays(TODAY, -6), 'cut', 2200),
+                phase(addDays(TODAY, -5), addDays(TODAY, 120), 'cut', 2100),
+            ],
+        })
+        const logs = Array.from({ length: 27 }, (_, i) => weigh(addDays(TODAY, i - 26), 94 - (2.5 * i) / 26))
+        expect(calibrate({ ...base, weightLogs: logs }, 22)).not.toBeNull()
+    })
+})
+
 describe('helpers', () => {
     it('merges back-to-back cuts into one run', () => {
         const runs = cutRuns([
@@ -720,6 +748,15 @@ describe('the watch’s burn', () => {
             })
         )
         expect(logged.weeks[3].balanceKcal).toBeLessThan(assumed.weeks[3].balanceKcal)
+    })
+
+    it('never counts a day off the plan as better than a day on it', () => {
+        const energy = watch(28, 3000)
+        // Off plan half the time by logging 1,400 against a 2,100 target: under-eaten, or half-logged.
+        const meals = energy.map((e, i) => meal(e.date, i % 2 ? 1400 : 2100))
+        const under = buildTimeline(running({ energy, mealEntries: meals }))
+        const allIn = under.perfect!
+        expect(under.weeks[8].balanceKcal).toBeGreaterThanOrEqual(allIn.weeks[8].balanceKcal - 1)
     })
 
     it('leaves the timeline as it was without a watch', () => {

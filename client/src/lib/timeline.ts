@@ -635,7 +635,12 @@ function step(state: State, date: string, day: number, ctx: Context, liftRates: 
     if (phase) {
         target = targetOn(phase, date, burn, sessions) + ctx.intakeShift
         const a = ctx.nutritionAdherence
-        intake = a * target + (1 - a) * offPlanIntake(phase.kind, burn, ctx.offPlan)
+        // A day off the plan is never counted as better for the goal than a day on
+        // it. Logged days far under target are as likely part-logged as under-eaten,
+        // and projecting them forward promises a cut twice as fast as the Plan's.
+        const off = offPlanIntake(phase.kind, burn, ctx.offPlan)
+        const offPlan = phase.kind === 'cut' ? Math.max(off, target) : phase.kind === 'gain' ? Math.min(off, target) : off
+        intake = a * target + (1 - a) * offPlan
     }
     // A day already lived with both sides recorded needs no model.
     const known = ctx.known.get(date)
@@ -995,11 +1000,35 @@ export function measureEnergy(inputs: TimelineInputs, weight: number, planScale:
  * food log cover in full are replayed as recorded, so there the correction is
  * for what the watch and the log get wrong, not for what the model guessed.
  */
+/**
+ * The first day of the way of eating the projection carries forward: the start
+ * of the Plan covering today, counting back-to-back Plans of the same kind as
+ * one. Empty when no Plan covers today.
+ *
+ * Weigh-ins from before it can't calibrate anything. With no Plan the model
+ * assumes you ate what you burned, so weight lost in those weeks reads as a
+ * burn hundreds of kcal above the model's — and carrying that into a Plan
+ * stacks it on top of the Plan's own deficit, as though the cut had been
+ * running all along at twice its size.
+ */
+function eatingSince(phases: NutritionPhase[], today: string): string {
+    let current = phaseFor(today, phases)
+    if (!current) return ''
+    let start = current.startDate
+    for (;;) {
+        const before = phaseFor(addDays(start, -1), phases)
+        if (!before || before.kind !== current.kind || before.startDate >= start) return start
+        current = before
+        start = before.startDate
+    }
+}
+
 export function calibrate(inputs: TimelineInputs, bodyFatPct: number, burnScale = 1): Calibration | null {
     const { today, weightLogs } = inputs
     const from = addDays(today, -CALIBRATION_WINDOW_DAYS)
     const points = trendSeries(weightLogs).filter((p) => p.date <= today)
-    const window = points.filter((p) => p.date >= from)
+    const since = [from, eatingSince(inputs.phases, today)].sort().pop()!
+    const window = points.filter((p) => p.date >= since)
     if (window.length < 4) return null
     const first = window[0]
     const last = window[window.length - 1]
