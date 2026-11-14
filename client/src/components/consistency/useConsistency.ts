@@ -11,7 +11,8 @@ import { addDays, todayKey } from '../../lib/calendar'
 import { phaseFor } from '../../lib/nutrition'
 import { effectiveTargetsFor } from '../../lib/nutritionTargets'
 import { usableRate, weightTrend } from '../../lib/nutritionTrend'
-import { rateStatus, type RateStatus } from '../../lib/weightTrend'
+import { rateStatus, trendSeries, type RateStatus } from '../../lib/weightTrend'
+import { planPace } from '../../lib/planPace'
 import { WEIGH_IN_HABIT_DAYS } from '../../lib/yourDay'
 import { dayRecords, type DayRecord } from '../../lib/consistency'
 
@@ -67,7 +68,15 @@ export function useConsistency(): { data: ConsistencyData | null; error: boolean
             energy: raw.energy,
         })
         const actual = usableRate(weightTrend(raw.weightLogs, today))
-        const intended = phaseFor(today, raw.phases)?.weeklyRate ?? bodyRate ?? null
+        // The rate the running Plan is actually asking for — its own line from start
+        // to target, as the Body tab reads it — before any stated rate or Body target.
+        const phase = phaseFor(today, raw.phases)
+        const intended =
+            planPace(phase, trendSeries(raw.weightLogs), [])?.weight?.line.ratePerWeek ??
+            phase?.weeklyRate ??
+            phase?.goal?.targetWeeklyRateKg ??
+            bodyRate ??
+            null
         return { today, records, rate: { actual, intended, status: rateStatus(actual, intended ?? undefined) } }
     }, [raw, today, settingsGoals, bodyRate])
 

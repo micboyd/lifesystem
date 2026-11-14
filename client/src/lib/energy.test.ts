@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
     dailyIntake,
+    fullyLogged,
     measuredMaintenance,
     dayEnergy,
     targetVerdict,
@@ -250,5 +251,19 @@ describe('impliedWeeklyRate', () => {
         expect(impliedWeeklyRate(-550)!).toBeCloseTo(-0.5, 2)
         expect(impliedWeeklyRate(0)).toBe(0)
         expect(impliedWeeklyRate(null)).toBeNull()
+    })
+})
+
+describe('fullyLogged', () => {
+    const d = '2026-08-10'
+    it('needs everything settled and something eaten', () => {
+        expect(fullyLogged([entry(d, 2000, 'eaten'), entry(d, 500, 'skipped')])).toBe(true)
+        expect(fullyLogged([entry(d, 2000, 'eaten'), entry(d, 500, 'planned')])).toBe(false)
+        expect(fullyLogged([entry(d, 500, 'skipped')])).toBe(false)
+        expect(fullyLogged([])).toBe(false)
+    })
+    it('refuses a day logged implausibly low against its burn', () => {
+        expect(fullyLogged([entry(d, 900, 'eaten')], 3000)).toBe(false)
+        expect(fullyLogged([entry(d, 1500, 'eaten')], 3000)).toBe(true)
     })
 })

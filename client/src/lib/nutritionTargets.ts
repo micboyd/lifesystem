@@ -163,21 +163,23 @@ const DEMANDING_CONDITIONING = new Set(['HIIT', 'Endurance'])
  * source of truth about the same week, and the two would drift within a month.
  * It reads the planner: two hard sessions in a day, or one demanding
  * conditioning session, is a hard day; a single ordinary session is a training
- * day. A rest day is set by override.
+ * day; a day with nothing on it is a rest day.
  *
- * A date with no fitness data at all returns null rather than 'rest' — the
- * distinction between "nothing planned" and "no planner" is exactly the
- * unknown-is-not-zero rule, and callers fall back to the flat baseline.
+ * `entries` is the planner as loaded for a range covering the date. `null`
+ * means it hasn't been read (still loading, or the load failed) and returns
+ * null rather than 'rest' — "nothing planned" and "don't know" are different
+ * answers, and callers fall back to the flat baseline on the second.
  */
 export function classifyDay(
     date: string,
-    entries: FitnessPlanEntry[],
+    entries: FitnessPlanEntry[] | null,
     override?: DayType
 ): DayType | null {
     if (override) return override
+    if (!entries) return null
 
     const onDay = entries.filter((e) => e.date === date)
-    if (onDay.length === 0) return null
+    if (onDay.length === 0) return 'rest'
 
     const hard = onDay.filter((e) => isHardSession(e.kind))
     if (hard.length === 0) return 'rest'
@@ -226,7 +228,8 @@ export function effectiveTargetsFor(
     date: string,
     phases: NutritionPhase[],
     settingsGoals?: MacroGoals | null,
-    fitness: FitnessPlanEntry[] = [],
+    /** The fitness planner over a range covering `date`; null when it hasn't been read. */
+    fitness: FitnessPlanEntry[] | null = null,
     override?: DayType
 ): EffectiveTargets {
     const resolved = targetsFor(date, phases, settingsGoals)

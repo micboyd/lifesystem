@@ -36,7 +36,14 @@ const KINDS: { value: PhotoKind; label: string }[] = [
  * original (earliest progress photo) sits on the left and anything else —
  * a later progress photo or a goal photo — is picked for the right.
  */
-export default function BodyPhotos({ logs }: { logs: WeightLog[] }) {
+export default function BodyPhotos({
+    logs,
+    onPhotosChange,
+}: {
+    logs: WeightLog[]
+    /** Every photo, after each load, upload, edit or delete — so the weigh-in list can mark its days. */
+    onPhotosChange?: (photos: ProgressPhoto[]) => void
+}) {
     const toast = useToast()
     const [configured, setConfigured] = useState<boolean | null>(null)
     const [photos, setPhotos] = useState<ProgressPhoto[] | null>(null)
@@ -65,6 +72,12 @@ export default function BodyPhotos({ logs }: { logs: WeightLog[] }) {
         // Runs once on mount; toast is stable.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
+
+    useEffect(() => {
+        if (photos) onPhotosChange?.(photos)
+        // Only when the photos themselves change; the callback is a state setter.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [photos])
 
     const forPose = useMemo(() => (photos ?? []).filter((p) => p.pose === pose), [photos, pose])
     const progress = forPose.filter((p) => p.kind === 'progress')

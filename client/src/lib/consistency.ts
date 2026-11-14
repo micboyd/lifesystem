@@ -9,7 +9,7 @@ import type {
     WorkoutLog,
 } from '../types'
 import { addDays } from './calendar'
-import { targetVerdict } from './energy'
+import { fullyLogged, targetVerdict } from './energy'
 import { sumEatenMacros } from './nutrition'
 import { TARGET_BAND, WEIGH_IN_HABIT_DAYS } from './yourDay'
 import { daysBetween } from './weightTrend'
@@ -82,7 +82,7 @@ export interface DayRecord {
     intake: { calories: number; protein: number; target: MacroGoals } | null
     /** Done: a weigh-in in the week up to this day. */
     weighIn: 'done' | 'missed' | null
-    /** Eaten minus calories out, on a finished day with both. */
+    /** Eaten minus calories out, on a finished day with a burn and a full food log. */
     balance: number | null
 }
 
@@ -293,8 +293,10 @@ export function dayRecords(inputs: ConsistencyInputs): DayRecord[] {
                 else if (!isToday) protein = logged ? 'short' : 'unlogged'
             }
         }
+        // A balance needs the whole day's food: a half-ticked day, or one with an
+        // away note, would read as a deficit that never happened (as on the Timeline).
         const out = outByDate.get(date)
-        if (!isToday && logged && out) balance = eaten.calories - out
+        if (!isToday && out && fullyLogged(entries, out)) balance = eaten.calories - out
 
         // Weigh-in: one in the week up to today keeps it up; today can still bring one.
         let weighIn: DayRecord['weighIn'] = null

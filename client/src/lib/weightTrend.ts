@@ -112,8 +112,9 @@ function smooth(
  * between raw readings — so a heavy day at either end doesn't invent a result.
  *
  * The window's start anchors to the earliest point on or after the cutoff, and
- * the rate is divided by the days actually spanned. Returns null until there are
- * two points at least a day apart.
+ * the rate is divided by the days actually spanned. Returns null until the
+ * points span a week: two readings a couple of days apart, scaled up to a
+ * week, is water and nothing else.
  */
 export function weeklyRate(points: TrendPoint[], windowDays = 28): number | null {
     if (points.length < 2) return null
@@ -123,9 +124,52 @@ export function weeklyRate(points: TrendPoint[], windowDays = 28): number | null
     const first = points.find((p) => p.date >= cutoff) ?? points[0]
 
     const span = daysBetween(first.date, last.date)
-    if (span < 1) return null
+    if (span < MIN_RATE_SPAN_DAYS) return null
 
     return ((last.trend - first.trend) / span) * 7
+}
+
+/** Fewest days the trend must span before its slope is quoted as a weekly rate. */
+export const MIN_RATE_SPAN_DAYS = 7
+
+/**
+ * How many days the trend runs behind the readings at its last point.
+ *
+ * Smoothing buys a steady line at the price of a late one: while weight is
+ * moving, the trend sits where the body was several days ago (about five and a
+ * half at daily weigh-ins, fewer when they're sparse). Measured by folding the
+ * same average over the dates themselves, so it's exact for whatever pattern of
+ * weigh-ins there is.
+ */
+export function trendLagDays(points: { date: string }[], alpha = DAILY_ALPHA): number {
+    if (points.length < 2) return 0
+    const origin = points[0].date
+    let smoothed = 0
+    let prev = 0
+    for (const p of points.slice(1)) {
+        const x = daysBetween(origin, p.date)
+        const gap = Math.max(1, x - prev)
+        smoothed += (1 - Math.pow(1 - alpha, gap)) * (x - smoothed)
+        prev = x
+    }
+    return prev - smoothed
+}
+
+/**
+ * Where the body is now, rather than where the trend line has got to: the last
+ * trend value carried forward by its own lag at the current rate. On a steady
+ * half-kilo-a-week cut the trend reads about 0.4 kg heavy; anything projected
+ * from it starts that far behind. Falls back to the trend itself until there's
+ * a rate to carry it with.
+ */
+export function settledWeight(points: TrendPoint[], windowDays = 28): number | null {
+    if (points.length === 0) return null
+    const last = points[points.length - 1]
+    const rate = weeklyRate(points, windowDays)
+    if (rate === null) return last.trend
+    const cutoff = addDaysIso(last.date, -windowDays)
+    const lag = trendLagDays(points.filter((p) => p.date >= cutoff))
+    return last.trend + (rate / 7) * lag
 }
 
 /** Add `n` days to a YYYY-MM-DD date, in UTC so no timezone can shift it. */
@@ -147,10 +191,17 @@ export function projectTargetDate(
     if (points.length === 0 || !ratePerWeek) return null
 
     const last = points[points.length - 1]
-    const remaining = target - last.trend
-    if (remaining === 0) return last.date
+    if (target === last.trend) return last.date
     // Moving away from the target (or the wrong way past it) never arrives.
-    if (Math.sign(remaining) !== Math.sign(ratePerWeek)) return null
+    if (Math.sign(target - last.trend) !== Math.sign(ratePerWeek)) return null
+
+    // Count from where the body is, not where the lagging trend line has got to:
+    // at this rate the line is `lag` days behind, so the date comes that much sooner.
+    const cutoff = addDaysIso(last.date, -28)
+    const lag = trendLagDays(points.filter((p) => p.date >= cutoff))
+    const remaining = target - (last.trend + (ratePerWeek / 7) * lag)
+    // The body is already there; the line just hasn't caught up.
+    if (Math.sign(remaining) !== Math.sign(ratePerWeek)) return last.date
 
     const weeks = remaining / ratePerWeek
     return addDaysIso(last.date, Math.ceil(weeks * 7))

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react'
 import Spinner from '../Spinner'
 import Button from '../Button'
 import EmptyState from '../EmptyState'
@@ -63,7 +63,8 @@ import {
     WEEKDAYS_LONG,
     MONTHS,
 } from '../../lib/calendar'
-import { targetsFor } from '../../lib/nutrition'
+import { effectiveTargetsFor } from '../../lib/nutritionTargets'
+import { listPlanEntries as listFitnessEntries } from '../../services/fitnessPlan'
 import { MEAL_TYPES } from '../../types'
 import { WeekMacrosButton, WeekMacrosPanel } from './WeekMacros'
 import { DayNumbers } from './DayNumbers'
@@ -71,6 +72,7 @@ import { AddDrawer, type AddTarget } from './AddDrawer'
 import { QuickAddDrawer } from './QuickAddDrawer'
 import { dayTotals, weekAverage, weekMacros } from '../../lib/dayTotals'
 import type {
+    FitnessPlanEntry,
     DailyEnergy,
     EntryStatus,
     Event,
@@ -164,6 +166,8 @@ export default function NutritionPlanner({
     const [phases, setPhases] = useState<NutritionPhase[]>([])
     // Calendar events across the week, offered when marking a slot as away.
     const [events, setEvents] = useState<Event[]>([])
+    // The fitness planner for the week, for Plans that cycle calories by training. Null until read.
+    const [fitness, setFitness] = useState<FitnessPlanEntry[] | null>(null)
     const [loading, setLoading] = useState(true)
     // The day drawer: a day + slot to add to, or a day to "Log more" on.
     const [picker, setPicker] = useState<AddTarget | null>(null)
@@ -220,19 +224,28 @@ export default function NutritionPlanner({
             listDailyEnergy(range.start, range.end).catch(() => [] as DailyEnergy[]),
             listNutritionPhases(range.start, range.end).catch(() => [] as NutritionPhase[]),
             listEvents(range.start, range.end).catch(() => [] as Event[]),
+            listFitnessEntries(range.start, range.end).catch(() => null),
         ])
-            .then(([rows, en, ph, ev]) => {
+            .then(([rows, en, ph, ev, fit]) => {
                 if (!active) return
                 setEntries(rows)
                 setEnergy(en)
                 setPhases(ph)
                 setEvents(ev)
+                setFitness(fit)
             })
             .finally(() => active && setLoading(false))
         return () => {
             active = false
         }
     }, [range.start, range.end, garminPulls])
+
+    // A day's target as the Plan sets it — shifted for the day's training when
+    // the Plan cycles calories, the same figure Home and Consistency judge by.
+    const goalsFor = useCallback(
+        (date: string) => effectiveTargetsFor(date, phases, settingsGoals, fitness).goals,
+        [phases, settingsGoals, fitness]
+    )
 
     // Each day's numbers against its target — the hero's average day and the
     // week's macros panel both read from these.
@@ -242,10 +255,10 @@ export default function NutritionPlanner({
                 const date = addDays(range.start, i)
                 return {
                     totals: dayTotals(entries.filter((e) => e.date === date), date, today),
-                    goals: targetsFor(date, phases, settingsGoals).goals,
+                    goals: goalsFor(date),
                 }
             }),
-        [entries, range.start, today, phases, settingsGoals]
+        [entries, range.start, today, goalsFor]
     )
     const average = useMemo(() => weekAverage(weekDays), [weekDays])
     const macros = useMemo(() => weekMacros(weekDays), [weekDays])
@@ -576,7 +589,7 @@ export default function NutritionPlanner({
                     selected={anchor}
                     today={today}
                     entries={entries}
-                    goalsFor={(date) => targetsFor(date, phases, settingsGoals).goals}
+                    goalsFor={goalsFor}
                     outFor={(date) => energy.find((e) => e.date === date)?.caloriesOut ?? null}
                     garminOutFor={(date) => garminOut(energy.find((e) => e.date === date))}
                     onSelect={setAnchor}
@@ -600,7 +613,7 @@ export default function NutritionPlanner({
                 meals={meals}
                 entries={picker ? entries.filter((e) => e.date === picker.date) : []}
                 events={picker ? events.filter((ev) => picker.date >= ev.startDate && picker.date <= ev.endDate) : []}
-                goalsFor={(date) => targetsFor(date, phases, settingsGoals).goals}
+                goalsFor={goalsFor}
                 onClose={() => setPicker(null)}
                 onAddMeal={(date, slot, id, eaten) => handleAdd(date, slot, id, false, eaten)}
                 onAddAway={handleAddAway}

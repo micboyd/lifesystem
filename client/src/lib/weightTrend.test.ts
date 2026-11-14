@@ -4,6 +4,8 @@ import {
     bodyFatSeries,
     weeklyRate,
     projectTargetDate,
+    settledWeight,
+    trendLagDays,
     rateStatus,
     ratePercent,
     daysBetween,
@@ -116,6 +118,11 @@ describe('weeklyRate', () => {
         expect(weeklyRate(trendSeries([log('2026-08-01', 90)]))).toBeNull()
     })
 
+    it('waits for a week of span rather than scaling up two days of water', () => {
+        expect(weeklyRate(trendSeries([log('2026-08-01', 90), log('2026-08-03', 89)]))).toBeNull()
+        expect(weeklyRate(trendSeries([log('2026-08-01', 90), log('2026-08-08', 89)]))).not.toBeNull()
+    })
+
     it('is negative while losing', () => {
         // A month of steady loss: 90 → 88 over 28 days.
         const logs = Array.from({ length: 29 }, (_, i) =>
@@ -148,6 +155,28 @@ describe('weeklyRate', () => {
     })
 })
 
+describe('settledWeight', () => {
+    it('takes the lag out of the trend on a steady loss', () => {
+        const logs = Array.from({ length: 40 }, (_, i) =>
+            log(new Date(Date.UTC(2026, 7, 1 + i)).toISOString().slice(0, 10), 100 - i / 14)
+        )
+        const points = trendSeries(logs)
+        const last = points[points.length - 1]
+        // Half a kilo a week: the trend reads about 0.4 kg heavy…
+        expect(last.trend - last.weight).toBeGreaterThan(0.35)
+        // …and the settled figure is back on the scale.
+        expect(settledWeight(points)!).toBeCloseTo(last.weight, 1)
+        expect(trendLagDays(points)).toBeCloseTo(0.85 / 0.15, 1)
+    })
+
+    it('is the trend itself on flat weight or before there is a rate', () => {
+        const flat = trendSeries(Array.from({ length: 20 }, (_, i) => log(`2026-08-${String(i + 1).padStart(2, '0')}`, 90)))
+        expect(settledWeight(flat)).toBeCloseTo(90)
+        expect(settledWeight(trendSeries([log('2026-08-01', 90)]))).toBe(90)
+        expect(settledWeight([])).toBeNull()
+    })
+})
+
 describe('projectTargetDate', () => {
     const points = trendSeries([log('2026-08-01', 90), log('2026-08-08', 89)])
 
@@ -163,8 +192,9 @@ describe('projectTargetDate', () => {
     it('projects forward at the given rate', () => {
         const current = points[points.length - 1].trend
         const target = current - 2 // 2 kg to go
-        // At 0.5 kg/week that's 4 weeks from the last weigh-in.
-        expect(projectTargetDate(points, target, -0.5)).toBe('2026-09-05')
+        // At 0.5 kg/week that's 4 weeks from the last weigh-in — less the two
+        // days the trend line runs behind the scale on weekly weigh-ins.
+        expect(projectTargetDate(points, target, -0.5)).toBe('2026-09-03')
     })
 
     it('returns null when the rate points away from the target', () => {

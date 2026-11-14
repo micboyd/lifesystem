@@ -63,6 +63,26 @@ export function dailyIntake(entries: MealPlanEntry[]): IntakeByDate {
     return byDate
 }
 
+/** Food logged below this share of the day's burn reads as a half-logged day, not a crash diet. */
+export const MIN_LOGGED_SHARE = 0.4
+
+/**
+ * Whether a finished day's food log can be read as the whole day.
+ *
+ * It can't when anything on it is still waiting to be ticked off — an away
+ * note included, since whatever was eaten at the event was never written down —
+ * or when what was ticked is implausibly little against the day's burn. A day
+ * with only breakfast marked would otherwise read as a 2,500 kcal deficit, and
+ * every average it joined would flatter you.
+ */
+export function fullyLogged(entries: MealPlanEntry[], out?: number | null): boolean {
+    if (entries.some((e) => e.status === 'planned')) return false
+    let eaten = 0
+    for (const e of entries) if (e.status === 'eaten') eaten += entryMacros(e).calories
+    if (eaten <= 0) return false
+    return !out || eaten >= out * MIN_LOGGED_SHARE
+}
+
 /** Why a maintenance estimate couldn't be produced. */
 export type MaintenanceGap = 'not-enough-intake' | 'not-enough-weight'
 

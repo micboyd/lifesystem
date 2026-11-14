@@ -9,6 +9,7 @@ import {
     measureEnergy,
     measureNutrition,
     measureTraining,
+    offPlanShares,
     sessionsByDate,
     startingPoint,
     timelineGaps,
@@ -565,6 +566,52 @@ describe('measured adherence', () => {
     })
 })
 
+describe('measureNutrition, part-logged and cycling days', () => {
+    const START = addDays(TODAY, -28)
+    const food = (date: string, calories: number, status: MealPlanEntry['status'] = 'eaten', away = false) =>
+        ({
+            _id: `${date}-${calories}-${status}`,
+            date,
+            slot: 'lunch',
+            name: 'Food',
+            macros: { calories, protein: 0, carbs: 0, fat: 0 },
+            status,
+            away,
+            extra: false,
+            order: 0,
+            createdAt: '',
+            updatedAt: '',
+        }) as MealPlanEntry
+    const days = Array.from({ length: 10 }, (_, i) => addDays(TODAY, -1 - i))
+
+    it('leaves out days still part-ticked or with an away note', () => {
+        const mealEntries = [
+            ...days.map((d) => food(d, 2100)),
+            // Breakfast only, dinner never ticked — and an away day.
+            food(addDays(TODAY, -11), 500),
+            food(addDays(TODAY, -11), 900, 'planned'),
+            food(addDays(TODAY, -12), 600),
+            food(addDays(TODAY, -12), 0, 'planned', true),
+        ]
+        const r = measureNutrition(inputs({ phases: [phase(START, addDays(TODAY, 83), 'cut', 2100)], mealEntries }))
+        expect(r.total).toBe(10)
+        expect(r.hit).toBe(10)
+    })
+
+    it('judges a rest day against the cycled target', () => {
+        const cycling = {
+            ...phase(START, addDays(TODAY, 83), 'cut', 2100),
+            strategy: { type: 'activity' as const, hardKcal: 0, restKcal: 300 },
+        }
+        // 2,150 is on a 2,100 target and over a rest day's 1,800. The plan rests Thursday and Sunday.
+        const mealEntries = days.map((d) => food(d, 2150))
+        const flat = measureNutrition(inputs({ plans: [plan(START, 16)], phases: [{ ...cycling, strategy: undefined }], mealEntries }))
+        const cycled = measureNutrition(inputs({ plans: [plan(START, 16)], phases: [cycling], mealEntries }))
+        expect(flat.hit).toBe(10)
+        expect(cycled.hit).toBe(7)
+    })
+})
+
 describe('the watch’s burn', () => {
     const START = addDays(TODAY, -28)
     const running = (over: Partial<TimelineInputs> = {}) =>
@@ -644,6 +691,35 @@ describe('the watch’s burn', () => {
         )
         expect([...known.keys()].sort()).toEqual([d(4), d(1)])
         expect(known.get(d(1))).toEqual({ eaten: 2100, out: 3000 })
+    })
+
+    it('learns what an off-plan day looks like from the fully logged ones', () => {
+        const energy = watch(28, 3000)
+        // Ten days well over a 2,100 target, the rest on it.
+        const meals = energy.map((e, i) => meal(e.date, i < 10 ? 2700 : 2100))
+        const shares = offPlanShares(running({ energy, mealEntries: meals }))
+        expect(shares.cut!.share).toBeCloseTo(0.9)
+        expect(shares.cut).toMatchObject({ days: 10, weight: 1 })
+        // Two off-plan days aren't enough to overturn the assumption.
+        const few = energy.map((e, i) => meal(e.date, i < 2 ? 2700 : 2100))
+        expect(offPlanShares(running({ energy, mealEntries: few }))).toEqual({})
+    })
+
+    it('projects from the off-plan days as logged, not as assumed', () => {
+        const energy = watch(28, 3000)
+        const weightLogs = Array.from({ length: 29 }, (_, i) => weigh(addDays(START, i), 94 - (2 * i) / 28, 22))
+        // Off plan half the time — but by eating 2,600 against 3,000 out, still a deficit.
+        const meals = energy.map((e, i) => meal(e.date, i % 2 ? 2600 : 2100))
+        const logged = buildTimeline(running({ weightLogs, energy, mealEntries: meals }))
+        // The same adherence with the watch alone leaves off-plan days assumed at 10% over the burn.
+        const assumed = buildTimeline(
+            running({
+                weightLogs,
+                energy,
+                quiz: { ...running().quiz, nutritionAdherence: logged.adherence.nutrition.used },
+            })
+        )
+        expect(logged.weeks[3].balanceKcal).toBeLessThan(assumed.weeks[3].balanceKcal)
     })
 
     it('leaves the timeline as it was without a watch', () => {

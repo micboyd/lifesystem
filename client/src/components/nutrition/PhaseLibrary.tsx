@@ -437,7 +437,7 @@ export default function PhaseLibrary({
                 onClose={() => setOpen(false)}
                 title={editing ? 'Edit plan' : 'New plan'}
                 footer={
-                    <div className="flex gap-3">
+                    <div className="flex w-full gap-3">
                         <Button variant="secondary" onClick={() => setOpen(false)} fullWidth>
                             Cancel
                         </Button>

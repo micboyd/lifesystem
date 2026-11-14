@@ -182,8 +182,9 @@ describe('targetsFor with dated revisions', () => {
 })
 
 describe('classifyDay', () => {
-    it('reads nothing planned as unknown, not rest', () => {
-        expect(classifyDay('2026-08-21', [])).toBeNull()
+    it('reads an unread planner as unknown, and nothing planned as rest', () => {
+        expect(classifyDay('2026-08-21', null)).toBeNull()
+        expect(classifyDay('2026-08-21', [])).toBe('rest')
     })
 
     it('takes a rest override over what is planned', () => {
@@ -207,7 +208,7 @@ describe('classifyDay', () => {
 
     it('only reads the day asked for', () => {
         const entries = [fit('2026-08-20', 'workout'), fit('2026-08-20', 'conditioning')]
-        expect(classifyDay('2026-08-21', entries)).toBeNull()
+        expect(classifyDay('2026-08-21', entries)).toBe('rest')
     })
 
     it('lets a manual override win outright', () => {
@@ -260,8 +261,12 @@ describe('effectiveTargetsFor', () => {
         expect(hard.goals?.calories).toBe(3050)
         expect(hard.baseGoals?.calories).toBe(2950)
 
-        const rest = effectiveTargetsFor('2026-09-01', [cycling], null, [], 'rest')
+        const rest = effectiveTargetsFor('2026-09-01', [cycling], null, [fit('2026-09-02', 'workout')])
         expect(rest.goals?.calories).toBe(2800)
+        expect(rest.dayType).toBe('rest')
+
+        // Planner not read yet: the flat baseline, not a guessed rest day.
+        expect(effectiveTargetsFor('2026-09-01', [cycling], null, null).goals?.calories).toBe(2950)
     })
 
     it('moves carbohydrate and leaves protein and fat where they were', () => {
@@ -274,7 +279,7 @@ describe('effectiveTargetsFor', () => {
     })
 
     it('falls back to the flat target when there is no fitness data', () => {
-        const r = effectiveTargetsFor('2026-09-01', [cycling], null, [])
+        const r = effectiveTargetsFor('2026-09-01', [cycling], null, null)
         expect(r.dayType).toBeNull()
         expect(r.goals?.calories).toBe(2950)
     })

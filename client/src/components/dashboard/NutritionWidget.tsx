@@ -54,7 +54,8 @@ export function useNutritionToday(date: string): NutritionToday {
     const [entries, setEntries] = useState<MealPlanEntry[]>([])
     const [phases, setPhases] = useState<NutritionPhase[]>([])
     const [logs, setLogs] = useState<WeightLog[]>([])
-    const [fitness, setFitness] = useState<FitnessPlanEntry[]>([])
+    // Null until read: an unread planner must not be taken for a rest day.
+    const [fitness, setFitness] = useState<FitnessPlanEntry[] | null>(null)
     const [loadedDate, setLoadedDate] = useState<string | null>(null)
 
     useEffect(() => {
@@ -63,7 +64,7 @@ export function useNutritionToday(date: string): NutritionToday {
             listPlanEntries(date, date).catch(() => [] as MealPlanEntry[]),
             listNutritionPhases(date, date).catch(() => [] as NutritionPhase[]),
             listWeightLogs(addDays(date, -120)).catch(() => [] as WeightLog[]),
-            listFitnessEntries(date, date).catch(() => [] as FitnessPlanEntry[]),
+            listFitnessEntries(date, date).catch(() => null),
         ])
             .then(([e, p, w, f]) => {
                 if (!active) return

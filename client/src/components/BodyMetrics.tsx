@@ -27,8 +27,25 @@ import {
     type BodyFatPoint,
     type RateStatus,
 } from '../lib/weightTrend'
+import { listNutritionPhases } from '../services/nutritionPhases'
+import { phaseFor } from '../lib/nutrition'
+import {
+    planPace,
+    valueOn,
+    PACE_LABELS,
+    type LineCheck,
+    type PaceVerdict,
+    type PlanLine,
+    type PlanPace,
+} from '../lib/planPace'
 import { MEASUREMENT_FIELDS } from '../types'
-import type { BodyGoals, BodyMeasurements, WeightLog } from '../types'
+import type {
+    BodyGoals,
+    BodyMeasurements,
+    NutritionPhase,
+    ProgressPhoto,
+    WeightLog,
+} from '../types'
 
 /**
  * What one weigh-in submission carries.
@@ -66,16 +83,48 @@ export default function BodyMetrics() {
     const [entry, setEntry] = useState<{ log: WeightLog | null } | null>(null)
     const [confirmDelete, setConfirmDelete] = useState<WeightLog | null>(null)
     const [goalsOpen, setGoalsOpen] = useState(false)
+    const [phases, setPhases] = useState<NutritionPhase[]>([])
+    // Reported up by the Photos panel, which owns loading and uploading them.
+    const [photos, setPhotos] = useState<ProgressPhoto[]>([])
+    /** Poses of progress photos taken each day — a weigh-in that day gets a camera tick. */
+    const photoPoses = useMemo(() => {
+        const byDate = new Map<string, Set<string>>()
+        for (const p of photos) {
+            if (p.kind !== 'progress') continue
+            if (!byDate.has(p.date)) byDate.set(p.date, new Set())
+            byDate.get(p.date)!.add(p.pose)
+        }
+        return byDate
+    }, [photos])
 
     useEffect(() => {
         listWeightLogs()
             .then(setLogs)
             .catch(() => setLogs([]))
+        // No Plan (or a failed load) just means the tab falls back to its own targets.
+        listNutritionPhases()
+            .then(setPhases)
+            .catch(() => setPhases([]))
     }, [])
 
-    const goals = user?.settings?.bodyGoals
+    const phase = useMemo(() => phaseFor(todayKey(), phases), [phases])
+
+    const bodyGoals = user?.settings?.bodyGoals
     const points = useMemo(() => trendSeries(logs ?? []), [logs])
     const fatPoints = useMemo(() => bodyFatSeries(logs ?? []), [logs])
+    const pace = useMemo(() => planPace(phase, points, fatPoints), [phase, points, fatPoints])
+    // The running Plan's numbers win; the tab's own Targets cover the gaps between Plans.
+    const goals: BodyGoals | undefined = phase
+        ? {
+              targetWeight: phase.goal?.targetWeightKg ?? bodyGoals?.targetWeight,
+              weeklyRate:
+                  pace?.weight?.line.ratePerWeek ??
+                  phase.weeklyRate ??
+                  phase.goal?.targetWeeklyRateKg ??
+                  bodyGoals?.weeklyRate,
+              targetBodyFat: phase.goal?.targetBodyFatPct ?? bodyGoals?.targetBodyFat,
+          }
+        : bodyGoals
     const latestFat = fatPoints.length ? fatPoints[fatPoints.length - 1] : null
     const rate = useMemo(() => weeklyRate(points, windowDays), [points, windowDays])
     const pct = ratePercent(points, rate)
@@ -209,6 +258,8 @@ export default function BodyMetrics() {
                         )}
                     </div>
 
+                    {pace && <PlanCheck pace={pace} rate={rate} rateStatus={status} />}
+
                     <Surface className="flex flex-col gap-4">
                         <PanelHeader
                             title="Weight trend"
@@ -230,6 +281,7 @@ export default function BodyMetrics() {
                                 (p) => daysBetween(p.date, todayKey()) <= HISTORY_DAYS
                             )}
                             target={goals?.targetWeight}
+                            plan={pace?.weight?.line}
                         />
                         <RateVerdict status={status} rate={rate} intended={goals?.weeklyRate} />
                     </Surface>
@@ -237,12 +289,13 @@ export default function BodyMetrics() {
                     <RecentLog
                         logs={[...logs].reverse()}
                         points={points}
+                        photoPoses={photoPoses}
                         onOpen={(log) => setEntry({ log })}
                     />
                 </>
             )}
 
-            <BodyPhotos logs={logs} />
+            <BodyPhotos logs={logs} onPhotosChange={setPhotos} />
 
             <WeighInDrawer
                 // Remounted per reading so the fields start from it.
@@ -257,7 +310,7 @@ export default function BodyMetrics() {
             <GoalsModal
                 key={goalsOpen ? 'goals-open' : 'goals-closed'}
                 open={goalsOpen}
-                initial={goals}
+                initial={bodyGoals}
                 onClose={() => setGoalsOpen(false)}
                 onSave={handleSaveGoals}
             />
@@ -440,7 +493,16 @@ const PAD_Y = 12
  * fit its container. The x-axis is real elapsed time, not point index, so a
  * fortnight's gap reads as a gap rather than a straight run of daily weigh-ins.
  */
-function TrendChart({ points, target }: { points: TrendPoint[]; target?: number }) {
+function TrendChart({
+    points,
+    target,
+    plan,
+}: {
+    points: TrendPoint[]
+    target?: number
+    /** The running Plan's line, drawn over the stretch of the chart it covers. */
+    plan?: PlanLine
+}) {
     if (points.length < 2) {
         return (
             <p className="py-10 text-center text-sm text-neutral-500">
@@ -455,6 +517,16 @@ function TrendChart({ points, target }: { points: TrendPoint[]; target?: number 
     // Include the target line in the vertical extent so it never falls off-chart.
     const values = points.flatMap((p) => [p.weight, p.trend])
     if (target) values.push(target)
+
+    // Only the part of the Plan inside the chart's dates — stretching the axis to
+    // the Plan's end would squash the history into a corner.
+    const last = points[points.length - 1].date
+    const planFrom = plan && plan.startDate > first ? plan.startDate : first
+    const planSpan =
+        plan && planFrom < last
+            ? { from: planFrom, to: last, a: valueOn(plan, planFrom), b: valueOn(plan, last) }
+            : null
+    if (planSpan) values.push(planSpan.a, planSpan.b)
     const min = Math.min(...values)
     const max = Math.max(...values)
     const range = Math.max(0.5, max - min)
@@ -496,6 +568,29 @@ function TrendChart({ points, target }: { points: TrendPoint[]; target?: number 
                     </>
                 )}
 
+                {planSpan && (
+                    <>
+                        <line
+                            x1={x(planSpan.from)}
+                            x2={x(planSpan.to)}
+                            y1={y(planSpan.a)}
+                            y2={y(planSpan.b)}
+                            className="stroke-neutral-400"
+                            strokeWidth={1.5}
+                            strokeDasharray="2 4"
+                            strokeLinecap="round"
+                        />
+                        <text
+                            x={x(planSpan.to) - 4}
+                            y={y(planSpan.b) + 14}
+                            textAnchor="end"
+                            className="fill-neutral-500 text-[11px] font-semibold"
+                        >
+                            Plan
+                        </text>
+                    </>
+                )}
+
                 {points.map((p) => (
                     <circle
                         key={p.date}
@@ -520,6 +615,131 @@ function TrendChart({ points, target }: { points: TrendPoint[]; target?: number 
                 <span>{longDate(points[points.length - 1].date)}</span>
             </div>
         </div>
+    )
+}
+
+// ─── Plan check ─────────────────────────────────────────────────────────────────
+
+const PACE_TONE: Record<PaceVerdict, Tone> = {
+    'on-track': 'good',
+    'slightly-ahead': 'good',
+    ahead: 'good',
+    'slightly-behind': 'warn',
+    behind: 'bad',
+    above: 'warn',
+    below: 'warn',
+}
+
+const RATE_LABELS: Record<RateStatus, string> = {
+    'no-goal': 'No rate set',
+    'no-data': 'Needs weigh-ins',
+    'on-track': 'On pace',
+    slow: 'Slower than plan',
+    fast: 'Faster than plan',
+    stalled: 'Stalled',
+    'wrong-way': 'Wrong way',
+}
+
+const TONE_PILL: Record<Tone, string> = {
+    good: 'bg-emerald-50 text-emerald-700',
+    warn: 'bg-amber-50 text-amber-800',
+    bad: 'bg-red-50 text-red-700',
+    neutral: 'bg-neutral-100 text-neutral-600',
+}
+
+/**
+ * Where the running Plan says you should be by now, against where the trend
+ * actually is — weight, pace and body fat, each with its own verdict.
+ */
+function PlanCheck({
+    pace,
+    rate,
+    rateStatus,
+}: {
+    pace: PlanPace
+    rate: number | null
+    rateStatus: RateStatus
+}) {
+    const { phase, weight, bodyFat } = pace
+    const planRate = weight?.line.ratePerWeek ?? phase.weeklyRate ?? phase.goal?.targetWeeklyRateKg
+    const by = phase.goal?.targetDate ?? phase.endDate
+
+    return (
+        <Surface className="flex flex-col gap-3">
+            <PanelHeader
+                title="On plan?"
+                hint={`Judged against your Plan “${phase.name}”, ${longDate(phase.startDate)} – ${longDate(by)}.`}
+            />
+            <ul className="divide-y divide-neutral-100">
+                <PlanRow
+                    label="Weight"
+                    check={weight}
+                    unit="kg"
+                    missing="Needs a weigh-in near the Plan’s start, or a start weight on the Plan."
+                />
+                <li className="flex items-center gap-3 py-3">
+                    <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-neutral-900">Pace</p>
+                        <p className="nums mt-0.5 text-[13px] text-neutral-500">
+                            {planRate == null
+                                ? 'The Plan doesn’t set a rate or a target weight.'
+                                : `${rate === null ? '—' : signed(rate)} kg/wk now · plan ${signed(planRate, 2)} kg/wk`}
+                        </p>
+                    </div>
+                    {planRate != null && (
+                        <Pill tone={STATUS_TONE[rateStatus]}>{RATE_LABELS[rateStatus]}</Pill>
+                    )}
+                </li>
+                {phase.goal?.targetBodyFatPct !== undefined && (
+                    <PlanRow
+                        label="Body fat"
+                        check={bodyFat}
+                        unit="%"
+                        missing="Needs a body-fat reading since the Plan began, and one near its start (or a start figure on the Plan)."
+                    />
+                )}
+            </ul>
+        </Surface>
+    )
+}
+
+function PlanRow({
+    label,
+    check,
+    unit,
+    missing,
+}: {
+    label: string
+    check: LineCheck | null
+    unit: 'kg' | '%'
+    missing: string
+}) {
+    const fmt = (n: number) => (unit === 'kg' ? `${n.toFixed(1)} kg` : `${n.toFixed(1)}%`)
+    const gap = check ? (unit === 'kg' ? `${Math.abs(check.gap).toFixed(1)} kg` : `${Math.abs(check.gap).toFixed(1)} pts`) : ''
+    const side = check && (check.gap < 0 ? 'under' : 'over')
+
+    return (
+        <li className="flex items-center gap-3 py-3">
+            <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-neutral-900">{label}</p>
+                <p className="nums mt-0.5 text-[13px] text-neutral-500">
+                    {check
+                        ? `${fmt(check.actual)} on ${longDate(check.date)} · plan ${fmt(check.expected)}${
+                              check.verdict === 'on-track' ? '' : ` · ${gap} ${side}`
+                          }${check.line.target != null ? ` · aiming for ${fmt(check.line.target)}` : ''}`
+                        : missing}
+                </p>
+            </div>
+            {check && <Pill tone={PACE_TONE[check.verdict]}>{PACE_LABELS[check.verdict]}</Pill>}
+        </li>
+    )
+}
+
+function Pill({ tone, children }: { tone: Tone; children: string }) {
+    return (
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[12px] font-medium ${TONE_PILL[tone]}`}>
+            {children}
+        </span>
     )
 }
 
@@ -581,10 +801,12 @@ function RateVerdict({
 function RecentLog({
     logs,
     points,
+    photoPoses,
     onOpen,
 }: {
     logs: WeightLog[]
     points: TrendPoint[]
+    photoPoses: Map<string, Set<string>>
     onOpen: (log: WeightLog) => void
 }) {
     const [expanded, setExpanded] = useState(false)
@@ -625,6 +847,16 @@ function RecentLog({
                                         </p>
                                     )}
                                 </div>
+                                {photoPoses.has(log.date) && (
+                                    <span
+                                        className="nums inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[12px] font-medium text-emerald-700"
+                                        title={`Photos taken: ${[...photoPoses.get(log.date)!].join(', ')}`}
+                                    >
+                                        <i className="fa-solid fa-camera text-[10px]" aria-hidden="true" />
+                                        <i className="fa-solid fa-check text-[10px]" aria-hidden="true" />
+                                        <span className="sr-only">Photos taken this day</span>
+                                    </span>
+                                )}
                                 <span className="nums shrink-0 text-[15px] font-semibold text-neutral-900">
                                     {log.weight.toFixed(1)} kg
                                 </span>

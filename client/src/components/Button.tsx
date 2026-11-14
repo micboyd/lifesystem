@@ -51,11 +51,13 @@ export default function Button({
     return (
         <button
             className={[
-                'inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors duration-150',
+                'inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors duration-150',
                 'disabled:cursor-not-allowed disabled:border-transparent disabled:bg-neutral-100 disabled:text-neutral-500',
                 variantClasses[variant],
                 sizeClasses[size],
-                fullWidth ? 'w-full' : '',
+                // Full-width buttons may shrink, so two side by side share the row
+                // instead of each claiming 100% of it and pushing past the edge.
+                fullWidth ? 'w-full min-w-0' : 'shrink-0',
                 className,
             ]
                 .filter(Boolean)

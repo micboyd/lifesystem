@@ -14,10 +14,11 @@ import type {
 } from '../types'
 import { addDays } from './calendar'
 import { ageOn, mifflinStJeor } from './bmr'
-import { dailyIntake, targetVerdict } from './energy'
+import { dailyIntake, MIN_LOGGED_SHARE, targetVerdict } from './energy'
 import { phaseFor, phaseTargetsOn, targetsFor } from './nutrition'
+import { activityModifier } from './nutritionTargets'
 import { KEY_LIFTS, liftTrend, sessionBests, type LiftKey, type SessionBest } from './strengthTrend'
-import { bodyFatSeries, daysBetween, trendSeries } from './weightTrend'
+import { bodyFatSeries, daysBetween, settledWeight, trendSeries } from './weightTrend'
 
 /**
  * The Timeline: where the plans could take you, week by week, until the last
@@ -114,8 +115,11 @@ export const FULL_ENERGY_DAYS = 14
 const ENERGY_STALE_DAYS = 10
 /** The watch can move maintenance this far from the formula and no further. */
 const ENERGY_SCALE = { min: 0.7, max: 1.6 }
-/** Food logged below this share of the day's burn reads as a half-logged day, not a crash diet. */
-const MIN_LOGGED_SHARE = 0.4
+/** Off-plan days in the food log before they're believed over the assumption, and the count at which they replace it. */
+export const MIN_OFF_PLAN_DAYS = 3
+export const FULL_OFF_PLAN_DAYS = 7
+/** An off-plan day is never read as less than half the burn or more than 1.6× it. */
+const OFF_PLAN_SHARE = { min: 0.5, max: 1.6 }
 
 /** The weight a lift's own six-week trend carries against the model. */
 const LIFT_TREND_WEIGHT = 0.4
@@ -395,6 +399,8 @@ interface Context {
     burnShift: number
     /** Past days known in full: eaten and burned as recorded, not modelled. */
     known: Map<string, KnownDay>
+    /** What a day off the plan has actually looked like, by phase kind (see offPlanShares). */
+    offPlan: OffPlanShares
     water: (date: string) => number
 }
 
@@ -533,10 +539,22 @@ export function cutRuns(phases: NutritionPhase[]): { start: string; end: string;
     return runs
 }
 
+/**
+ * The shift a calorie-cycling Plan puts on a day: up on a day with two
+ * sessions, down on a day with none. Read off the training plans' schedule, the
+ * way the planner reads it — less the one thing the schedule can't say, whether
+ * a lone conditioning session is a demanding one.
+ */
+function cyclingShift(phase: NutritionPhase, sessions: DaySessions | undefined): number {
+    if (phase.strategy?.type !== 'activity') return 0
+    const n = (sessions?.strength ?? 0) + (sessions?.cardio ?? 0)
+    return activityModifier(phase, n === 0 ? 'rest' : n > 1 ? 'hard' : 'standard')
+}
+
 /** A phase's daily calorie target on a date, or what its rate implies. */
-function targetOn(phase: NutritionPhase, date: string, burn: number): number {
+function targetOn(phase: NutritionPhase, date: string, burn: number, sessions?: DaySessions): number {
     const kcal = phaseTargetsOn(phase, date).calories
-    if (kcal && kcal > 0) return kcal
+    if (kcal && kcal > 0) return kcal + cyclingShift(phase, sessions)
     const rate =
         phase.weeklyRate ??
         phase.goal?.targetWeeklyRateKg ??
@@ -544,11 +562,17 @@ function targetOn(phase: NutritionPhase, date: string, burn: number): number {
     return burn + (rate * 7700) / 7
 }
 
-/** What a day off the plan looks like: a bit over maintenance, or under it on a bulk. */
-function offPlanIntake(kind: NutritionPhaseKind, burn: number): number {
-    if (kind === 'gain') return burn * 0.97
-    if (kind === 'maintain') return burn * 1.05
-    return burn * 1.1
+/** What a day off the plan is assumed to look like, as a share of the burn: a bit over maintenance, or under it on a bulk. */
+const ASSUMED_OFF_PLAN: Record<NutritionPhaseKind, number> = { cut: 1.1, maintain: 1.05, gain: 0.97 }
+
+/**
+ * A day off the plan: the assumption, giving way to what the food log shows
+ * such days have actually been as they accumulate.
+ */
+function offPlanIntake(kind: NutritionPhaseKind, burn: number, learned: OffPlanShares): number {
+    const seen = learned[kind]
+    const share = seen ? ASSUMED_OFF_PLAN[kind] * (1 - seen.weight) + seen.share * seen.weight : ASSUMED_OFF_PLAN[kind]
+    return burn * share
 }
 
 function leanEnergyFactor(balance: number, age: TrainingAge): number {
@@ -609,9 +633,9 @@ function step(state: State, date: string, day: number, ctx: Context, liftRates: 
     let target: number | null = null
     let intake = burn
     if (phase) {
-        target = targetOn(phase, date, burn) + ctx.intakeShift
+        target = targetOn(phase, date, burn, sessions) + ctx.intakeShift
         const a = ctx.nutritionAdherence
-        intake = a * target + (1 - a) * offPlanIntake(phase.kind, burn)
+        intake = a * target + (1 - a) * offPlanIntake(phase.kind, burn, ctx.offPlan)
     }
     // A day already lived with both sides recorded needs no model.
     const known = ctx.known.get(date)
@@ -696,6 +720,7 @@ function makeContext(
         nutritionAdherence: perfect ? 1 : quiz.nutritionAdherence,
         offset,
         known: knownDays(inputs),
+        offPlan: offPlanShares(inputs),
         water: makeWater(quiz, phases),
     }
 }
@@ -811,7 +836,9 @@ export function chooseLifts(bests: SessionBest[], today: string): LiftKey[] {
 export function startingPoint(inputs: TimelineInputs): TimelineStart {
     const { today, weightLogs, profile, quiz } = inputs
     const trend = trendSeries(weightLogs.filter((l) => l.date <= today))
-    const weight = (trend.length ? trend[trend.length - 1] : trendSeries(weightLogs)[0]).trend
+    // Where the body is, not where the smoothed line has got to: mid-cut the
+    // trend reads a few hundred grams heavy, and the whole projection with it.
+    const weight = settledWeight(trend) ?? trendSeries(weightLogs)[0].trend
 
     const fat = bodyFatSeries(weightLogs).filter((p) => p.date <= today)
     const lastFat = fat[fat.length - 1]
@@ -879,6 +906,41 @@ export function knownDays(inputs: TimelineInputs): Map<string, KnownDay> {
         known.set(date, { eaten, out: burn })
     }
     return known
+}
+
+/** What off-plan days have been, per phase kind: eaten as a share of the day's burn. */
+export type OffPlanShares = Partial<Record<NutritionPhaseKind, { share: number; days: number; weight: number }>>
+
+/**
+ * What a day off the plan has actually looked like, from the days known in
+ * full. The projection otherwise assumes one (10% over the burn on a cut),
+ * and once those days are replayed as recorded, weigh-in calibration can no
+ * longer see whether that assumption is right — so it is read off the same
+ * days instead. A few of them are needed before they count, and they take
+ * over fully by a week's worth.
+ */
+export function offPlanShares(inputs: TimelineInputs): OffPlanShares {
+    const sessions = sessionsByDate(inputs.plans)
+    const seen = new Map<NutritionPhaseKind, number[]>()
+    for (const [date, day] of knownDays(inputs)) {
+        const phase = phaseFor(date, inputs.phases)
+        const kcal = phase ? phaseTargetsOn(phase, date).calories : undefined
+        if (!phase || !kcal) continue
+        const target = kcal + cyclingShift(phase, sessions.get(date))
+        if (targetVerdict(day.eaten, target, phase.kind) === 'good') continue
+        seen.set(phase.kind, [...(seen.get(phase.kind) ?? []), day.eaten / day.out])
+    }
+    const out: OffPlanShares = {}
+    for (const [kind, shares] of seen) {
+        if (shares.length < MIN_OFF_PLAN_DAYS) continue
+        const mean = shares.reduce((a, b) => a + b, 0) / shares.length
+        out[kind] = {
+            share: Math.max(OFF_PLAN_SHARE.min, Math.min(OFF_PLAN_SHARE.max, mean)),
+            days: shares.length,
+            weight: Math.min(1, shares.length / FULL_OFF_PLAN_DAYS),
+        }
+    }
+    return out
 }
 
 /**
@@ -958,7 +1020,9 @@ export function calibrate(inputs: TimelineInputs, bodyFatPct: number, burnScale 
     const predicted = state.fat + state.lean - first.trend
     const observed = last.trend - first.trend - (ctx.water(last.date) - ctx.water(first.date))
 
-    const weight = Math.min(1, span / 42) * 0.8
+    // Trusted in step with the span, and nearly in full over the whole window:
+    // what the scale did is a reading, and what the model predicted is not.
+    const weight = Math.min(1, span / CALIBRATION_WINDOW_DAYS) * 0.9
     const raw = ((observed - predicted) * FAT_KCAL_PER_KG) / span
     return {
         offsetKcal: Math.max(-MAX_OFFSET, Math.min(MAX_OFFSET, raw * weight)),
@@ -1038,19 +1102,25 @@ export function measureTraining(inputs: TimelineInputs): AdherenceReading {
  * Nutrition: each of the last four weeks' days with food marked eaten and a
  * phase calorie target, judged the way the planner judges it (lib/energy.ts
  * targetVerdict): within tolerance of the target, or a little under on a cut and
- * a little over on a build. Days with nothing logged are left out, not failed.
+ * a little over on a build. Days with nothing logged are left out, not failed —
+ * and so are days still part-ticked or with an away note, where the log isn't
+ * the whole day: breakfast alone would read as a day off the plan.
  */
 export function measureNutrition(inputs: TimelineInputs): AdherenceReading {
     const { today, phases, quiz } = inputs
     const from = addDays(today, -ADHERENCE_WINDOW_DAYS)
+    const entries = inputs.mealEntries ?? []
+    const open = new Set(entries.filter((e) => e.status === 'planned').map((e) => e.date))
+    const sessions = sessionsByDate(inputs.plans)
     let hit = 0
     let total = 0
-    for (const [date, eaten] of dailyIntake(inputs.mealEntries ?? [])) {
-        if (date < from || date >= today || eaten <= 0) continue
+    for (const [date, eaten] of dailyIntake(entries)) {
+        if (date < from || date >= today || eaten <= 0 || open.has(date)) continue
         const { goals, phase } = targetsFor(date, phases)
         if (!goals?.calories) continue
         total += 1
-        if (targetVerdict(eaten, goals.calories, phase?.kind ?? null) === 'good') hit += 1
+        const target = goals.calories + (phase ? cyclingShift(phase, sessions.get(date)) : 0)
+        if (targetVerdict(eaten, target, phase?.kind ?? null) === 'good') hit += 1
     }
     return reading(quiz.nutritionAdherence, hit, total, total)
 }

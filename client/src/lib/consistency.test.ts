@@ -240,6 +240,19 @@ describe('nutrition', () => {
         expect(s.balance).toEqual({ kcal: -500, days: 2 })
     })
 
+    it('leaves a part-ticked day out of the balance', () => {
+        const i = inputs({
+            meals: [
+                meal('2026-10-20', 'dinner', 2000),
+                // Breakfast ticked, dinner never settled: not a 2,100 kcal deficit.
+                meal('2026-10-21', 'breakfast', 500),
+                meal('2026-10-21', 'dinner', 1500, { status: 'planned' }),
+            ],
+            energy: [energy('2026-10-20', 2600), energy('2026-10-21', 2600)],
+        })
+        expect(summarise(dayRecords(i), TODAY).nutrition.balance).toEqual({ kcal: -600, days: 1 })
+    })
+
     it('scores nutrition as the mean of calories, protein and meals', () => {
         const i = inputs({
             from: '2026-10-24',

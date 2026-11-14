@@ -11,8 +11,10 @@ import { listPlanEntries } from '../../services/mealPlan'
 import { listDailyEnergy } from '../../services/dailyEnergy'
 import { listNutritionPhases } from '../../services/nutritionPhases'
 import { addDays, addMonths, formatMonthYear, formatWeekRange, parseDateKey, todayKey, MONTHS } from '../../lib/calendar'
-import { sumEatenMacros, targetsFor } from '../../lib/nutrition'
-import type { DailyEnergy, MacroGoals, Macros, MealPlanEntry, NutritionPhase } from '../../types'
+import { sumEatenMacros } from '../../lib/nutrition'
+import { effectiveTargetsFor } from '../../lib/nutritionTargets'
+import { listPlanEntries as listFitnessEntries } from '../../services/fitnessPlan'
+import type { DailyEnergy, FitnessPlanEntry, MacroGoals, Macros, MealPlanEntry, NutritionPhase } from '../../types'
 
 type Range = 'week' | 'month' | 'phase'
 
@@ -63,6 +65,8 @@ export default function NutritionStats({
     const [phaseId, setPhaseId] = useState('')
     const [entries, setEntries] = useState<MealPlanEntry[]>([])
     const [energy, setEnergy] = useState<DailyEnergy[]>([])
+    // For Plans that cycle calories by training: each day's target moves with it. Null until read.
+    const [fitness, setFitness] = useState<FitnessPlanEntry[] | null>(null)
 
     useEffect(() => {
         listNutritionPhases()
@@ -95,10 +99,15 @@ export default function NutritionStats({
     const loading = start <= last && loadedKey !== rangeKey
     useEffect(() => {
         if (start > last) return
-        Promise.all([listPlanEntries(start, last), listDailyEnergy(start, last)])
-            .then(([e, en]) => {
+        Promise.all([
+            listPlanEntries(start, last),
+            listDailyEnergy(start, last),
+            listFitnessEntries(start, last).catch(() => null),
+        ])
+            .then(([e, en, fit]) => {
                 setEntries(e)
                 setEnergy(en)
+                setFitness(fit)
             })
             .finally(() => setLoadedKey(`${start}|${last}`))
     }, [start, last])
@@ -112,11 +121,11 @@ export default function NutritionStats({
                 date: d,
                 eaten: eatenList.length ? sumEatenMacros(eatenList) : null,
                 out: energy.find((x) => x.date === d)?.caloriesOut ?? null,
-                goals: targetsFor(d, phases, settingsGoals).goals,
+                goals: effectiveTargetsFor(d, phases, settingsGoals, fitness).goals,
             })
         }
         return out
-    }, [start, last, entries, energy, phases, settingsGoals])
+    }, [start, last, entries, energy, phases, settingsGoals, fitness])
 
     const logged = days.filter((d) => d.eaten)
     const withOut = days.filter((d) => d.out !== null)

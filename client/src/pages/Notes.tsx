@@ -197,7 +197,7 @@ function NoteModal({
             onClose={onClose}
             title={note ? 'Edit note' : 'New note'}
             footer={
-                <div className="flex w-full items-center justify-between gap-3">
+                <div className="flex w-full flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-1">
                         {note && (
                             <Button variant="ghost" onClick={handleDelete} disabled={deleting}>
@@ -225,7 +225,7 @@ function NoteModal({
                                 </Button>
                             ))}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="ml-auto flex gap-2">
                         <Button variant="secondary" onClick={onClose}>
                             Cancel
                         </Button>
