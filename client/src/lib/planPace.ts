@@ -1,4 +1,4 @@
-import { DAILY_ALPHA, daysBetween, type BodyFatPoint, type TrendPoint } from './weightTrend'
+import { DAILY_ALPHA, daysBetween, weeklyRate, type BodyFatPoint, type TrendPoint } from './weightTrend'
 import type { NutritionPhase } from '../types'
 
 /**
@@ -29,6 +29,12 @@ export const CLEAR_OFF = 1.5
 /** How far from the Plan's start a reading may be and still stand in for a missing start figure. */
 const START_SEARCH_DAYS = 7
 const START_SEARCH_DAYS_FAT = 21
+/**
+ * Days into a Plan before its verdicts mean anything. The first fortnight of a
+ * cut sheds a kilo or two of water and gut contents that no later fortnight
+ * will, so "ahead of plan" in week one is the scale flattering you.
+ */
+export const SETTLE_DAYS = 14
 
 export type PaceVerdict =
     | 'on-track'
@@ -77,6 +83,15 @@ export interface PlanPace {
     phase: NutritionPhase
     weight: LineCheck | null
     bodyFat: LineCheck | null
+    /**
+     * kg/week since the Plan began, from the weigh-ins made on it. Null until
+     * they span a week: the weeks before the Plan say nothing about its pace.
+     */
+    rateSince: number | null
+    /** False for the Plan's first fortnight, while water is still moving the scale. */
+    settled: boolean
+    /** The first day the verdicts can be trusted. */
+    settlesOn: string
 }
 
 /** Where the line sits on a date — held at its ends outside them. */
@@ -196,7 +211,10 @@ export function planPace(
     if (!phase) return null
     const goal = phase.goal ?? {}
 
-    const startKg = goal.startWeightKg ?? trendNear(weights, phase.startDate, START_SEARCH_DAYS)
+    // Where you measurably were beats where the Plan guessed you'd be: a start
+    // weight typed in a week early, two kilos heavy, would hand you two kilos
+    // "ahead of plan" on day one.
+    const startKg = trendNear(weights, phase.startDate, START_SEARCH_DAYS) ?? goal.startWeightKg ?? null
     const weightLine = planLine(
         phase,
         startKg,
@@ -205,15 +223,24 @@ export function planPace(
     )
 
     // Body fat only gets a line from a stated target — a weekly kg rate says nothing about it.
-    const startFat = goal.startBodyFatPct ?? trendNear(fats, phase.startDate, START_SEARCH_DAYS_FAT)
+    const startFat = trendNear(fats, phase.startDate, START_SEARCH_DAYS_FAT) ?? goal.startBodyFatPct ?? null
     const fatLine =
         goal.targetBodyFatPct === undefined
             ? null
             : planLine(phase, startFat, goal.targetBodyFatPct, null)
 
+    const onPlan = weights.filter((p) => p.date >= phase.startDate)
+    const last = onPlan[onPlan.length - 1]
+    const settlesOn = new Date(Date.parse(`${phase.startDate}T00:00:00Z`) + SETTLE_DAYS * 86_400_000)
+        .toISOString()
+        .slice(0, 10)
+
     return {
         phase,
         weight: check(weightLine, weights, phase),
         bodyFat: check(fatLine, fats, phase),
+        rateSince: weeklyRate(onPlan, 36_500),
+        settled: !!last && last.date >= settlesOn,
+        settlesOn,
     }
 }

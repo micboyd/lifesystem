@@ -109,3 +109,31 @@ describe('planPace', () => {
         expect(planPace(phase({}, { startBodyFatPct: 30 }), [], [f('2026-11-12', 27)])!.bodyFat).toBeNull()
     })
 })
+
+describe('no false hope', () => {
+    it("starts the line from the weigh-in at the start, not the Plan's guess", () => {
+        // The Plan says 105; the scale said 103 the day it began.
+        const p = phase({}, { startWeightKg: 105, targetWeightKg: 97, targetDate: '2026-12-24' })
+        const pace = planPace(p, [w('2026-10-01', 103), w('2026-10-15', 102.6)], [])!
+        expect(pace.weight!.line.startValue).toBe(103)
+        expect(pace.weight!.verdict).toBe('on-track')
+    })
+
+    it('uses the stated start only when nothing was measured near it', () => {
+        const p = phase({ weeklyRate: -0.5 }, { startWeightKg: 105 })
+        const pace = planPace(p, [w('2026-11-10', 102)], [])!
+        expect(pace.weight!.line.startValue).toBe(105)
+    })
+
+    it("holds its verdicts for the first fortnight, and reads pace only from the Plan's own weigh-ins", () => {
+        const p = phase({ weeklyRate: -0.5 }, {})
+        const before = [w('2026-09-10', 106), w('2026-09-17', 105), w('2026-09-24', 104)]
+        const early = planPace(p, [...before, w('2026-10-01', 103), w('2026-10-05', 102.5)], [])!
+        expect(early.settled).toBe(false)
+        expect(early.settlesOn).toBe('2026-10-15')
+        expect(early.rateSince).toBeNull()
+        const later = planPace(p, [...before, w('2026-10-01', 103), w('2026-10-08', 102.5), w('2026-10-15', 102)], [])!
+        expect(later.settled).toBe(true)
+        expect(later.rateSince).toBeCloseTo(-0.5)
+    })
+})

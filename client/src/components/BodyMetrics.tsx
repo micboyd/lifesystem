@@ -129,6 +129,8 @@ export default function BodyMetrics() {
     const rate = useMemo(() => weeklyRate(points, windowDays), [points, windowDays])
     const pct = ratePercent(points, rate)
     const status = rateStatus(rate, goals?.weeklyRate)
+    // A Plan under a fortnight old isn't judged yet: the rate is water and the weeks before it.
+    const tooEarly = pace && !pace.settled ? pace.settlesOn : null
 
     const latest = points.length ? points[points.length - 1] : null
     const eta =
@@ -231,7 +233,7 @@ export default function BodyMetrics() {
                                     ? 'Needs two weigh-ins'
                                     : `${signed(pct, 2)}% of bodyweight`
                             }
-                            tone={STATUS_TONE[status]}
+                            tone={tooEarly ? 'neutral' : STATUS_TONE[status]}
                         />
                         <StatTile
                             label="Target"
@@ -246,7 +248,9 @@ export default function BodyMetrics() {
                             label="Projected"
                             value={eta ? longDate(eta) : '—'}
                             sub={
-                                eta ? `${daysBetween(todayKey(), eta)} days away` : etaHint(status)
+                                eta
+                                    ? `${daysBetween(todayKey(), eta)} days away, if this rate holds`
+                                    : etaHint(status)
                             }
                         />
                         {(latestFat || goals?.targetBodyFat) && (
@@ -258,7 +262,7 @@ export default function BodyMetrics() {
                         )}
                     </div>
 
-                    {pace && <PlanCheck pace={pace} rate={rate} rateStatus={status} />}
+                    {pace && <PlanCheck pace={pace} />}
 
                     <Surface className="flex flex-col gap-4">
                         <PanelHeader
@@ -283,7 +287,12 @@ export default function BodyMetrics() {
                             target={goals?.targetWeight}
                             plan={pace?.weight?.line}
                         />
-                        <RateVerdict status={status} rate={rate} intended={goals?.weeklyRate} />
+                        <RateVerdict
+                            status={status}
+                            rate={rate}
+                            intended={goals?.weeklyRate}
+                            tooEarly={tooEarly}
+                        />
                     </Surface>
 
                     <RecentLog
@@ -651,18 +660,13 @@ const TONE_PILL: Record<Tone, string> = {
  * Where the running Plan says you should be by now, against where the trend
  * actually is — weight, pace and body fat, each with its own verdict.
  */
-function PlanCheck({
-    pace,
-    rate,
-    rateStatus,
-}: {
-    pace: PlanPace
-    rate: number | null
-    rateStatus: RateStatus
-}) {
-    const { phase, weight, bodyFat } = pace
+function PlanCheck({ pace }: { pace: PlanPace }) {
+    const { phase, weight, bodyFat, settled } = pace
     const planRate = weight?.line.ratePerWeek ?? phase.weeklyRate ?? phase.goal?.targetWeeklyRateKg
     const by = phase.goal?.targetDate ?? phase.endDate
+    // The pace of the Plan is the pace since it began — not the weeks before it.
+    const rate = pace.rateSince
+    const status = rateStatus(rate, planRate ?? undefined)
 
     return (
         <Surface className="flex flex-col gap-3">
@@ -674,6 +678,7 @@ function PlanCheck({
                 <PlanRow
                     label="Weight"
                     check={weight}
+                    settled={settled}
                     unit="kg"
                     missing="Needs a weigh-in near the Plan’s start, or a start weight on the Plan."
                 />
@@ -683,22 +688,35 @@ function PlanCheck({
                         <p className="nums mt-0.5 text-[13px] text-neutral-500">
                             {planRate == null
                                 ? 'The Plan doesn’t set a rate or a target weight.'
-                                : `${rate === null ? '—' : signed(rate)} kg/wk now · plan ${signed(planRate, 2)} kg/wk`}
+                                : rate === null
+                                  ? `Needs a week of weigh-ins on the Plan · plan ${signed(planRate, 2)} kg/wk`
+                                  : `${signed(rate)} kg/wk since the Plan began · plan ${signed(planRate, 2)} kg/wk`}
                         </p>
                     </div>
-                    {planRate != null && (
-                        <Pill tone={STATUS_TONE[rateStatus]}>{RATE_LABELS[rateStatus]}</Pill>
-                    )}
+                    {planRate != null &&
+                        rate !== null &&
+                        (settled ? (
+                            <Pill tone={STATUS_TONE[status]}>{RATE_LABELS[status]}</Pill>
+                        ) : (
+                            <Pill tone="neutral">Too early</Pill>
+                        ))}
                 </li>
                 {phase.goal?.targetBodyFatPct !== undefined && (
                     <PlanRow
                         label="Body fat"
                         check={bodyFat}
+                        settled={settled}
                         unit="%"
                         missing="Needs a body-fat reading since the Plan began, and one near its start (or a start figure on the Plan)."
                     />
                 )}
             </ul>
+            {!settled && (
+                <p className="text-[13px] text-neutral-500">
+                    The first two weeks of a Plan are mostly water, so nothing is judged until{' '}
+                    {longDate(pace.settlesOn)}.
+                </p>
+            )}
         </Surface>
     )
 }
@@ -706,11 +724,13 @@ function PlanCheck({
 function PlanRow({
     label,
     check,
+    settled,
     unit,
     missing,
 }: {
     label: string
     check: LineCheck | null
+    settled: boolean
     unit: 'kg' | '%'
     missing: string
 }) {
@@ -730,7 +750,12 @@ function PlanRow({
                         : missing}
                 </p>
             </div>
-            {check && <Pill tone={PACE_TONE[check.verdict]}>{PACE_LABELS[check.verdict]}</Pill>}
+            {check &&
+                (settled ? (
+                    <Pill tone={PACE_TONE[check.verdict]}>{PACE_LABELS[check.verdict]}</Pill>
+                ) : (
+                    <Pill tone="neutral">Too early</Pill>
+                ))}
         </li>
     )
 }
@@ -763,14 +788,25 @@ function RateVerdict({
     status,
     rate,
     intended,
+    tooEarly,
 }: {
     status: RateStatus
     rate: number | null
     intended?: number
+    /** Set while the running Plan is under a fortnight old: the day it can first be judged. */
+    tooEarly: string | null
 }) {
     if (status === 'no-data') return null
 
     const actual = rate === null ? '' : `${signed(rate)} kg/wk`
+    if (tooEarly) {
+        return (
+            <p className="rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
+                {actual} over this window, but your Plan is under two weeks old: that rate is early
+                water and the weeks before it. It can be judged from {longDate(tooEarly)}.
+            </p>
+        )
+    }
     const goal = intended ? `${signed(intended)} kg/wk` : ''
 
     const copy: Record<RateStatus, string> = {
