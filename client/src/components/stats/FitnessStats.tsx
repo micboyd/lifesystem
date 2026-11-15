@@ -50,7 +50,8 @@ const DEFAULT_RANGE = 182
  * something.
  */
 export default function FitnessStats() {
-    const [tab, setTab] = useState<SubTab>('Progression')
+    /** The tab the person chose; null until they choose one. */
+    const [picked, setTab] = useState<SubTab | null>(null)
     const [rangeDays, setRangeDays] = useState<number | null>(DEFAULT_RANGE)
 
     const [loading, setLoading] = useState(true)
@@ -92,6 +93,11 @@ export default function FitnessStats() {
         () => (range.days ? addDaysIso(today, -(range.days - 1)) : ''),
         [range.days, today]
     )
+
+    // With nothing logged, the training tabs have nothing to say — but the watch
+    // does, so the page opens on Garmin rather than on an empty state.
+    const noLogs = !loading && !failed && workoutLogs.length === 0 && conditioningLogs.length === 0
+    const tab: SubTab = picked ?? (noLogs ? 'Garmin' : 'Progression')
 
     if (tab === 'Garmin') {
         return (
@@ -148,6 +154,15 @@ export default function FitnessStats() {
                     icon="fa-solid fa-chart-simple"
                     title="Nothing to report yet"
                     description="Log a strength session or a conditioning session and this fills in on its own — progression per exercise, how often you're training, records, and where the volume is going."
+                    action={
+                        <button
+                            type="button"
+                            onClick={() => setTab('Garmin')}
+                            className="text-sm font-medium text-neutral-900 underline underline-offset-4"
+                        >
+                            See your Garmin trends
+                        </button>
+                    }
                 />
             </div>
         )
