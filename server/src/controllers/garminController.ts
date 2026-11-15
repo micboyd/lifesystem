@@ -16,6 +16,7 @@ import GarminActivity, { type IGarminActivity } from '../models/GarminActivity'
 import { checkActivities, linkByHand, rangeIsValid, unlinkActivity } from '../garmin/activities'
 import { pullDailyCalories, todayCalories } from '../garmin/dailyCalories'
 import { MAX_PULL_DAYS, MAX_STORED_DAYS, pullDailySteps, stepRangeIsValid, storedSteps } from '../garmin/dailySteps'
+import { historyState, startHistorySync, storedHistory } from '../garmin/history'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -255,6 +256,30 @@ export const pullSteps = handle(async (req, res) => {
         return
     }
     res.json({ message: 'OK', data: await pullDailySteps(req.userId!, from, to) })
+})
+
+/** GET /api/garmin/history — every stored day of watch data, and how the sync stands. Doesn't call Garmin. */
+export const listHistory = handle(async (req, res) => {
+    const [days, sync] = await Promise.all([storedHistory(req.userId!), historyState(req.userId!)])
+    res.json({ message: 'OK', data: { days, sync } })
+})
+
+/** GET /api/garmin/history/state — how the background sync stands. Doesn't call Garmin. */
+export const historySyncState = handle(async (req, res) => {
+    res.json({ message: 'OK', data: await historyState(req.userId!) })
+})
+
+/**
+ * POST /api/garmin/history/sync { today?, restart? } — start reading history
+ * back from Garmin in the background. Answers straight away with the state.
+ */
+export const syncHistory = handle(async (req, res) => {
+    const { today, restart } = req.body ?? {}
+    const state = await startHistorySync(req.userId!, {
+        today: typeof today === 'string' && DATE_RE.test(today) ? today : undefined,
+        restart: restart === true,
+    })
+    res.json({ message: 'OK', data: state })
 })
 
 /** The stored run for the browser — everything but the owner and Mongo's own fields. */

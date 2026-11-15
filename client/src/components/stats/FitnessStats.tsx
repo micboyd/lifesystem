@@ -5,6 +5,7 @@ import Spinner from '../Spinner'
 import Tabs from '../Tabs'
 import ConditioningPanel from './ConditioningPanel'
 import ExerciseProgressPanel from './ExerciseProgressPanel'
+import GarminTrendsPanel from './GarminTrendsPanel'
 import RecordsPanel from './RecordsPanel'
 import TrainingConsistencyPanel from './TrainingConsistencyPanel'
 import { todayKey } from '../../lib/calendar'
@@ -14,7 +15,7 @@ import { listWeightLogs } from '../../services/weightLogs'
 import { listLogs as listWorkoutLogs } from '../../services/workoutLogs'
 import type { ConditioningLog, Exercise, WeightLog, WorkoutLog } from '../../types'
 
-const SUB_TABS = ['Progression', 'Consistency', 'Records', 'Conditioning'] as const
+const SUB_TABS = ['Progression', 'Consistency', 'Records', 'Conditioning', 'Garmin'] as const
 type SubTab = (typeof SUB_TABS)[number]
 
 /**
@@ -35,10 +36,14 @@ const DEFAULT_RANGE = 182
 /**
  * The stats centre: everything the fitness logs already know, read back.
  *
- * All four panels run off the same fetch. The logs are small enough to hold in
+ * The four training panels run off the same fetch. The logs are small enough to hold in
  * one page — a year of training is a few hundred records — and computing in the
  * browser means every panel can slice the same data differently without a round
  * trip or a second endpoint that would drift from the first.
+ *
+ * The Garmin tab is the odd one out: it reads the watch's own history rather
+ * than the logs, looks back years rather than weeks, and so brings its own
+ * time range and shows even before anything has been logged.
  *
  * Nothing here writes. That is deliberate: a page you can only read is a page
  * you can leave open mid-session without wondering whether you've changed
@@ -88,31 +93,63 @@ export default function FitnessStats() {
         [range.days, today]
     )
 
+    if (tab === 'Garmin') {
+        return (
+            <div className="flex flex-col gap-6">
+                <Tabs
+                    tabs={[...SUB_TABS]}
+                    value={tab}
+                    onChange={(t) => setTab(t as SubTab)}
+                    className="self-start"
+                />
+                <GarminTrendsPanel />
+            </div>
+        )
+    }
+
+    const subTabs = (
+        <Tabs
+            tabs={[...SUB_TABS]}
+            value={tab}
+            onChange={(t) => setTab(t as SubTab)}
+            className="self-start"
+        />
+    )
+
     if (loading) {
         return (
-            <div className="grid place-items-center py-16">
-                <Spinner />
+            <div className="flex flex-col gap-6">
+                {subTabs}
+                <div className="grid place-items-center py-16">
+                    <Spinner />
+                </div>
             </div>
         )
     }
 
     if (failed) {
         return (
-            <EmptyState
-                icon="fa-solid fa-triangle-exclamation"
-                title="Couldn’t load your stats"
-                description="The training logs didn’t come back. Reload the page — nothing here writes, so there’s nothing to lose."
-            />
+            <div className="flex flex-col gap-6">
+                {subTabs}
+                <EmptyState
+                    icon="fa-solid fa-triangle-exclamation"
+                    title="Couldn’t load your stats"
+                    description="The training logs didn’t come back. Reload the page — nothing here writes, so there’s nothing to lose."
+                />
+            </div>
         )
     }
 
     if (workoutLogs.length === 0 && conditioningLogs.length === 0) {
         return (
-            <EmptyState
-                icon="fa-solid fa-chart-simple"
-                title="Nothing to report yet"
-                description="Log a strength session or a conditioning session and this fills in on its own — progression per exercise, how often you're training, records, and where the volume is going."
-            />
+            <div className="flex flex-col gap-6">
+                {subTabs}
+                <EmptyState
+                    icon="fa-solid fa-chart-simple"
+                    title="Nothing to report yet"
+                    description="Log a strength session or a conditioning session and this fills in on its own — progression per exercise, how often you're training, records, and where the volume is going."
+                />
+            </div>
         )
     }
 
@@ -121,12 +158,7 @@ export default function FitnessStats() {
     return (
         <div className="flex flex-col gap-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <Tabs
-                    tabs={[...SUB_TABS]}
-                    value={tab}
-                    onChange={(t) => setTab(t as SubTab)}
-                    className="self-start"
-                />
+                {subTabs}
                 <PillToggle
                     label="Time range"
                     options={RANGES.map((r) => ({ value: r.days ?? 0, label: r.label }))}

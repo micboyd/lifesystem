@@ -459,9 +459,141 @@ def op_daily_steps(req: dict[str, Any]) -> dict[str, Any]:
     return {"result": {"days": days}, "tokens": _dump(api)}
 
 
+# ─── Long-term history ────────────────────────────────────────────────────────
+#
+# Steps, sleep, calories burned and resting heart rate for a stretch of days,
+# from Garmin's range endpoints: a handful of calls for the whole stretch rather
+# than one per day, which is what makes reading back years affordable.
+
+MAX_HISTORY_DAYS = 84
+
+
+def _day_key(raw: Any) -> str | None:
+    if not isinstance(raw, str) or len(raw) < DATE_RE_LEN or raw[4] != "-" or raw[7] != "-":
+        return None
+    return raw[:DATE_RE_LEN]
+
+
+def _positive(raw: Any) -> float | None:
+    val = _num(raw)
+    return val if val is not None and val > 0 else None
+
+
+def history_steps(rows: Any) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        day, steps = _day_key(row.get("calendarDate")), _positive(row.get("totalSteps"))
+        if day and steps is not None:
+            out[day] = {"steps": round(steps)}
+    return out
+
+
+def history_sleep(rows: Any) -> dict[str, dict[str, Any]]:
+    """Minutes asleep and, where the watch scores it, the sleep score."""
+    out: dict[str, dict[str, Any]] = {}
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        day = _day_key(row.get("calendarDate"))
+        # Garmin nests the figures under "values" on this endpoint; older
+        # replies had them on the row itself.
+        vals = row.get("values") if isinstance(row.get("values"), dict) else row
+        seconds = _positive(vals.get("totalSleepTimeInSeconds"))
+        if seconds is None:
+            seconds = _positive(vals.get("sleepTimeSeconds"))
+        if not day or seconds is None:
+            continue
+        fields: dict[str, Any] = {"sleepMin": round(seconds / 60)}
+        score = _positive(vals.get("sleepScore"))
+        if score is None:
+            score = _positive(vals.get("overallSleepScore"))
+        if score is not None:
+            fields["sleepScore"] = round(score)
+        out[day] = fields
+    return out
+
+
+def history_calories(rows: Any) -> dict[str, dict[str, Any]]:
+    """
+    Whole-day calories burned, with the active part alongside. A day with no
+    resting figure isn't a whole day's total, so it's left out.
+    """
+    out: dict[str, dict[str, Any]] = {}
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        day, resting = _day_key(row.get("calendarDate")), _positive(row.get("resting"))
+        if not day or resting is None:
+            continue
+        active = _num(row.get("active")) or 0.0
+        out[day] = {"kcal": round(resting + max(active, 0.0)), "activeKcal": round(max(active, 0.0))}
+    return out
+
+
+def history_rhr(rows: Any) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        day, bpm = _day_key(row.get("calendarDate")), _positive(row.get("value"))
+        if day and bpm is not None:
+            out[day] = {"restingHr": round(bpm)}
+    return out
+
+
+def op_daily_history(req: dict[str, Any]) -> dict[str, Any]:
+    """
+    Every day from–to that Garmin has anything for, with whichever of steps,
+    sleep, calories and resting heart rate it has. One measure failing doesn't
+    sink the others — it's named in `failed` — but a rejected session or a rate
+    limit stops the lot, so the caller can try the stretch again later.
+    """
+    from datetime import date as _d
+
+    start, end = _date(req.get("from")), _date(req.get("to"))
+    try:
+        span = (_d.fromisoformat(end) - _d.fromisoformat(start)).days + 1
+    except ValueError:
+        raise fail("bad_request") from None
+    if span < 1 or span > MAX_HISTORY_DAYS:
+        raise fail("bad_request")
+    api = _client(req)
+    parts = (
+        ("steps", api.get_daily_steps, history_steps),
+        ("sleep", api.get_sleep_daily, history_sleep),
+        ("calories", api.get_calories_daily, history_calories),
+        ("restingHr", api.get_rhr_daily, history_rhr),
+    )
+    days: dict[str, dict[str, Any]] = {}
+    failed = []
+    for name, fetch, shape in parts:
+        try:
+            found = shape(fetch(start, end))
+        except (GarminConnectAuthenticationError, GarminConnectTooManyRequestsError):
+            raise
+        except GarminConnectConnectionError as e:
+            if getattr(getattr(e, "response", None), "status_code", None) in (401, 403, 429):
+                raise
+            failed.append(name)
+            continue
+        except Exception:
+            failed.append(name)
+            continue
+        for day, fields in found.items():
+            if start <= day <= end:
+                days.setdefault(day, {"date": day}).update(fields)
+    return {
+        "result": {"days": [days[d] for d in sorted(days)], "failed": failed},
+        "tokens": _dump(api),
+    }
+
+
 OPS = {
     "daily_calories": op_daily_calories,
     "daily_steps": op_daily_steps,
+    "daily_history": op_daily_history,
     "list_activities": op_list_activities,
     "get_activity": op_get_activity,
     "login": op_login,

@@ -79,6 +79,24 @@ class FakeGarmin:
             raise FakeGarmin.steps
         return FakeGarmin.steps
 
+    sleep: list | Exception = []
+    calories: list | Exception = []
+    rhr: list | Exception = []
+
+    def _history(self, value):
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+    def get_sleep_daily(self, start, end):
+        return self._history(FakeGarmin.sleep)
+
+    def get_calories_daily(self, start, end):
+        return self._history(FakeGarmin.calories)
+
+    def get_rhr_daily(self, start, end):
+        return self._history(FakeGarmin.rhr)
+
     def get_activities_by_date(self, start, end=None):
         FakeGarmin.asked_range = (start, end)
         return FakeGarmin.activities
@@ -255,6 +273,53 @@ class WorkerTest(unittest.TestCase):
         FakeGarmin.steps = garminconnect.GarminConnectAuthenticationError("nope")
         reply = self.run_op({"op": "daily_steps", "tokens": TOKENS, "from": "2026-11-07", "to": "2026-11-09"})
         self.assertEqual(reply["code"], "session_expired")
+
+    def history(self, **fields):
+        FakeGarmin.steps = fields.get("steps", [])
+        FakeGarmin.sleep = fields.get("sleep", [])
+        FakeGarmin.calories = fields.get("calories", [])
+        FakeGarmin.rhr = fields.get("rhr", [])
+        try:
+            return self.run_op({"op": "daily_history", "tokens": TOKENS, "from": "2026-11-07", "to": "2026-11-09"})
+        finally:
+            FakeGarmin.steps = []
+
+    def test_daily_history_merges_each_measure_by_day(self):
+        reply = self.history(
+            steps=[{"calendarDate": "2026-11-07", "totalSteps": 9120}, {"calendarDate": "2026-11-08", "totalSteps": 0}],
+            sleep=[{"calendarDate": "2026-11-07", "values": {"totalSleepTimeInSeconds": 25860, "sleepScore": 78}}],
+            calories=[
+                {"calendarDate": "2026-11-07", "active": 761.0, "resting": 2432.0, "total": 3193.0},
+                {"calendarDate": "2026-11-08", "active": 300.0, "resting": None, "total": 300.0},
+                {"calendarDate": "2026-12-25", "active": 1.0, "resting": 2.0},
+            ],
+            rhr=[{"calendarDate": "2026-11-09", "value": 55.0}],
+        )
+        self.assertTrue(reply["ok"])
+        self.assertEqual(reply["result"]["failed"], [])
+        self.assertEqual(
+            reply["result"]["days"],
+            [
+                {"date": "2026-11-07", "steps": 9120, "sleepMin": 431, "sleepScore": 78, "kcal": 3193, "activeKcal": 761},
+                {"date": "2026-11-09", "restingHr": 55},
+            ],
+        )
+
+    def test_daily_history_names_a_measure_that_failed_and_keeps_the_rest(self):
+        reply = self.history(steps=[{"calendarDate": "2026-11-07", "totalSteps": 9120}], sleep=RuntimeError("boom"))
+        self.assertTrue(reply["ok"])
+        self.assertEqual(reply["result"]["failed"], ["sleep"])
+        self.assertEqual(reply["result"]["days"], [{"date": "2026-11-07", "steps": 9120}])
+
+    def test_daily_history_stops_on_a_rate_limit_or_expired_session(self):
+        reply = self.history(sleep=garminconnect.GarminConnectTooManyRequestsError("slow down"))
+        self.assertEqual(reply["code"], "rate_limited")
+        reply = self.history(rhr=garminconnect.GarminConnectAuthenticationError("nope"))
+        self.assertEqual(reply["code"], "session_expired")
+
+    def test_daily_history_limits_the_range(self):
+        reply = self.run_op({"op": "daily_history", "tokens": TOKENS, "from": "2026-01-01", "to": "2026-11-09"})
+        self.assertEqual(reply["code"], "bad_request")
 
     def test_list_activities_needs_dates(self):
         reply = self.run_op({"op": "list_activities", "tokens": TOKENS, "from": "yesterday", "to": "2026-11-04"})

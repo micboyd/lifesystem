@@ -126,7 +126,7 @@ type Tab = (typeof TABS)[number]
 const SUBTITLE: Record<Tab, string> = {
     Planner: 'Plan your training — drop strength and conditioning into each day.',
     Plans: 'Whole training blocks — import a plan, then apply it to fill the planner day by day.',
-    Stats: 'What the logs already know — progression per exercise, how often you train, records, and where the volume goes.',
+    Stats: 'What the logs already know — progression per exercise, how often you train, records, where the volume goes — and the long view from your watch.',
     Body: 'Weigh in and watch the trend, not the scale — the smoothed line is what tracks fat.',
     Strength: 'Track your training programmes, sessions and progress.',
     Conditioning: 'Track your training programmes, sessions and progress.',

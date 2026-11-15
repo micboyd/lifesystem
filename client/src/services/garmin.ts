@@ -1,6 +1,7 @@
 import api from './api'
 import type { ApiResponse, GarminState, WatchStep } from '../types'
 import type { DaySteps } from '../lib/steps'
+import type { WatchDay } from '../lib/garminTrends'
 
 export interface GarminStatus {
     /** Whether the server can store tokens (GARMIN_TOKEN_KEY is set). */
@@ -279,4 +280,31 @@ export async function getCaloriesToday(date: string): Promise<number | null> {
         params: { date },
     })
     return res.data.data.kcal
+}
+
+// ── Long-term history ────────────────────────────────────────────────────────
+
+export interface GarminHistorySync {
+    running: boolean
+    /** The earliest day read back to so far; null before the first sync. */
+    from: string | null
+    /** True once there is nothing earlier on Garmin. */
+    complete: boolean
+    error: { code: GarminErrorCode; message: string } | null
+    /** Measures Garmin didn't answer for on some stretch of the last sync. */
+    failed: ('steps' | 'sleep' | 'calories' | 'restingHr')[]
+}
+
+/** Every stored day of watch data, and how the background sync stands. Doesn't call Garmin. */
+export async function getGarminHistory(): Promise<{ days: WatchDay[]; sync: GarminHistorySync }> {
+    return (await api.get<ApiResponse<{ days: WatchDay[]; sync: GarminHistorySync }>>('/garmin/history')).data.data
+}
+
+export async function getGarminHistoryState(): Promise<GarminHistorySync> {
+    return (await api.get<ApiResponse<GarminHistorySync>>('/garmin/history/state')).data.data
+}
+
+/** Start reading history back from Garmin in the background; answers straight away. */
+export async function syncGarminHistory(today: string, restart = false): Promise<GarminHistorySync> {
+    return (await api.post<ApiResponse<GarminHistorySync>>('/garmin/history/sync', { today, restart })).data.data
 }

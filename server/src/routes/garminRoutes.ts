@@ -15,6 +15,9 @@ import {
     caloriesToday,
     listSteps,
     pullSteps,
+    listHistory,
+    historySyncState,
+    syncHistory,
 } from '../controllers/garminController'
 import { requireAuth } from '../middleware/auth'
 
@@ -40,5 +43,9 @@ router.get('/daily-energy/today', caloriesToday)
 
 router.get('/steps', listSteps)
 router.post('/steps/pull', pullSteps)
+
+router.get('/history', listHistory)
+router.get('/history/state', historySyncState)
+router.post('/history/sync', syncHistory)
 
 export default router

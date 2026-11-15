@@ -105,6 +105,35 @@ export interface GarminWorkoutProvider {
     dailyCalories(dates: string[]): Promise<DayCalories[]>
     /** Each day's steps from–to ("YYYY-MM-DD", inclusive). Days with no figure are left out. */
     dailySteps(from: string, to: string): Promise<DaySteps[]>
+    /**
+     * Everything the watch recorded each day from–to ("YYYY-MM-DD", inclusive,
+     * at most MAX_HISTORY_DAYS). Days with nothing at all are left out.
+     */
+    dailyHistory(from: string, to: string): Promise<HistoryPull>
+}
+
+/** The longest stretch one dailyHistory call covers. */
+export const MAX_HISTORY_DAYS = 84
+
+export const HISTORY_MEASURES = ['steps', 'sleep', 'calories', 'restingHr'] as const
+export type HistoryMeasure = (typeof HISTORY_MEASURES)[number]
+
+/** One day of watch data. A measure that's absent is unknown, not zero. */
+export interface HistoryDay {
+    date: string
+    steps?: number
+    /** Whole-day calories burned: resting plus active. */
+    kcal?: number
+    activeKcal?: number
+    sleepMin?: number
+    sleepScore?: number
+    restingHr?: number
+}
+
+export interface HistoryPull {
+    days: HistoryDay[]
+    /** Measures Garmin didn't answer for on this stretch. */
+    failed: HistoryMeasure[]
 }
 
 /** A day's step total; for today, what the watch has synced so far. */

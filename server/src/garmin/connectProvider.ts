@@ -5,7 +5,15 @@
  */
 import { toGarminWorkout } from './connectWorkout'
 import { runWorker, type WorkerRun } from './pythonWorker'
-import type { ActivityBrief, ActivityDetail, DayCalories, DaySteps, GarminWorkoutProvider, WorkoutSpec } from './provider'
+import type {
+    ActivityBrief,
+    ActivityDetail,
+    DayCalories,
+    DaySteps,
+    GarminWorkoutProvider,
+    HistoryPull,
+    WorkoutSpec,
+} from './provider'
 
 export class ConnectProvider implements GarminWorkoutProvider {
     constructor(
@@ -61,6 +69,10 @@ export class ConnectProvider implements GarminWorkoutProvider {
 
     async dailySteps(from: string, to: string) {
         return (await this.call<{ days: DaySteps[] }>('daily_steps', { from, to })).days
+    }
+
+    dailyHistory(from: string, to: string) {
+        return this.call<HistoryPull>('daily_history', { from, to })
     }
 }
 

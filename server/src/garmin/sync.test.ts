@@ -51,6 +51,7 @@ function fakeGarmin() {
         }),
         dailyCalories: vi.fn(async () => []),
         dailySteps: vi.fn(async () => []),
+        dailyHistory: vi.fn(async () => ({ days: [], failed: [] })),
     }
     return { provider, workouts, calendar }
 }

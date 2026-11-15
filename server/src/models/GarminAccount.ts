@@ -17,6 +17,10 @@ export interface IGarminAccount extends Document {
     /** Encrypted sign-in state awaiting an MFA code, and when it lapses. */
     mfaState?: string
     mfaExpiresAt?: Date | null
+    /** The earliest day (YYYY-MM-DD) the long-term history has been read back to. */
+    historyFrom?: string | null
+    /** True once reading back ran out of Garmin data: there is nothing earlier. */
+    historyComplete?: boolean
     createdAt: Date
     updatedAt: Date
 }
@@ -30,6 +34,8 @@ const garminAccountSchema = new Schema<IGarminAccount>(
         connectedAt: { type: Date, default: null },
         mfaState: { type: String, select: false },
         mfaExpiresAt: { type: Date, default: null },
+        historyFrom: { type: String, default: null },
+        historyComplete: { type: Boolean, default: false },
     },
     { timestamps: true }
 )
