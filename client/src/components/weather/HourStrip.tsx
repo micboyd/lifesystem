@@ -1,5 +1,5 @@
 import type { DailyForecast, HourlySlot } from '../../lib/weather'
-import { hourLabel } from '../../lib/weather'
+import { hourCondition, hourLabel } from '../../lib/weather'
 import { ConditionIcon } from './weatherUi'
 
 // Chart band geometry (px): labels sit above each dot, so the curve starts low enough to leave room.
@@ -75,7 +75,7 @@ export default function HourStrip({
                                       ? new Date(`${h.date}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short' })
                                       : hourLabel(h.hour)}
                             </span>
-                            <ConditionIcon code={h.code} isDay={h.isDay} className="text-2xl" />
+                            <ConditionIcon code={hourCondition(h)} isDay={h.isDay} className="text-2xl" />
                         </div>
                     ))}
                 </div>

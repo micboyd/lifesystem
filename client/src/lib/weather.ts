@@ -286,19 +286,26 @@ export function weatherInfo(code: number, isDay = true): CodeInfo {
     const cloudSun = isDay ? 'fa-cloud-sun' : 'fa-cloud-moon'
     const showers = isDay ? 'fa-cloud-sun-rain' : 'fa-cloud-moon-rain'
 
-    if (code === 0) return { label: 'Clear sky', icon: `fa-solid ${sun}` }
-    if (code === 1) return { label: 'Mainly clear', icon: `fa-solid ${cloudSun}` }
+    // Each label has its own picture: "Mainly clear" is still a sun, light rain
+    // isn't drawn as a downpour, and freezing/hail variants say so.
+    if (code === 0) return { label: isDay ? 'Sunny' : 'Clear', icon: `fa-solid ${sun}` }
+    if (code === 1) return { label: 'Mainly clear', icon: `fa-solid ${sun}` }
     if (code === 2) return { label: 'Partly cloudy', icon: `fa-solid ${cloudSun}` }
-    if (code === 3) return { label: 'Overcast', icon: 'fa-solid fa-cloud' }
+    if (code === 3) return { label: 'Cloudy', icon: 'fa-solid fa-cloud' }
     if (code === 45 || code === 48) return { label: 'Fog', icon: 'fa-solid fa-smog' }
-    if (code >= 51 && code <= 57) return { label: 'Drizzle', icon: 'fa-solid fa-cloud-rain' }
-    if (code >= 61 && code <= 65) return { label: 'Rain', icon: 'fa-solid fa-cloud-showers-heavy' }
-    if (code === 66 || code === 67) return { label: 'Freezing rain', icon: 'fa-solid fa-cloud-showers-heavy' }
+    if (code >= 51 && code <= 55) return { label: 'Drizzle', icon: 'fa-solid fa-cloud-rain' }
+    if (code === 56 || code === 57) return { label: 'Freezing drizzle', icon: 'fa-solid fa-icicles' }
+    if (code === 61) return { label: 'Light rain', icon: 'fa-solid fa-cloud-rain' }
+    if (code === 63) return { label: 'Rain', icon: 'fa-solid fa-cloud-showers-heavy' }
+    if (code === 65) return { label: 'Heavy rain', icon: 'fa-solid fa-cloud-showers-heavy' }
+    if (code === 66 || code === 67) return { label: 'Freezing rain', icon: 'fa-solid fa-icicles' }
     if (code >= 71 && code <= 77) return { label: 'Snow', icon: 'fa-solid fa-snowflake' }
-    if (code >= 80 && code <= 82) return { label: 'Rain showers', icon: `fa-solid ${showers}` }
+    if (code === 80) return { label: 'Showers', icon: `fa-solid ${showers}` }
+    if (code === 81 || code === 82) return { label: 'Heavy showers', icon: 'fa-solid fa-cloud-showers-heavy' }
     if (code === 85 || code === 86) return { label: 'Snow showers', icon: 'fa-solid fa-snowflake' }
+    if (code === 96 || code === 99) return { label: 'Thunder and hail', icon: 'fa-solid fa-cloud-bolt' }
     if (code >= 95) return { label: 'Thunderstorm', icon: 'fa-solid fa-cloud-bolt' }
-    return { label: 'Unsettled', icon: 'fa-solid fa-cloud' }
+    return { label: 'Cloudy', icon: 'fa-solid fa-cloud' }
 }
 
 // ── Reading precipitation out of weather codes ────────────────────────────────
@@ -375,6 +382,14 @@ export function representativeCode(slots: HourlySlot[]): number {
         }
     }
     return best
+}
+
+/**
+ * The condition to show for one hour: its own code, except that a trace
+ * precipitation code (drizzle at 8%, nothing measurable) shows as cloud.
+ */
+export function hourCondition(slot: HourlySlot): number {
+    return representativeCode([slot])
 }
 
 /**
@@ -534,10 +549,10 @@ export function upcomingOutlook(
         segments.push({
             key: 'next-hour',
             label: 'Next hour',
-            code: next.code,
+            code: hourCondition(next),
             temperature: next.temperature,
             precipitationProbability: next.precipitationProbability,
-            isDay: next.hour >= 6 && next.hour < 20,
+            isDay: next.isDay,
         })
     }
 

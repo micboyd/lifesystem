@@ -4,17 +4,12 @@ import DashSection, { DASH, SectionLoading } from './DashSection'
 import { useAuth } from '../../context/AuthContext'
 import {
     fetchForecast,
+    hourCondition,
     weatherInfo,
     type Forecast,
     type HourlySlot,
 } from '../../lib/weather'
-
-/** Sun reads amber, the moon violet, wet or cloudy weather sky blue. */
-function iconTint(icon: string): string {
-    if (icon.includes('fa-sun') && !icon.includes('rain')) return 'text-amber-500'
-    if (icon.includes('fa-moon') && !icon.includes('rain')) return 'text-violet-500'
-    return 'text-sky-500'
-}
+import { ConditionIcon } from '../weather/weatherUi'
 
 /** Compact clock label for an hourly tile ("9am", "3pm", "12pm"). */
 function hourLabel(hour: number): string {
@@ -98,21 +93,19 @@ export default function WeatherWidget() {
             ) : (
                 <div className={DASH.stack}>
                     <div className="flex items-center gap-4">
-                        <i
-                            className={`${weatherInfo(now.code, now.hour >= 6 && now.hour < 20).icon} text-4xl ${iconTint(weatherInfo(now.code, now.hour >= 6 && now.hour < 20).icon)}`}
-                            aria-hidden="true"
-                        />
+                        <ConditionIcon code={hourCondition(now)} isDay={now.isDay} className="text-4xl" />
                         <span className={DASH.figure}>
                             {now.temperature}&deg;
                         </span>
                         <span className="text-[15px] leading-snug text-neutral-600">
-                            {weatherInfo(now.code, now.hour >= 6 && now.hour < 20).label}
+                            {weatherInfo(hourCondition(now), now.isDay).label}
                             <span className={`block ${DASH.note}`}>at {hourLabel(now.hour)}</span>
                         </span>
                     </div>
                     <div className="grid grid-cols-5 gap-1.5">
                         {hours.map((h, i) => {
-                            const info = weatherInfo(h.code, h.hour >= 6 && h.hour < 20)
+                            const code = hourCondition(h)
+                            const info = weatherInfo(code, h.isDay)
                             return (
                                 <div
                                     key={`${h.date}-${h.hour}`}
@@ -120,7 +113,7 @@ export default function WeatherWidget() {
                                     title={info.label}
                                 >
                                     <span className={DASH.note}>{hourLabel(h.hour)}</span>
-                                    <i className={`${info.icon} text-lg ${iconTint(info.icon)}`} aria-hidden="true" />
+                                    <ConditionIcon code={code} isDay={h.isDay} className="text-lg" />
                                     <span className="text-[15px] nums text-neutral-900">{h.temperature}&deg;</span>
                                     <span className="text-[11px] nums text-info">
                                         {h.precipitationProbability >= 20 ? `${h.precipitationProbability}%` : '\u00a0'}

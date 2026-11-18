@@ -5,6 +5,7 @@ import {
     dayCondition,
     dayLabel,
     formatDuration,
+    hourCondition,
     hourLabel,
     planningInsight,
     SEVERITY_ICON_STYLES,
@@ -102,10 +103,10 @@ export function HourDrawer({
             {h && (
                 <div className="flex flex-col gap-6">
                     <Headline
-                        code={h.code}
+                        code={hourCondition(h)}
                         isDay={h.isDay}
                         temp={`${h.temperature}°`}
-                        line={`${weatherInfo(h.code, h.isDay).label} · feels like ${h.apparentTemperature}°`}
+                        line={`${weatherInfo(hourCondition(h), h.isDay).label} · feels like ${h.apparentTemperature}°`}
                     />
 
                     <Section title="Rain">
@@ -255,13 +256,13 @@ export function DayDrawer({
                                         >
                                             <span className="w-11 shrink-0 font-medium text-neutral-500">{hourLabel(h.hour)}</span>
                                             <span className="grid w-6 shrink-0 place-items-center text-base">
-                                                <ConditionIcon code={h.code} isDay={h.isDay} />
+                                                <ConditionIcon code={hourCondition(h)} isDay={h.isDay} />
                                             </span>
                                             <span className="w-9 shrink-0 font-semibold tabular-nums text-neutral-900">
                                                 {h.temperature}°
                                             </span>
                                             <span className="min-w-0 flex-1 truncate text-[13px] text-neutral-500">
-                                                {weatherInfo(h.code, h.isDay).label}
+                                                {weatherInfo(hourCondition(h), h.isDay).label}
                                             </span>
                                             <span
                                                 className={`w-11 shrink-0 text-right text-xs tabular-nums ${

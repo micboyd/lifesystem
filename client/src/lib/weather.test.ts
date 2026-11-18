@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compass, formatDuration, hoursFromNow, hoursSummary, uvLabel, type Forecast, type HourlySlot } from './weather'
+import { compass, formatDuration, hourCondition, hoursFromNow, hoursSummary, uvLabel, weatherInfo, type Forecast, type HourlySlot } from './weather'
 
 function slot(date: string, hour: number, over: Partial<HourlySlot> = {}): HourlySlot {
     return {
@@ -78,5 +78,26 @@ describe('hoursSummary', () => {
             slot('2026-10-20', h, { precipitationProbability: h === 11 || h === 12 ? 70 : 10 })
         )
         expect(hoursSummary(hours)).toBe('Rain likely from 11am, easing by 1pm.')
+    })
+})
+
+describe('hourCondition', () => {
+    it('shows a trace drizzle hour as cloud', () => {
+        expect(hourCondition(slot('2026-11-18', 9, { code: 51, precipitationProbability: 6, precipitation: 0.1 }))).toBe(3)
+    })
+    it('keeps a genuinely wet hour', () => {
+        expect(hourCondition(slot('2026-11-18', 23, { code: 61, precipitationProbability: 70, precipitation: 1.6 }))).toBe(61)
+    })
+})
+
+describe('weatherInfo', () => {
+    it('draws night skies with the moon', () => {
+        expect(weatherInfo(0, false).icon).toContain('fa-moon')
+        expect(weatherInfo(2, false).icon).toContain('fa-cloud-moon')
+    })
+    it('keeps light rain apart from a downpour', () => {
+        expect(weatherInfo(61).label).toBe('Light rain')
+        expect(weatherInfo(61).icon).not.toContain('heavy')
+        expect(weatherInfo(65).icon).toContain('fa-cloud-showers-heavy')
     })
 })
