@@ -15,7 +15,11 @@ export function ConditionIcon({
     isDay?: boolean
     className?: string
 }) {
-    return <i className={`${weatherInfo(code, isDay).icon} ${conditionTone(code, isDay)} ${className}`} aria-hidden="true" />
+    const icon = weatherInfo(code, isDay).icon
+    // Keyed on the icon: the Font Awesome kit draws its SVG once and doesn't
+    // redraw when React swaps the class on a reused row (stepping days in a
+    // drawer), which left yesterday's rain icon beside today's "Clear".
+    return <i key={icon} className={`${icon} ${conditionTone(code, isDay)} ${className}`} aria-hidden="true" />
 }
 
 /** The condition icon in a soft tile, for drawer headers. */
