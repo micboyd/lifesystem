@@ -675,7 +675,7 @@ function Planner({
 
             {/* Desktop: the figures float over the map, clear of the panel. */}
             <div className="pointer-events-none absolute bottom-6 left-[calc(420px+2rem)] right-4 z-10 hidden justify-center lg:flex">
-                <div className="pointer-events-auto rounded-3xl bg-white px-7 py-4 shadow-xl ring-1 ring-neutral-900/[0.06]">
+                <div className="pointer-events-auto rounded-xl bg-white px-7 py-4 shadow-xl ring-1 ring-neutral-900/[0.06]">
                     <Readout estimate={estimate} />
                     <ReadoutNote gap={gap} note={fullNote} hint={!loop && !short && !doublesBack} />
                 </div>
@@ -683,7 +683,7 @@ function Planner({
 
             <aside
                 aria-label="Plan this walk"
-                className={`absolute inset-x-0 bottom-0 z-10 flex flex-col rounded-t-3xl bg-white shadow-2xl ring-1 ring-neutral-900/[0.06] lg:inset-y-4 lg:left-4 lg:right-auto lg:h-auto lg:w-[420px] lg:rounded-3xl ${sheetOpen ? 'h-[62dvh]' : ''}`}
+                className={`absolute inset-x-0 bottom-0 z-10 flex flex-col rounded-t-xl bg-white shadow-2xl ring-1 ring-neutral-900/[0.06] lg:inset-y-4 lg:left-4 lg:right-auto lg:h-auto lg:w-[420px] lg:rounded-xl ${sheetOpen ? 'h-[62dvh]' : ''}`}
             >
                 <header className="flex shrink-0 items-center gap-2 px-4 pt-3 lg:px-5 lg:pt-4">
                     <button type="button" onClick={leave} aria-label="Back to Walking" className={`${backButton} -ml-2 hidden lg:grid`}>
@@ -719,13 +719,13 @@ function Planner({
 
                 <div className={`min-h-0 flex-1 flex-col gap-6 overflow-y-auto border-t border-neutral-100 px-4 py-5 lg:flex lg:px-5 ${sheetOpen ? 'flex' : 'hidden'}`}>
                     {failure && (
-                        <p role="alert" className="flex items-start gap-3 rounded-2xl bg-red-50/70 p-4 text-sm text-neutral-800">
+                        <p role="alert" className="flex items-start gap-3 rounded-xl bg-red-50/70 p-4 text-sm text-neutral-800">
                             <i className="fa-solid fa-triangle-exclamation mt-0.5 text-red-500" aria-hidden="true" />
                             {failureText}
                         </p>
                     )}
                     {litCheck && (
-                        <p className="flex items-center gap-2.5 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+                        <p className="flex items-center gap-2.5 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
                             <i className="fa-solid fa-lightbulb text-amber-500" aria-hidden="true" />
                             {LIT_WARNING}
                         </p>

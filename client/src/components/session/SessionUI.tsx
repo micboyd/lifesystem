@@ -25,7 +25,7 @@ export function StatStrip({ stats }: { stats: Stat[] }) {
             className={`grid gap-2 ${stats.length >= 4 ? 'grid-cols-2 sm:grid-cols-4' : stats.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}
         >
             {stats.map((s) => (
-                <div key={s.label} className="flex min-w-0 flex-col gap-1 rounded-2xl bg-neutral-50 px-3.5 py-3">
+                <div key={s.label} className="flex min-w-0 flex-col gap-1 rounded-xl bg-neutral-50 px-3.5 py-3">
                     <dt className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
                         <i className={`${s.icon} text-[10px]`} aria-hidden="true" />
                         <span className="truncate">{s.label}</span>
@@ -58,7 +58,7 @@ export function NoteBlock({
     children: ReactNode
 }) {
     return (
-        <section className="rounded-2xl bg-neutral-50 px-4 py-4">
+        <section className="rounded-xl bg-neutral-50 px-4 py-4">
             <p className="mb-1.5 inline-flex items-center gap-2 text-sm font-semibold text-neutral-900">
                 <i className={`${icon} text-xs text-neutral-500`} aria-hidden="true" />
                 {title}
@@ -152,7 +152,7 @@ export function TimelineItem({
                 )}
             </span>
             <div
-                className={`flex min-w-0 flex-1 flex-col gap-4 rounded-2xl border p-4 transition-[border-color,background-color,box-shadow] sm:p-5 ${CARD[state]}`}
+                className={`flex min-w-0 flex-1 flex-col gap-4 rounded-xl border p-4 transition-[border-color,background-color,box-shadow] sm:p-5 ${CARD[state]}`}
             >
                 <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">

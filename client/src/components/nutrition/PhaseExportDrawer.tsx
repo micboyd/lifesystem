@@ -120,7 +120,7 @@ export default function PhaseExportDrawer({
                             {allChosen ? 'Clear all' : 'Select all'}
                         </Button>
                     </div>
-                    <ul className="flex flex-col divide-y divide-neutral-100 rounded-2xl border border-neutral-200">
+                    <ul className="flex flex-col divide-y divide-neutral-100 rounded-xl border border-neutral-200">
                         {sorted.map((phase) => (
                             <li key={phase._id} className="flex items-center gap-3 px-4 py-3">
                                 <Checkbox

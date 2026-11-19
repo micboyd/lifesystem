@@ -35,7 +35,7 @@ import type { Meal, ShoppingGroup, ShoppingList } from '../../types'
  */
 
 const OVERLINE = 'text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600'
-const CARD = 'overflow-hidden rounded-2xl bg-white ring-1 ring-neutral-900/[0.06]'
+const CARD = 'overflow-hidden border-t border-hairline'
 const MAX = 99
 
 function SectionHead({ title, aside }: { title: string; aside?: ReactNode }) {
@@ -334,7 +334,7 @@ function StepBar({
                         type="button"
                         aria-current={on ? 'step' : undefined}
                         onClick={() => onStep(s.key)}
-                        className={`flex min-h-16 min-w-0 flex-col justify-center gap-1 rounded-2xl bg-white px-3 py-2.5 text-left transition-shadow sm:px-4 ${
+                        className={`flex min-h-16 min-w-0 flex-col justify-center gap-1 rounded-xl bg-white px-3 py-2.5 text-left transition-shadow sm:px-4 ${
                             on
                                 ? 'ring-2 ring-neutral-900'
                                 : 'ring-1 ring-neutral-900/[0.06] hover:ring-neutral-300'

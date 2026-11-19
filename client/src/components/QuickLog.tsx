@@ -30,15 +30,10 @@ import {
 import type { FinanceGroup, FinanceRow } from '../types'
 
 /**
- * Safe to spend today, and the quickest way to log a spend. Sits in the desktop
- * sidebar; phones and tablets don't show it (the floating pill got in the way).
+ * Safe to spend today, and the quickest way to log a spend: a quiet line in the
+ * top bar that opens the spend drawer.
  */
-export default function QuickLog({
-    collapsed = false,
-}: {
-    /** The sidebar is collapsed to icons. */
-    collapsed?: boolean
-} = {}) {
+export default function QuickLog() {
     useMoneyHidden() // re-render when money is hidden/shown
     const toast = useToast()
     const invalidate = useInvalidate()
@@ -147,41 +142,14 @@ export default function QuickLog({
             <button
                 type="button"
                 onClick={() => setOpen(true)}
-                title={
-                    collapsed
-                        ? `${overShort ? 'Over today' : 'Safe today'}: ${formatMoney(safeToday)} · Log a spend`
-                        : 'Log a spend'
-                }
-                className={`group flex w-full items-center gap-3 rounded-[14px] bg-white text-left shadow-sm ring-1 ring-neutral-900/[0.06] transition-shadow hover:shadow-md ${
-                    collapsed ? 'justify-center p-2' : 'px-3 py-2.5'
-                }`}
+                title="Log a spend"
+                className="inline-flex h-10 items-center gap-1.5 whitespace-nowrap text-[13px] text-neutral-600 transition-colors hover:text-neutral-900"
             >
-                <span
-                    className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-area-money-bg text-[12px] text-area-money"
-                    aria-hidden="true"
-                >
-                    <i className="fa-solid fa-wallet" />
+                <span className="hidden sm:inline">{overShort ? 'Over today' : 'Safe today'}</span>
+                <i className="fa-solid fa-wallet text-[11px] sm:hidden" aria-hidden="true" />
+                <span className={`font-medium tabular-nums ${safeToday >= 0 ? 'text-success' : 'text-danger'}`}>
+                    {formatMoney(safeToday)}
                 </span>
-                {!collapsed && (
-                    <>
-                        <span className="min-w-0 flex-1">
-                            <span className="block text-xs text-neutral-500">
-                                {overShort ? 'Over today' : 'Safe to spend today'}
-                            </span>
-                            <span
-                                className={`block text-[15px] font-medium tabular-nums ${safeToday >= 0 ? 'text-success' : 'text-danger'}`}
-                            >
-                                {formatMoney(safeToday)}
-                            </span>
-                        </span>
-                        <span
-                            className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-neutral-500 transition-colors group-hover:bg-neutral-100 group-hover:text-neutral-900"
-                            aria-hidden="true"
-                        >
-                            <i className="fa-solid fa-plus text-xs" />
-                        </span>
-                    </>
-                )}
             </button>
 
             {open && (
@@ -203,7 +171,7 @@ export default function QuickLog({
                     ) : (
                         <form onSubmit={submit} className="flex flex-col gap-4">
                             {/* Safe-to-spend hero */}
-                            <div className="rounded-2xl bg-neutral-950 px-5 py-4 text-white">
+                            <div className="rounded-xl bg-neutral-950 px-5 py-4 text-white">
                                 <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                     {overShort ? 'Over budget today' : 'Safe to spend today'}
                                 </p>
@@ -249,7 +217,7 @@ export default function QuickLog({
 
                             {/* Overspend friction */}
                             {isOver && (
-                                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
+                                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
                                     <p className="flex items-center gap-2 text-sm font-bold text-red-600">
                                         <i
                                             className="fa-solid fa-triangle-exclamation text-xs"

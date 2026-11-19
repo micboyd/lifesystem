@@ -9,6 +9,7 @@ import type {
     WeightLog,
 } from '../types'
 import { daysBetween } from './weightTrend'
+import { estimateWorkoutMinutes } from './phases'
 import { countsOn, habitKey, isChosen, isSkippedMeal, mealKey } from './perfectDay'
 
 /**
@@ -52,6 +53,10 @@ export interface DayStep {
     habitId?: string
     /** Where to open it, when that's more exact than the kind's own page. */
     to?: string
+    /** "HH:MM", when the record has a clock time (walks). */
+    time?: string
+    /** How long it takes, in minutes, when known. */
+    minutes?: number | null
 }
 
 export interface YourDay {
@@ -74,6 +79,10 @@ export interface YourDayWalk {
     title: string
     detail: string
     done: boolean
+    /** Estimated minutes, when the walk has a target to work from. */
+    minutes?: number | null
+    /** Estimated steps, when known. */
+    steps?: number | null
 }
 
 export interface YourDayInputs {
@@ -169,12 +178,17 @@ function trainingSteps(entries: FitnessPlanEntry[], logged: Set<string>, counts:
                     .join(' · ')
             }
             if (!done && e.skipped) detail = e.skipReason ? `Skipped · ${e.skipReason}` : 'Skipped'
+            const minutes =
+                e.kind === 'workout' && e.workout
+                    ? e.workout.duration || estimateWorkoutMinutes(e.workout) || null
+                    : (e.session?.duration ?? null)
             return {
                 id: `training-${e._id}`,
                 kind: 'training' as const,
                 part: e.part,
                 title: lib?.name ?? 'Untitled session',
                 detail,
+                minutes,
                 state: done ? 'done' : e.skipped ? 'handled' : 'todo',
             }
         })
@@ -189,9 +203,12 @@ function walkSteps(walks: YourDayWalk[], date: string, counts: (key: string) => 
             kind: 'walk',
             part: partAt(h * 60 + m),
             title: w.title,
-            detail: w.detail,
+            // The time and length have columns of their own; the steps stay as the detail.
+            detail: w.steps != null ? `${w.steps.toLocaleString('en-GB')} steps` : w.detail,
             state: w.done ? 'done' : 'todo',
             to: `/walking?date=${date}`,
+            time: w.time,
+            minutes: w.minutes ?? null,
         }
     })
 }

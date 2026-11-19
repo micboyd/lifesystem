@@ -149,7 +149,7 @@ export default function GarminRunPanel({
     if (phase.kind === 'run') return <RunView run={phase.run} entry={entry} onUnlink={unlink} unlinking={busy === 'unlink'} />
 
     return (
-        <div className={`flex flex-col gap-3 px-4 py-3.5 ${framed ? 'rounded-2xl border border-neutral-200' : ''}`}>
+        <div className={`flex flex-col gap-3 px-4 py-3.5 ${framed ? 'rounded-xl border border-neutral-200' : ''}`}>
             <div className="flex items-center gap-3">
                 <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-neutral-900">Run from Garmin</p>
@@ -291,7 +291,7 @@ function RunView({
                 </div>
             </div>
 
-            <dl className="grid grid-cols-3 gap-y-3 rounded-2xl bg-neutral-50 py-3 sm:grid-cols-5">
+            <dl className="grid grid-cols-3 gap-y-3 rounded-xl bg-neutral-50 py-3 sm:grid-cols-5">
                 {stats.map((st) => (
                     <div key={st.label} className="flex min-w-0 flex-col items-center gap-0.5 px-2">
                         <dt className="order-last text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">{st.label}</dt>

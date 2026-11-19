@@ -17,7 +17,7 @@ export default function DashboardDateNav({ date, onChange }: Props) {
                 type="button"
                 onClick={() => onChange(addDays(date, -1))}
                 aria-label="Previous day"
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-neutral-200 bg-white text-neutral-600 transition-colors hover:border-neutral-300 hover:text-neutral-900"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-hairline text-neutral-600 transition-colors hover:border-neutral-300 hover:text-neutral-900 lg:h-9 lg:w-9"
             >
                 <i className="fa-solid fa-chevron-left text-xs" aria-hidden="true" />
             </button>
@@ -35,7 +35,7 @@ export default function DashboardDateNav({ date, onChange }: Props) {
                 type="button"
                 onClick={() => onChange(addDays(date, 1))}
                 aria-label="Next day"
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-neutral-200 bg-white text-neutral-600 transition-colors hover:border-neutral-300 hover:text-neutral-900"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-hairline text-neutral-600 transition-colors hover:border-neutral-300 hover:text-neutral-900 lg:h-9 lg:w-9"
             >
                 <i className="fa-solid fa-chevron-right text-xs" aria-hidden="true" />
             </button>
@@ -44,7 +44,7 @@ export default function DashboardDateNav({ date, onChange }: Props) {
                 type="button"
                 onClick={() => onChange(todayKey())}
                 disabled={isToday}
-                className="h-11 shrink-0 whitespace-nowrap rounded-xl border border-neutral-200 bg-white px-4 text-sm font-medium text-neutral-700 transition-colors hover:border-neutral-300 hover:text-neutral-900 disabled:opacity-40 disabled:hover:border-neutral-200"
+                className="h-11 shrink-0 whitespace-nowrap rounded-lg border border-hairline px-3.5 text-sm font-medium text-neutral-700 transition-colors hover:border-neutral-300 hover:text-neutral-900 disabled:opacity-40 lg:h-9"
             >
                 Today
             </button>

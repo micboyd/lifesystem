@@ -216,8 +216,8 @@ export default function DaysUntil() {
                     <i className="fa-solid fa-arrow-left text-sm" aria-hidden="true" />
                 </Link>
                 <div className="flex-1">
-                    <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">Days Until</h1>
-                    <p className="mt-1 text-sm text-neutral-500">
+                    <h1 className="text-[34px] font-medium leading-[1.1] tracking-[-0.045em] text-neutral-950 sm:text-[44px]">Days Until</h1>
+                    <p className="mt-2 max-w-2xl text-[18px] leading-[26px] tracking-[-0.01em] text-neutral-600">
                         Count down to a trip, deadline or milestone — add it yourself or pull the date
                         straight from your calendar.
                     </p>
@@ -402,7 +402,7 @@ export default function DaysUntil() {
                 {editor && !pickingEvent && (
                     <form onSubmit={handleSave} className="flex flex-col gap-5">
                         {error && (
-                            <p className="rounded-2xl bg-danger-bg px-4 py-3.5 text-[13px] text-red-700">{error}</p>
+                            <p className="rounded-xl bg-danger-bg px-4 py-3.5 text-[13px] text-red-700">{error}</p>
                         )}
 
                         {!editor.id && (

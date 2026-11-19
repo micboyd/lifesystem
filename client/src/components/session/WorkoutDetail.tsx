@@ -90,11 +90,11 @@ export default function WorkoutDetail({
                             }
                         />
                         {rows.length === 0 ? (
-                            <p className="rounded-2xl border border-dashed border-neutral-200 px-3 py-5 text-center text-xs text-neutral-500">
+                            <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-5 text-center text-xs text-neutral-500">
                                 No main-session exercises in this workout yet.
                             </p>
                         ) : (
-                            <ul className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200">
+                            <ul className="divide-y divide-neutral-100 rounded-xl border border-neutral-200">
                                 {rows.map(({ item, ex, index }, n) => (
                                     <li key={index} className="flex flex-col gap-3 px-4 py-3.5">
                                         <div className="flex items-center gap-3">

@@ -43,14 +43,14 @@ export function WeekMacrosButton({ open, onToggle }: { open: boolean; onToggle: 
 export function WeekMacrosPanel({ week }: { week: WeekMacros | null }) {
     if (!week) {
         return (
-            <p className="rounded-2xl border border-neutral-200 px-4 py-3 text-sm text-neutral-500">
+            <p className="rounded-xl border border-neutral-200 px-4 py-3 text-sm text-neutral-500">
                 Nothing planned or eaten this week yet.
             </p>
         )
     }
 
     return (
-        <div className="flex flex-col gap-3 rounded-2xl border border-neutral-200 p-4">
+        <div className="flex flex-col gap-3 rounded-xl border border-neutral-200 p-4">
             <div className="grid gap-4 sm:grid-cols-2 sm:gap-x-6">
                 {ROWS.map(({ key, label, unit }) => {
                     const track = week.onTrack[key]

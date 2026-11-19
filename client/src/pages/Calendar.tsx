@@ -725,7 +725,7 @@ export default function Calendar() {
                 {view === 'Year' && (
                     <div className="flex flex-col gap-6">
                         {visibleMonths.length === 0 ? (
-                            <div className="rounded-2xl border border-dashed border-neutral-200 bg-white p-10 text-center">
+                            <div className="rounded-xl border border-dashed border-neutral-200 bg-white p-10 text-center">
                                 <p className="text-sm text-neutral-500">
                                     No upcoming months in {yearNum}.
                                 </p>
@@ -1104,7 +1104,7 @@ function MonthBlock({
     const colSpan = totalsOn ? dayNums.length + 2 : dayNums.length + 1
 
     return (
-        <section className="overflow-hidden rounded-2xl border border-neutral-200 bg-white">
+        <section className="overflow-hidden rounded-xl border border-hairline bg-white">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 px-4 py-3">
                 <h2 className="text-base font-bold tracking-tight text-neutral-950">
                     {MONTHS[month]} <span className="font-semibold text-neutral-500">{year}</span>
@@ -1122,7 +1122,7 @@ function MonthBlock({
                 >
                     <thead>
                         <tr className="border-b border-neutral-200">
-                            <th className="sticky left-0 z-10 w-28 bg-neutral-50 px-3 py-2 text-left text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
+                            <th className="sticky left-0 z-10 w-28 bg-white px-3 py-3 text-left text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 Period
                             </th>
                             {dayNums.map((day) => {
@@ -1136,7 +1136,7 @@ function MonthBlock({
                                         key={day}
                                         ref={todayCol ? todayRef : undefined}
                                         className={[
-                                            'group/day w-12 px-1 py-2 text-center',
+                                            'group/day w-12 px-1 py-3 text-center',
                                             weekend ? 'bg-neutral-100' : '',
                                             todayCol ? 'border-r border-neutral-400' : '',
                                         ].join(' ')}
@@ -1182,7 +1182,7 @@ function MonthBlock({
                                 )
                             })}
                             {totalsOn && (
-                                <th className="w-16 bg-neutral-50 px-2 py-2 text-center text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
+                                <th className="w-16 bg-neutral-50 px-2 py-3 text-center text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                     Total
                                 </th>
                             )}
@@ -1193,7 +1193,7 @@ function MonthBlock({
                             <tr key={period.key} className="border-b border-neutral-100">
                                 <th
                                     scope="row"
-                                    className="sticky left-0 z-10 bg-neutral-50 px-3 py-2 text-left align-middle"
+                                    className="sticky left-0 z-10 bg-white px-3 py-3 text-left align-middle"
                                 >
                                     <span className="flex items-center gap-2 text-sm font-medium text-neutral-700">
                                         <i
@@ -1215,7 +1215,7 @@ function MonthBlock({
                                         <td
                                             key={day}
                                             className={[
-                                                'h-12 p-0.5 align-top',
+                                                'h-16 p-1 align-top',
                                                 isToday(day)
                                                     ? 'border-r border-neutral-400'
                                                     : 'border-l border-neutral-100',
@@ -1252,7 +1252,7 @@ function MonthBlock({
                             <tr className="border-t border-neutral-200">
                                 <th
                                     scope="row"
-                                    className="sticky left-0 z-10 bg-neutral-50 px-3 py-2 text-left align-middle"
+                                    className="sticky left-0 z-10 bg-white px-3 py-3 text-left align-middle"
                                 >
                                     <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
                                         <i
@@ -1277,7 +1277,7 @@ function MonthBlock({
                                         <td
                                             key={day}
                                             className={[
-                                                'h-12 p-0.5 align-top',
+                                                'h-16 p-1 align-top',
                                                 isToday(day)
                                                     ? 'border-r border-neutral-400'
                                                     : 'border-l border-neutral-100',
@@ -1310,7 +1310,7 @@ function MonthBlock({
                             <tr className="border-t border-neutral-200">
                                 <th
                                     scope="row"
-                                    className="sticky left-0 z-10 bg-neutral-50 px-3 py-2 text-left align-middle"
+                                    className="sticky left-0 z-10 bg-white px-3 py-3 text-left align-middle"
                                 >
                                     <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
                                         <i
@@ -1335,7 +1335,7 @@ function MonthBlock({
                                         <td
                                             key={day}
                                             className={[
-                                                'h-12 p-0.5 align-top',
+                                                'h-16 p-1 align-top',
                                                 isToday(day)
                                                     ? 'border-r border-neutral-400'
                                                     : 'border-l border-neutral-100',
@@ -1418,7 +1418,7 @@ function MonthBlock({
                             <tr className="border-t border-neutral-100">
                                 <td
                                     colSpan={colSpan}
-                                    className="sticky left-0 bg-neutral-50 px-3 py-2"
+                                    className="sticky left-0 bg-white px-3 py-3"
                                 >
                                     <AddTotalRow onAdd={onAddRow} />
                                 </td>
@@ -1502,7 +1502,7 @@ function TotalRowCells({
         <tr className={first ? 'border-t border-neutral-200' : 'border-t border-neutral-100'}>
             <th
                 scope="row"
-                className="sticky left-0 z-10 bg-neutral-50 px-3 py-1 text-left align-middle"
+                className="sticky left-0 z-10 bg-white px-3 py-2 text-left align-middle"
             >
                 {editing ? (
                     <input
@@ -1570,7 +1570,7 @@ function TotalRowCells({
                                   containsToday
                                       ? 'border-r border-neutral-400'
                                       : 'border-l border-neutral-100',
-                                  'cursor-cell p-0.5 align-middle',
+                                  'h-16 cursor-cell p-1 align-middle',
                                   selected
                                       ? SEL_CLASS
                                       : weekend
@@ -1600,7 +1600,7 @@ function TotalRowCells({
                                   isToday(day)
                                       ? 'border-r border-neutral-400'
                                       : 'border-l border-neutral-100',
-                                  'cursor-cell p-0.5 align-middle',
+                                  'h-16 cursor-cell p-1 align-middle',
                                   selected
                                       ? SEL_CLASS
                                       : weekend
@@ -1656,7 +1656,7 @@ function TotalCell({
         return (
             <div
                 onDoubleClick={() => setEditing(true)}
-                className="flex h-9 w-full items-center justify-center rounded-md px-1 text-center text-xs tabular-nums text-neutral-800 transition-colors hover:bg-black/[0.03]"
+                className="flex h-14 w-full items-center justify-center rounded-md px-1 text-center text-xs tabular-nums text-neutral-800 transition-colors hover:bg-black/[0.03]"
             >
                 {value === undefined ? '' : value}
             </div>
@@ -1680,7 +1680,7 @@ function TotalCell({
                     setEditing(false)
                 }
             }}
-            className="h-9 w-full rounded-[10px] border border-neutral-400 bg-white px-1 text-center text-xs tabular-nums text-neutral-800 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
+            className="h-14 w-full rounded-[10px] border border-neutral-400 bg-white px-1 text-center text-xs tabular-nums text-neutral-800 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
         />
     )
 }

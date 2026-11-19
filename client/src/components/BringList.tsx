@@ -70,7 +70,7 @@ export function BringChecklist({ items, packKey }: { items?: string[]; packKey: 
 
     return (
         <section
-            className={`rounded-2xl border p-3 ${all ? 'border-emerald-200 bg-emerald-50/40' : 'border-neutral-200'}`}
+            className={`rounded-xl border p-3 ${all ? 'border-emerald-200 bg-emerald-50/40' : 'border-neutral-200'}`}
         >
             <div className="mb-2 flex items-center justify-between gap-2 px-1">
                 <p className="inline-flex items-center gap-2 text-sm font-bold text-neutral-900">

@@ -71,7 +71,7 @@ export default function LibraryPicker({
                 </div>
 
                 {error && (
-                    <p role="alert" className="rounded-2xl bg-red-50/70 p-4 text-sm text-neutral-800">
+                    <p role="alert" className="rounded-xl bg-red-50/70 p-4 text-sm text-neutral-800">
                         {error}
                     </p>
                 )}
@@ -79,7 +79,7 @@ export default function LibraryPicker({
                 <div className="flex flex-col gap-2">
                     <span className={FIELD_LABEL}>From your library</span>
                     {items.length === 0 ? (
-                        <p className="rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-600">Nothing here yet. Make a walk and it’ll be kept for next time.</p>
+                        <p className="rounded-xl bg-neutral-50 px-4 py-3 text-sm text-neutral-600">Nothing here yet. Make a walk and it’ll be kept for next time.</p>
                     ) : (
                         <ul className="divide-y divide-neutral-100 rounded-xl border border-neutral-200">
                             {items.map((item) => {

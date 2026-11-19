@@ -142,7 +142,7 @@ export default function ConditioningSessionDetail({
             )}
 
             {!!session.helpers?.length && (
-                <section className="rounded-2xl border border-amber-200 bg-amber-50/50 px-4 py-4">
+                <section className="rounded-xl border border-amber-200 bg-amber-50/50 px-4 py-4">
                     <p className="mb-2.5 inline-flex items-center gap-2 text-sm font-semibold text-neutral-900">
                         <i className="fa-solid fa-flag text-xs text-amber-600" aria-hidden="true" />
                         Set up first
@@ -168,7 +168,7 @@ export default function ConditioningSessionDetail({
                                 phase={phase}
                                 meta={phaseSpan(rows.map(({ item }) => item))}
                             />
-                            <ul className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200">
+                            <ul className="divide-y divide-neutral-100 rounded-xl border border-neutral-200">
                                 {rows.map(({ item, index }, n) => (
                                     <OverviewPart
                                         key={index}

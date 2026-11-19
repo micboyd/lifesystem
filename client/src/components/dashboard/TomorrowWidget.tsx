@@ -145,12 +145,12 @@ function PrepRow({ icon, label, text, accent = false }: { icon: string; label: s
     return (
         <li className="flex items-start gap-3 py-3">
             <i
-                className={`${icon} mt-[3px] w-4 shrink-0 text-center text-sm ${accent ? 'text-violet-300' : 'text-white/50'}`}
+                className={`${icon} mt-[3px] w-4 shrink-0 text-center text-sm ${accent ? 'text-violet-600' : 'text-neutral-500'}`}
                 aria-hidden="true"
             />
             <div className="min-w-0 flex-1">
-                <p className="text-[13px] text-white/50">{label}</p>
-                <p className="mt-0.5 text-[15px] leading-6 text-white/90">{text}</p>
+                <p className="text-[13px] text-neutral-500">{label}</p>
+                <p className="mt-0.5 text-[15px] leading-6 text-neutral-900">{text}</p>
             </div>
         </li>
     )
@@ -158,13 +158,13 @@ function PrepRow({ icon, label, text, accent = false }: { icon: string; label: s
 
 /** A column's small heading on the banner. */
 function BannerLabel({ children }: { children: ReactNode }) {
-    return <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-white/50">{children}</p>
+    return <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">{children}</p>
 }
 
 /** One "what's on" line: icon, a muted label, the thing, an optional value. */
 function OnRow({
     icon,
-    iconClass = 'text-white/50',
+    iconClass = 'text-neutral-500',
     label,
     dot,
     text,
@@ -180,10 +180,10 @@ function OnRow({
     return (
         <li className="flex min-h-[48px] items-center gap-3 py-3">
             <i className={`${icon} w-4 shrink-0 text-center text-sm ${iconClass}`} aria-hidden="true" />
-            <span className="w-20 shrink-0 text-[13px] text-white/50">{label}</span>
+            <span className="w-20 shrink-0 text-[13px] text-neutral-500">{label}</span>
             {dot && <span className={`${DASH.dot} ${dot}`} />}
-            <span className="min-w-0 flex-1 truncate text-[15px] text-white/90">{text}</span>
-            {value && <span className="shrink-0 text-[13px] nums text-white/60">{value}</span>}
+            <span className="min-w-0 flex-1 truncate text-[15px] text-neutral-900">{text}</span>
+            {value && <span className="shrink-0 text-[13px] nums text-neutral-500">{value}</span>}
         </li>
     )
 }
@@ -261,38 +261,26 @@ function TomorrowBrief({
         : []
 
     return (
-        <section className="relative overflow-hidden rounded-3xl bg-neutral-900 text-white">
-            {/* A faint night sky — a violet glow and a few stars, nothing that competes with the words. */}
-            <div
-                aria-hidden="true"
-                className="pointer-events-none absolute -right-24 -top-32 h-80 w-80 rounded-full bg-violet-500/20 blur-3xl"
-            />
-            <div aria-hidden="true" className="pointer-events-none absolute inset-0 hidden sm:block">
-                <span className="absolute right-[18%] top-8 h-1 w-1 rounded-full bg-white/40" />
-                <span className="absolute right-[30%] top-16 h-0.5 w-0.5 rounded-full bg-white/50" />
-                <span className="absolute right-[9%] top-20 h-0.5 w-0.5 rounded-full bg-white/30" />
-                <span className="absolute right-[24%] top-5 h-0.5 w-0.5 rounded-full bg-white/40" />
-            </div>
-
-            <div className="relative flex flex-col gap-6 p-5 sm:p-7 lg:p-8">
+        <section className="relative border-t border-hairline pt-6">
+            <div className="relative flex flex-col gap-6">
                 {/* Heading */}
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex min-w-0 items-center gap-3.5">
-                        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/10 text-lg text-violet-200" aria-hidden="true">
+                        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-surface-muted text-lg text-violet-200" aria-hidden="true">
                             <i className={isPreDawn ? 'fa-solid fa-sun' : 'fa-solid fa-moon'} />
                         </span>
                         <div className="min-w-0">
                             <h2 className="text-xl font-semibold tracking-[-0.015em] sm:text-2xl">
                                 {isPreDawn ? 'Day ahead' : 'Time to sleep'}
                             </h2>
-                            <p className="mt-0.5 truncate text-[13px] text-white/60">
+                            <p className="mt-0.5 truncate text-[13px] text-neutral-500">
                                 {isPreDawn ? 'Today' : 'Tomorrow'} · {formatDateLong(date)}
                             </p>
                         </div>
                     </div>
                     <Link
                         to={`/calendar?date=${date}`}
-                        className="group inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/10 px-3.5 py-2 text-sm font-medium text-white/90 ring-1 ring-inset ring-white/15 transition-colors hover:bg-white/20"
+                        className="group inline-flex shrink-0 items-center gap-1.5 rounded-full bg-surface-muted px-3.5 py-2 text-sm font-medium text-neutral-900 ring-1 ring-inset ring-hairline transition-colors hover:bg-neutral-200"
                     >
                         Open day
                         <i className="fa-solid fa-arrow-right text-[11px] transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />
@@ -303,11 +291,11 @@ function TomorrowBrief({
                 {warnings.length > 0 && (
                     <div className="grid gap-2 md:grid-cols-2">
                         {warnings.map((w) => (
-                            <div key={w.id} className="flex items-start gap-3 rounded-2xl bg-white/[0.07] px-4 py-3.5 ring-1 ring-inset ring-white/10">
+                            <div key={w.id} className="flex items-start gap-3 rounded-xl bg-surface-muted px-4 py-3.5 ring-1 ring-inset ring-hairline">
                                 <i className={`${w.icon} mt-0.5 shrink-0 text-sm ${SEVERITY_ICON_STYLES[w.severity]}`} aria-hidden="true" />
                                 <div className="min-w-0">
-                                    <p className="text-sm font-semibold text-white">{w.title}</p>
-                                    <p className="mt-0.5 text-[13px] leading-[19px] text-white/70">{w.detail}</p>
+                                    <p className="text-sm font-semibold text-neutral-950">{w.title}</p>
+                                    <p className="mt-0.5 text-[13px] leading-[19px] text-neutral-600">{w.detail}</p>
                                 </div>
                             </div>
                         ))}
@@ -315,7 +303,7 @@ function TomorrowBrief({
                 )}
 
                 {/* Weather · Get ready · What's on — side by side on wide screens. */}
-                <div className="grid gap-8 lg:grid-cols-3 lg:gap-0 lg:divide-x lg:divide-white/10">
+                <div className="grid gap-8 lg:grid-cols-3 lg:gap-0 lg:divide-x lg:divide-hairline">
                     <div className="lg:pr-8">
                         <BannerLabel>Weather</BannerLabel>
                         {day && info ? (
@@ -327,9 +315,9 @@ function TomorrowBrief({
                                             <span className="text-[40px] font-medium leading-none tracking-[-0.04em] nums">
                                                 {day.tempMax}&deg;
                                             </span>
-                                            <span className="text-[15px] text-white/70">{info.label}</span>
+                                            <span className="text-[15px] text-neutral-600">{info.label}</span>
                                         </p>
-                                        <p className="mt-1.5 text-[13px] text-white/60">
+                                        <p className="mt-1.5 text-[13px] text-neutral-500">
                                             Low {day.tempMin}&deg;
                                             {day.precipitationProbability > 0 && <> · {day.precipitationProbability}% rain</>}
                                             {` · wind ${day.windMax} mph`}
@@ -339,18 +327,18 @@ function TomorrowBrief({
                                 {facts.length > 0 && (
                                     <dl className="grid grid-cols-3 gap-2">
                                         {facts.map((f) => (
-                                            <div key={f.label} className="rounded-xl bg-white/[0.06] px-3 py-2">
-                                                <dt className="text-[11px] text-white/50">{f.label}</dt>
-                                                <dd className="text-sm font-medium nums text-white/90">{f.value}</dd>
+                                            <div key={f.label} className="rounded-xl bg-surface-muted px-3 py-2">
+                                                <dt className="text-[11px] text-neutral-500">{f.label}</dt>
+                                                <dd className="text-sm font-medium nums text-neutral-900">{f.value}</dd>
                                             </div>
                                         ))}
                                     </dl>
                                 )}
                             </div>
                         ) : (
-                            <p className="py-3 text-[15px] text-white/60">
+                            <p className="py-3 text-[15px] text-neutral-500">
                                 No forecast yet.{' '}
-                                <Link to="/weather" className="font-medium text-white underline underline-offset-4">
+                                <Link to="/weather" className="font-medium text-neutral-950 underline underline-offset-4">
                                     Open weather
                                 </Link>
                             </p>
@@ -360,7 +348,7 @@ function TomorrowBrief({
                     <div className="lg:px-8">
                         <BannerLabel>Get ready</BannerLabel>
                         {day && info ? (
-                            <ul className="divide-y divide-white/10">
+                            <ul className="divide-y divide-hairline">
                                 {/* What to wear leads — it's the thing you sort out the night before. */}
                                 <PrepRow icon="fa-solid fa-shirt" label="What to wear" text={whatToWear(day)} />
                                 {insight && <PrepRow icon="fa-solid fa-lightbulb" label="Worth knowing" text={insight} />}
@@ -370,13 +358,13 @@ function TomorrowBrief({
                                 ))}
                             </ul>
                         ) : prep.length > 0 ? (
-                            <ul className="divide-y divide-white/10">
+                            <ul className="divide-y divide-hairline">
                                 {prep.map((item) => (
                                     <PrepRow key={item.id} icon={item.icon} label="Tonight" text={item.text} accent />
                                 ))}
                             </ul>
                         ) : (
-                            <p className="py-3 text-[15px] text-white/60">Nothing to sort tonight.</p>
+                            <p className="py-3 text-[15px] text-neutral-500">Nothing to sort tonight.</p>
                         )}
                     </div>
 
@@ -384,8 +372,8 @@ function TomorrowBrief({
                         <BannerLabel>
                             {firstTimed ? (
                                 <>
-                                    First thing · <span className="text-white/90">{firstTimed.title}</span>{' '}
-                                    <span className="nums text-white/90">{firstTimed.time}</span>
+                                    First thing · <span className="text-neutral-900">{firstTimed.title}</span>{' '}
+                                    <span className="nums text-neutral-900">{firstTimed.time}</span>
                                 </>
                             ) : (
                                 "What's on"
@@ -398,9 +386,9 @@ function TomorrowBrief({
                             </p>
                         )}
                         {nothingOn ? (
-                            <p className="py-3 text-[15px] text-white/60">Nothing scheduled — a clear day ahead.</p>
+                            <p className="py-3 text-[15px] text-neutral-500">Nothing scheduled — a clear day ahead.</p>
                         ) : (
-                            <ul className="divide-y divide-white/10">
+                            <ul className="divide-y divide-hairline">
                                 {allDay.map((e) => (
                                     <OnRow
                                         key={e._id}

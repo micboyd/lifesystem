@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Container from '../components/Container'
 import Button from '../components/Button'
@@ -10,8 +10,8 @@ import LibraryPicker from '../components/walking/LibraryPicker'
 import { useAuth } from '../context/AuthContext'
 import { todayKey } from '../lib/calendar'
 import { DAY_PARTS, partAt, type DayPart } from '../lib/yourDay'
-import { formatGoal, libraryTitle, formatMinutes, formatWalkKm, nextWalk, walkDayTotals, walkEstimate, walkPart, sortWalks, walkTitle, finishTime, type WalkDayTotals } from '../lib/walking'
-import { deleteWalk, listLibrary, setWalkDone, type Walk, type WalkLibraryItem } from '../services/walks'
+import { SLOT_TIMES, formatGoal, libraryTitle, formatMinutes, formatWalkKm, nextWalk, walkDayTotals, walkEstimate, walkPart, sortWalks, walkTitle, finishTime, type WalkDayTotals } from '../lib/walking'
+import { assignLibraryItem, deleteWalk, listLibrary, setWalkDone, type Walk, type WalkLibraryItem } from '../services/walks'
 
 /**
  * Walking: a day of planned walks, laid out like Home — the day's tally and
@@ -26,6 +26,8 @@ import { deleteWalk, listLibrary, setWalkDone, type Walk, type WalkLibraryItem }
 const PART_LABEL: Record<DayPart, string> = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' }
 const fmt = (n: number) => n.toLocaleString('en-GB')
 const OVERLINE = 'text-[11px] font-medium uppercase tracking-[0.06em]'
+/** Drag payload for a library walk, so other drags (text, files) never land on a slot. */
+const LIBRARY_DRAG = 'application/x-walk-library'
 
 function dateFromLink(raw: string | null): string {
     return raw && /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : todayKey()
@@ -76,6 +78,20 @@ export default function Walking() {
         }
     }
 
+    // Dropping a library walk on a part of the day copies it there at the slot's usual time.
+    const [dropping, setDropping] = useState<DayPart | null>(null)
+    async function dropOn(part: DayPart, id: string) {
+        setError('')
+        setDropping(part)
+        try {
+            upsert(await assignLibraryItem(id, date, SLOT_TIMES[part]))
+        } catch {
+            setError('Couldn’t add that walk. Check your connection and try again.')
+        } finally {
+            setDropping(null)
+        }
+    }
+
     async function removeWalk(walk: Walk) {
         setError('')
         remove(walk._id)
@@ -106,12 +122,12 @@ export default function Walking() {
             </header>
 
             {failed && (
-                <p role="alert" className="mt-8 rounded-2xl bg-red-50/70 p-4 text-sm text-neutral-800">
+                <p role="alert" className="mt-8 rounded-xl bg-red-50/70 p-4 text-sm text-neutral-800">
                     Couldn’t load your walks. Check your connection and try again.
                 </p>
             )}
             {error && (
-                <p role="alert" className="mt-8 rounded-2xl bg-red-50/70 p-4 text-sm text-neutral-800">
+                <p role="alert" className="mt-8 rounded-xl bg-red-50/70 p-4 text-sm text-neutral-800">
                     {error}
                 </p>
             )}
@@ -142,7 +158,7 @@ export default function Walking() {
                                     const own = sortWalks(walks.filter((w) => walkPart(w.time) === part))
                                     const passed = nowPart !== null && DAY_PARTS.indexOf(part) < DAY_PARTS.indexOf(nowPart)
                                     return (
-                                        <PartGroup key={part} part={part} now={nowPart === part} passed={passed} walks={own} onAdd={() => pickSlot(part)}>
+                                        <PartGroup key={part} part={part} now={nowPart === part} passed={passed} walks={own} onAdd={() => pickSlot(part)} onDropItem={(id) => void dropOn(part, id)} busy={dropping === part}>
                                             {own.map((w) => (
                                                 <WalkRow key={w._id} walk={w} weightKg={weightKg} isNext={next?._id === w._id} onOpen={open} onToggle={toggle} onRemove={setRemoving} />
                                             ))}
@@ -263,7 +279,7 @@ function NextWalk({
     onToggle: (walk: Walk) => void
     onAdd: () => void
 }) {
-    const panel = 'rounded-2xl p-5 sm:p-6'
+    const panel = 'rounded-xl p-5 sm:p-6'
     if (!walk)
         return walks.length > 0 ? (
             <div className={`${panel} bg-success-bg`}>
@@ -344,7 +360,10 @@ function Library({
                     <AreaIcon icon="fa-solid fa-bookmark" tone="green" />
                     <div className="min-w-0">
                         <h2 className="text-lg font-semibold tracking-[-0.015em] text-neutral-900">Library</h2>
-                        <p className="mt-0.5 truncate text-[13px] text-neutral-500">Ready to put on any day</p>
+                        <p className="mt-0.5 truncate text-[13px] text-neutral-500">
+                            <span className="hidden lg:inline">Drag one onto a part of the day</span>
+                            <span className="lg:hidden">Ready to put on any day</span>
+                        </p>
                     </div>
                 </div>
                 <Button variant="secondary" size="sm" icon="fa-solid fa-plus" onClick={onNew}>
@@ -363,7 +382,16 @@ function Library({
                         const e = walkEstimate(item, weightKg)
                         return (
                             <li key={item._id} className="border-t border-neutral-100 first:border-t-0">
-                                <button type="button" className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-neutral-50" onClick={() => onOpen(item._id)}>
+                                <button
+                                    type="button"
+                                    draggable
+                                    onDragStart={(ev) => {
+                                        ev.dataTransfer.setData(LIBRARY_DRAG, item._id)
+                                        ev.dataTransfer.effectAllowed = 'copy'
+                                    }}
+                                    className="flex w-full cursor-grab items-center gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-neutral-50 active:cursor-grabbing"
+                                    onClick={() => onOpen(item._id)}
+                                >
                                     <span className="min-w-0 flex-1">
                                         <span className="block truncate text-[15px] text-neutral-900">{libraryTitle(item)}</span>
                                         <span className="nums mt-0.5 block truncate text-[13px] text-neutral-500">
@@ -399,6 +427,8 @@ function PartGroup({
     passed,
     walks,
     onAdd,
+    onDropItem,
+    busy,
     children,
 }: {
     part: DayPart
@@ -407,15 +437,49 @@ function PartGroup({
     passed: boolean
     walks: Walk[]
     onAdd: () => void
+    /** A library walk dropped on this part of the day. */
+    onDropItem: (libraryId: string) => void
+    /** A dropped walk is being saved here. */
+    busy: boolean
     children: ReactNode[]
 }) {
     const meta = PART_META[part]
+    const [over, setOver] = useState(false)
+    const accepts = (ev: DragEvent) => ev.dataTransfer.types.includes(LIBRARY_DRAG)
     const done = walks.filter((w) => w.doneAt).length
     const allDone = walks.length > 0 && done === walks.length
     return (
         <section
             aria-label={PART_LABEL[part]}
-            className={`min-w-0 rounded-2xl p-2 transition-colors ${now ? 'bg-coral-50/50 ring-1 ring-inset ring-coral-100' : 'bg-neutral-50'}`}
+            aria-busy={busy}
+            onDragEnter={(ev) => {
+                if (!accepts(ev)) return
+                ev.preventDefault()
+                setOver(true)
+            }}
+            onDragOver={(ev) => {
+                if (!accepts(ev)) return
+                ev.preventDefault()
+                ev.dataTransfer.dropEffect = 'copy'
+            }}
+            onDragLeave={(ev) => {
+                // Only when the pointer leaves the slot, not when it crosses a child.
+                if (!ev.currentTarget.contains(ev.relatedTarget as Node | null)) setOver(false)
+            }}
+            onDrop={(ev) => {
+                const id = ev.dataTransfer.getData(LIBRARY_DRAG)
+                setOver(false)
+                if (!id) return
+                ev.preventDefault()
+                onDropItem(id)
+            }}
+            className={`min-w-0 rounded-xl p-2 transition-colors ${
+                over
+                    ? 'bg-area-walking-bg ring-2 ring-inset ring-area-walking'
+                    : now
+                      ? 'bg-coral-50/50 ring-1 ring-inset ring-coral-100'
+                      : 'bg-neutral-50'
+            }`}
         >
             <div className="flex min-h-11 items-center gap-3 pl-2">
                 <span
@@ -431,7 +495,9 @@ function PartGroup({
                         <h3 className={`text-[15px] font-semibold tracking-[-0.01em] ${passed ? 'text-neutral-500' : 'text-neutral-900'}`}>{PART_LABEL[part]}</h3>
                         {now && <span className="inline-flex h-5 items-center rounded-full bg-coral-500 px-2 text-[11px] font-semibold text-white">Now</span>}
                     </div>
-                    <p className="nums text-[12px] text-neutral-500">{meta.hours}</p>
+                    <p className="nums text-[12px] text-neutral-500">
+                        {busy ? 'Adding…' : over ? `Drop to add at ${SLOT_TIMES[part]}` : meta.hours}
+                    </p>
                 </div>
                 {walks.length > 0 && (
                     <span

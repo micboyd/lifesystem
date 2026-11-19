@@ -541,7 +541,7 @@ export default function PhaseLibrary({
                       and the review engine stays quiet because it has nothing to
                       steer towards.
                     */}
-                    <div className="rounded-2xl border border-neutral-200 p-4">
+                    <div className="rounded-xl border border-neutral-200 p-4">
                         <Switch
                             label="Adaptive targets"
                             checked={form.adaptive}
@@ -830,7 +830,7 @@ export default function PhaseLibrary({
                     </div>
 
                     {/* Optional calorie cycling. The week still averages the baseline. */}
-                    <div className="rounded-2xl border border-neutral-200 p-4">
+                    <div className="rounded-xl border border-neutral-200 p-4">
                         <Switch
                             label="Cycle calories by training day"
                             checked={form.cycling}
@@ -915,7 +915,7 @@ function PhaseCard({
                 type="button"
                 aria-label={`Edit ${phase.name}`}
                 onClick={onOpen}
-                className="absolute inset-0 z-10 rounded-3xl focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500"
+                className="absolute inset-0 z-10 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500"
             />
 
             <div className="flex items-start justify-between gap-2">

@@ -207,7 +207,7 @@ function PaceChart({ s }: { s: MonthStatement }) {
                     strokeWidth={1.5}
                     strokeDasharray="1 4"
                     strokeLinecap="round"
-                    className="text-white/50"
+                    className="text-neutral-500"
                     vectorEffect="non-scaling-stroke"
                 />
             )}
@@ -218,7 +218,7 @@ function PaceChart({ s }: { s: MonthStatement }) {
                     stroke="currentColor"
                     strokeWidth={2.5}
                     strokeLinejoin="round"
-                    className="text-white"
+                    className="text-neutral-950"
                     vectorEffect="non-scaling-stroke"
                 />
             )}
@@ -235,7 +235,7 @@ function MonthArrow({ dir, onClick, disabled = false }: { dir: 'prev' | 'next'; 
             title={label}
             onClick={onClick}
             disabled={disabled}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/10 text-neutral-200 transition-colors hover:bg-white/20 hover:text-white disabled:pointer-events-none disabled:opacity-30 sm:h-9 sm:w-9"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-surface-muted text-neutral-700 transition-colors hover:bg-neutral-200 hover:text-neutral-950 disabled:pointer-events-none disabled:opacity-30 sm:h-9 sm:w-9"
         >
             <i className={`fa-solid ${dir === 'prev' ? 'fa-chevron-left' : 'fa-chevron-right'} text-xs`} aria-hidden="true" />
         </button>
@@ -247,7 +247,7 @@ function KindSplit({ kinds, total }: { kinds: KindTotal[]; total: number }) {
     const shown = kinds.filter((k) => k.total > 0)
     return (
         <div>
-            <div className="flex h-2 w-full gap-0.5 overflow-hidden rounded-full bg-white/10">
+            <div className="flex h-2 w-full gap-0.5 overflow-hidden rounded-full bg-surface-muted">
                 {shown.map((k) => (
                     <div key={k.kind} className={`h-full ${KIND_DOT[k.kind]}`} style={{ width: `${(k.total / total) * 100}%` }} />
                 ))}
@@ -258,14 +258,14 @@ function KindSplit({ kinds, total }: { kinds: KindTotal[]; total: number }) {
                     return (
                         <li key={k.kind} className="flex items-baseline gap-2 text-[13px]">
                             <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${KIND_DOT[k.kind]}`} aria-hidden="true" />
-                            <span className="min-w-0 flex-1 truncate text-neutral-300">{KIND_LABEL[k.kind]}</span>
+                            <span className="min-w-0 flex-1 truncate text-neutral-600">{KIND_LABEL[k.kind]}</span>
                             {Math.abs(diff) >= 1 && (
                                 <span className="text-xs text-neutral-500">
                                     {diff > 0 ? '+' : '−'}
                                     <M v={Math.abs(diff)} d={0} />
                                 </span>
                             )}
-                            <M v={k.total} className="w-20 text-right font-medium text-white" />
+                            <M v={k.total} className="w-20 text-right font-medium text-neutral-950" />
                         </li>
                     )
                 })}
@@ -278,7 +278,7 @@ function HeroFigure({ label, children, sub }: { label: string; children: ReactNo
     return (
         <div className="min-w-0">
             <p className={HERO_OVERLINE}>{label}</p>
-            <p className="mt-1.5 truncate text-xl font-medium tracking-[-0.03em] text-white">{children}</p>
+            <p className="mt-1.5 truncate text-xl font-medium tracking-[-0.03em] text-neutral-950">{children}</p>
             {sub && <p className="mt-0.5 truncate text-xs text-neutral-500">{sub}</p>}
         </div>
     )
@@ -300,20 +300,20 @@ function Hero({
         vs?.tone === 'good'
             ? 'bg-emerald-400/15 text-emerald-300'
             : vs?.tone === 'bad'
-              ? 'bg-coral-400/20 text-coral-300'
-              : 'bg-white/10 text-neutral-300'
+              ? 'bg-coral-400/20 text-coral-700'
+              : 'bg-surface-muted text-neutral-600'
     const prevName = s ? formatMonthKey(s.prev.month).split(' ')[0] : ''
 
     return (
-        <section className="mb-6 rounded-3xl bg-neutral-900 p-5 text-neutral-50 sm:p-7">
+        <section className="mb-6 border-b border-hairline pb-6 sm:pb-8">
             <div className="flex items-center gap-3">
                 <div className="flex shrink-0 items-center gap-1.5">
                     <MonthArrow dir="prev" onClick={nav.onPrev} />
                     <MonthArrow dir="next" onClick={nav.onNext} disabled={nav.nextDisabled} />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <h1 className="truncate text-xl font-semibold tracking-tight text-white sm:text-[22px]">{nav.label}</h1>
-                    <p className="truncate text-[13px] text-neutral-400">{status}</p>
+                    <h1 className="truncate text-xl font-semibold tracking-tight text-neutral-950 sm:text-[22px]">{nav.label}</h1>
+                    <p className="truncate text-[13px] text-neutral-500">{status}</p>
                 </div>
             </div>
 
@@ -323,7 +323,7 @@ function Hero({
                         <div className="flex min-w-0 flex-col gap-5">
                             <div>
                                 <p className={HERO_OVERLINE}>{s.isCurrent ? 'Spent so far' : 'Spent in total'}</p>
-                                <p className="mt-2 text-[44px] font-medium leading-none tracking-[-0.04em] text-white sm:text-[52px]">
+                                <p className="mt-2 text-[44px] font-medium leading-none tracking-[-0.04em] text-neutral-950 sm:text-[52px]">
                                     <M v={s.total} d={0} />
                                 </p>
                                 <span className={`mt-3 inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${pill}`}>
@@ -339,7 +339,7 @@ function Hero({
                             <PaceChart s={s} />
                             <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-neutral-500">
                                 <span className="inline-flex items-center gap-2">
-                                    <span className="h-0.5 w-4 rounded bg-white" aria-hidden="true" />
+                                    <span className="h-0.5 w-4 rounded bg-neutral-900" aria-hidden="true" />
                                     {nav.label.split(' ')[0]}
                                 </span>
                                 <span className="inline-flex items-center gap-2">
@@ -350,7 +350,7 @@ function Hero({
                                 </span>
                                 {s.projected !== null && (
                                     <span className="inline-flex items-center gap-2">
-                                        <span className="h-0 w-4 border-t border-dotted border-white/50" aria-hidden="true" />
+                                        <span className="h-0 w-4 border-t border-dotted border-neutral-400" aria-hidden="true" />
                                         At this pace
                                     </span>
                                 )}
@@ -358,7 +358,7 @@ function Hero({
                         </div>
                     </div>
 
-                    <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-5 border-t border-white/10 pt-5">
+                    <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-5 border-t border-hairline pt-5">
                         <HeroFigure label="Per day" sub={`Over ${plural(s.dayOfMonth, 'day')}`}>
                             <M v={s.dailyAverage} />
                         </HeroFigure>
@@ -477,7 +477,7 @@ function Insights({ insights, onOpen }: { insights: Insight[]; onOpen: (title: s
 function DohSection({ doh, onOpen }: { doh: Doh; onOpen: (title: string, items: StarlingSpendItem[]) => void }) {
     if (doh.lines.length === 0) {
         return (
-            <section className="mb-6 flex items-center gap-3 rounded-3xl bg-success-bg px-5 py-4">
+            <section className="mb-6 flex items-center gap-3 rounded-xl bg-success-bg px-5 py-4">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-success">
                     <i className="fa-solid fa-face-smile" aria-hidden="true" />
                 </span>
@@ -489,7 +489,7 @@ function DohSection({ doh, onOpen }: { doh: Doh; onOpen: (title: string, items: 
         )
     }
     return (
-        <section className="mb-6 rounded-3xl bg-coral-50 p-4 sm:p-5">
+        <section className="mb-6 rounded-xl bg-coral-50 p-4 sm:p-5">
             <div className="mb-4 flex items-start gap-3 px-1">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-coral-600">
                     <i className="fa-solid fa-face-grimace" aria-hidden="true" />
@@ -650,7 +650,7 @@ function SavingsGoalCard({
 
             {goal && plan && (
                 <>
-                    <ul className="mt-4 divide-y divide-neutral-100 overflow-hidden rounded-2xl bg-white">
+                    <ul className="mt-4 divide-y divide-neutral-100 overflow-hidden rounded-xl bg-white">
                         {plan.levers.map((l, i) => {
                             const on = chosen.has(l.id)
                             const firstSpare = !on && i > 0 && chosen.has(plan.levers[i - 1].id)
@@ -717,7 +717,7 @@ function plain(copy: Copy): string {
 /** Direct debits and standing orders: last month's, ticked as this month's go out. */
 function RegularBillsCard({ r, monthName }: { r: RegularBills; monthName: string }) {
     return (
-        <section className="mb-6 rounded-[20px] bg-white p-5 ring-1 ring-neutral-900/[0.06] sm:p-6">
+        <section className="mb-6 border-t border-hairline pt-5 sm:pt-6">
             <p className={OVERLINE}>Regular bills</p>
             <p className="mt-0.5 text-[13px] text-neutral-500">Direct debits and standing orders. Ticked once they’ve gone out in {monthName}.</p>
             {r.bills.length === 0 ? (
@@ -765,7 +765,7 @@ function Lessons({ a, prevName, onOpen }: { a: MonthAhead; prevName: string; onO
         <section className="mb-6 rounded-[20px] bg-neutral-100 p-4 sm:p-5">
             <p className={`mb-3 px-1 ${OVERLINE}`}>Lessons from {prevName}</p>
             <div className="grid gap-3 md:grid-cols-3">
-                <div className="rounded-2xl bg-white p-4">
+                <div className="rounded-xl bg-white p-4">
                     <p className="text-[13px] text-neutral-500">{prevName} in total</p>
                     <M v={a.lastMonth.total} d={0} className="mt-1 block text-[26px] font-medium leading-tight tracking-[-0.03em] text-neutral-950" />
                     {vsBefore && vsBefore.tone !== 'neutral' && (
@@ -778,7 +778,7 @@ function Lessons({ a, prevName, onOpen }: { a: MonthAhead; prevName: string; onO
                     <button
                         type="button"
                         onClick={() => onOpen(biggestDoh.subject, biggestDoh.items)}
-                        className="rounded-2xl bg-white p-4 text-left transition-colors hover:bg-neutral-50"
+                        className="rounded-xl bg-white p-4 text-left transition-colors hover:bg-neutral-50"
                     >
                         <p className="text-[13px] text-neutral-500">
                             <i className="fa-solid fa-face-grimace mr-1.5 text-coral-600" aria-hidden="true" />
@@ -790,7 +790,7 @@ function Lessons({ a, prevName, onOpen }: { a: MonthAhead; prevName: string; onO
                         </p>
                     </button>
                 ) : (
-                    <div className="rounded-2xl bg-white p-4">
+                    <div className="rounded-xl bg-white p-4">
                         <p className="text-[13px] text-neutral-500">Down the drain</p>
                         <p className="mt-1 text-[15px] text-neutral-900">Nothing. No doh moments in {prevName}.</p>
                     </div>
@@ -799,7 +799,7 @@ function Lessons({ a, prevName, onOpen }: { a: MonthAhead; prevName: string; onO
                     <button
                         type="button"
                         onClick={() => onOpen(a.tryThis!.subject, a.tryThis!.items)}
-                        className="rounded-2xl bg-white p-4 text-left transition-colors hover:bg-neutral-50"
+                        className="rounded-xl bg-white p-4 text-left transition-colors hover:bg-neutral-50"
                     >
                         <p className="text-[13px] text-neutral-500">
                             <i className="fa-solid fa-lightbulb mr-1.5 text-warning" aria-hidden="true" />
@@ -815,7 +815,7 @@ function Lessons({ a, prevName, onOpen }: { a: MonthAhead; prevName: string; onO
                         ) : null}
                     </button>
                 ) : (
-                    <div className="rounded-2xl bg-white p-4">
+                    <div className="rounded-xl bg-white p-4">
                         <p className="text-[13px] text-neutral-500">One thing to try</p>
                         <p className="mt-1 text-[15px] text-neutral-900">Same again: nothing big stood out.</p>
                     </div>
@@ -1294,7 +1294,7 @@ function WeekCard({ week, onOpen }: { week: WeekReview; onOpen: (title: string, 
     const used = week.budget > 0 ? Math.min(100, (week.spent / week.budget) * 100) : 0
     const vsLast = week.spent - week.lastWeek
     return (
-        <section className="mb-6 rounded-[20px] bg-white p-5 ring-1 ring-neutral-900/[0.06] sm:p-6">
+        <section className="mb-6 border-t border-hairline pt-5 sm:pt-6">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <div>
                     <p className={OVERLINE}>{week.done ? 'Your week in review' : 'This week'}</p>

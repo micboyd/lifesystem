@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { AREA_TONES, AreaIcon, DASH, DASH_CARD, SectionLoading, type AreaTone } from './DashSection'
+import { AREA_TEXT, GlanceMetric, SectionLoading, type AreaTone } from './DashSection'
 import { useNutritionToday, type NutritionToday } from './useNutritionToday'
 import { listPlanEntries } from '../../services/fitnessPlan'
 import { listLogs as listWorkoutLogs } from '../../services/workoutLogs'
@@ -199,14 +199,12 @@ export default function YourDayWidget({
     if (!day)
         return (
             <section className="min-w-0" aria-label="Your day">
-                <div className={DASH_CARD}>
-                    <Title summary={null} />
-                </div>
-                <div className="mt-5 grid items-start gap-5 lg:grid-cols-12">
-                    <div className={`${DASH_CARD} lg:col-span-8`}>
-                        <SectionLoading rows={5} />
+                <p className="h-10 w-2/3 animate-pulse rounded-lg bg-neutral-100" />
+                <div className="mt-14 grid gap-x-16 gap-y-12 lg:grid-cols-12">
+                    <div className="lg:col-span-8">
+                        <SectionLoading rows={6} />
                     </div>
-                    {aside && <div className="flex min-w-0 flex-col gap-5 lg:col-span-4">{aside}</div>}
+                    {aside && <div className="flex min-w-0 flex-col gap-12 lg:col-span-4">{aside}</div>}
                 </div>
             </section>
         )
@@ -224,22 +222,32 @@ export default function YourDayWidget({
 
     return (
         <section className="min-w-0" aria-label="Your day">
-            {/* The day's score and targets in one strip, so the state of today reads first. */}
-            <div className={`${DASH_CARD} flex flex-wrap items-center justify-between gap-x-10 gap-y-5`}>
-                <div className="flex min-w-0 items-center gap-4">
-                    {day.total > 0 && <ScoreRing day={day} />}
-                    <Title summary={summaryOf(day, date, today)} />
-                </div>
-                <div className="flex w-full items-end gap-5 sm:w-auto sm:gap-8">
-                    <Targets day={day} nutrition={nutrition} />
-                    {glance}
-                </div>
+            {/* The state of the day in a sentence, carrying on from the greeting above. */}
+            <p className="max-w-3xl text-[18px] leading-[26px] tracking-[-0.015em] text-neutral-500 sm:text-[20px] sm:leading-7">
+                {headlineOf(day, date, today)}
+            </p>
+
+            <div className="mt-9 grid grid-cols-2 gap-x-8 gap-y-8 lg:grid-cols-4">
+                {day.total > 0 && (
+                    <GlanceMetric
+                        label="Your day"
+                        value={String(day.done)}
+                        goal={String(day.total)}
+                        share={day.done / day.total}
+                        bar={day.perfect ? 'bg-success' : 'bg-neutral-900'}
+                        to="/perfect-day"
+                    />
+                )}
+                <Targets day={day} nutrition={nutrition} />
+                {glance}
             </div>
 
-            <div className="mt-5 grid items-start gap-5 lg:grid-cols-12">
-                <div className={`${DASH_CARD} min-w-0 !p-2 sm:!p-2 lg:col-span-8`}>
-                    <NextUp day={day} date={date} today={today} onTick={toggleHabit} />
-                    <div className="flex flex-col gap-5 px-3 pb-3 pt-5 sm:px-4">
+            <div className="mt-11 grid gap-x-16 gap-y-12">
+                <div className="min-w-0">
+                    <Title />
+                    <ColumnHeads />
+                    {!day.next && <NextUp day={day} date={date} today={today} onTick={toggleHabit} />}
+                    <div className="flex flex-col gap-6">
                         {DAY_PARTS.map((part) => (
                             <PartGroup key={part} label={PART_LABEL[part]} part={part} day={day}>
                                 {day.steps.filter((s) => s.part === part).map(row)}
@@ -252,40 +260,32 @@ export default function YourDayWidget({
                         )}
                     </div>
                 </div>
-                {aside && <div className="flex min-w-0 flex-col gap-5 lg:col-span-4">{aside}</div>}
+                {aside && <div className="flex min-w-0 flex-col gap-10">{aside}</div>}
             </div>
         </section>
     )
 }
 
-function summaryOf(day: YourDay, date: string, today: string): string {
-    if (day.total === 0) return date >= today ? 'Nothing planned yet.' : 'Nothing was planned.'
-    if (day.perfect) return date === today ? 'A perfect day — everything’s done.' : 'A perfect day.'
-    if (date > today) return `${day.total} ${day.total === 1 ? 'thing' : 'things'} planned`
-    if (date < today) return `${day.done} of ${day.total} done`
-    const missed = day.steps.filter((s) => s.state === 'missed').length
-    if (missed) return `${missed} skipped · ${day.steps.filter((s) => s.state === 'todo').length} still to do`
-    return `${day.total - day.done} to go for a perfect day`
+/** The day in one sentence: how far through, and what's next. */
+function headlineOf(day: YourDay, date: string, today: string): string {
+    const n = (k: number) =>
+        ['None', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve'][k] ?? String(k)
+    if (day.total === 0) return date >= today ? 'Nothing planned yet.' : 'Nothing was planned that day.'
+    if (day.perfect) return date === today ? 'Everything’s done. A perfect day.' : 'A perfect day.'
+    if (date > today) return `${n(day.total)} ${day.total === 1 ? 'thing' : 'things'} planned.`
+    if (date < today) return `${n(day.done)} of ${day.total} done that day.`
+    const done = `${n(day.done)} of ${day.total} done`
+    if (day.next) return `${done}. Next, ${day.next.title.charAt(0).toLowerCase()}${day.next.title.slice(1)}.`
+    return `${done}.`
 }
 
-function Title({ summary }: { summary: string | null }) {
+function Title() {
     return (
-        <div className="flex min-w-0 items-center gap-3">
-            <AreaIcon icon="fa-solid fa-list-check" tone="coral" />
-            <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                    <h2 className="text-xl font-semibold tracking-[-0.015em] text-neutral-900">Your day</h2>
-                    <Link
-                        to="/perfect-day"
-                        className="grid h-7 w-7 place-items-center rounded-full text-[13px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
-                        aria-label="Choose what makes a perfect day"
-                        title="Choose what makes a perfect day"
-                    >
-                        <i className="fa-solid fa-sliders" aria-hidden="true" />
-                    </Link>
-                </div>
-                {summary && <p className="mt-0.5 truncate text-[13px] text-neutral-500">{summary}</p>}
-            </div>
+        <div className="mb-4 flex items-baseline justify-between gap-4">
+            <h2 className="text-lg font-medium tracking-[-0.02em] text-neutral-900">Your day</h2>
+            <Link to="/perfect-day" className="text-[13px] font-medium text-neutral-500 transition-colors hover:text-neutral-900">
+                What makes a perfect day
+            </Link>
         </div>
     )
 }
@@ -303,54 +303,17 @@ function Targets({ day, nutrition }: { day: YourDay; nutrition: NutritionToday }
     return (
         <>
             {meters.map((m) => (
-                <Link key={m.kind} to="/nutrition" className="group block min-w-0 flex-1 sm:w-36 sm:flex-none">
-                    <p className="text-[12px] text-neutral-500 group-hover:text-neutral-900">{m.label}</p>
-                    <p className="nums mt-0.5 truncate text-[15px] font-medium text-neutral-900">
-                        {Math.round(m.value).toLocaleString('en-GB')}
-                        <span className="font-normal text-neutral-500">
-                            {' '}
-                            / {Math.round(m.goal).toLocaleString('en-GB')}
-                            {m.unit}
-                        </span>
-                    </p>
-                    <div className={`mt-1.5 ${DASH.track}`}>
-                        <div
-                            className={`h-full rounded-full ${
-                                m.state === 'over' ? 'bg-danger' : m.state === 'done' ? 'bg-success' : 'bg-neutral-900'
-                            }`}
-                            style={{ width: `${Math.min(100, (m.value / m.goal) * 100)}%` }}
-                        />
-                    </div>
-                </Link>
+                <GlanceMetric
+                    key={m.kind}
+                    label={m.label}
+                    value={Math.round(m.value).toLocaleString('en-GB')}
+                    goal={`${Math.round(m.goal).toLocaleString('en-GB')}${m.unit}`}
+                    share={m.value / m.goal}
+                    bar={m.state === 'over' ? 'bg-danger' : 'bg-orange-500'}
+                    to="/nutrition"
+                />
             ))}
         </>
-    )
-}
-
-/** Done out of total as a ring, with the count in the middle. */
-function ScoreRing({ day }: { day: YourDay }) {
-    const r = 21
-    const length = 2 * Math.PI * r
-    const share = day.total ? day.done / day.total : 0
-    return (
-        <div className="relative grid h-14 w-14 shrink-0 place-items-center" role="img" aria-label={`${day.done} of ${day.total} done`}>
-            <svg className="absolute inset-0 -rotate-90" viewBox="0 0 52 52" aria-hidden="true">
-                <circle cx="26" cy="26" r={r} fill="none" strokeWidth="5" className="stroke-neutral-200" />
-                <circle
-                    cx="26"
-                    cy="26"
-                    r={r}
-                    fill="none"
-                    strokeWidth="5"
-                    strokeLinecap="round"
-                    className={`${day.perfect ? 'stroke-success' : 'stroke-neutral-900'} transition-[stroke-dasharray] duration-500`}
-                    strokeDasharray={`${Math.max(share * length, share > 0 ? 1 : 0)} ${length}`}
-                />
-            </svg>
-            <span className="tabular-nums text-[13px] font-medium text-neutral-900">
-                {day.done}/{day.total}
-            </span>
-        </div>
     )
 }
 
@@ -367,13 +330,13 @@ function NextUp({
     today: string
     onTick: (habitId: string) => void
 }) {
-    const panel = 'rounded-2xl p-5 sm:p-6'
+    const panel = 'mb-4 border-t border-hairline pt-5'
     const overline = 'text-[11px] font-medium uppercase tracking-[0.06em]'
     if (date !== today) {
         const { year, month, day: dayOfMonth } = parseDateKey(date)
         const weekday = WEEKDAYS_LONG[new Date(year, month, dayOfMonth).getDay()]
         return (
-            <div className={`${panel} bg-neutral-100`}>
+            <div className={panel}>
                 <p className={`${overline} text-neutral-500`}>{date > today ? 'Coming up' : 'Looking back'}</p>
                 <p className="mt-3 text-2xl font-semibold tracking-[-0.025em] text-neutral-950">{weekday}</p>
                 <p className="mt-1 text-[14px] leading-6 text-neutral-600">
@@ -385,7 +348,7 @@ function NextUp({
 
     if (day.perfect)
         return (
-            <div className={`${panel} bg-success-bg`}>
+            <div className={panel}>
                 <span className="grid h-10 w-10 place-items-center rounded-full bg-success text-white" aria-hidden="true">
                     <i className="fa-solid fa-check" />
                 </span>
@@ -399,7 +362,7 @@ function NextUp({
         const over = day.steps.some((s) => s.state === 'over')
         const missed = day.steps.some((s) => s.state === 'missed')
         return (
-            <div className={`${panel} bg-neutral-100`}>
+            <div className={panel}>
                 <p className={`${overline} text-neutral-500`}>Next up</p>
                 <p className="mt-3 text-2xl font-semibold tracking-[-0.025em] text-neutral-950">
                     {over || missed ? 'Nothing left to tick' : 'Nothing planned'}
@@ -469,24 +432,47 @@ function PartGroup({
     const done = own.filter((s) => s.state === 'done').length
     return (
         <div className="min-w-0">
-            <div className="mb-1 flex h-6 items-center gap-2 px-2">
-                <p className={`text-[13px] font-semibold ${passed ? 'text-neutral-500' : 'text-neutral-700'}`}>{label}</p>
-                {now && (
-                    <span className="inline-flex h-5 items-center rounded-full bg-coral-50 px-2 text-[11px] font-semibold text-coral-700">
-                        Now
-                    </span>
-                )}
+            <div className="flex h-8 items-center gap-2.5">
+                <p className={`text-[13px] font-medium ${passed ? 'text-neutral-500' : 'text-neutral-700'}`}>{label}</p>
+                {now && <span className="text-[12px] font-semibold text-coral-600">Now</span>}
                 {own.length > 0 && (
-                    <span className="tabular-nums ml-auto text-[12px] text-neutral-500">
+                    <span className="nums ml-auto text-[12px] text-neutral-500">
                         {done} of {own.length}
                     </span>
                 )}
             </div>
             {children.length === 0 ? (
-                <p className="rounded-xl px-2 py-3 text-[14px] text-neutral-500">Nothing planned</p>
+                <p className="border-t border-hairline py-4 text-[15px] text-neutral-500">Nothing planned</p>
             ) : (
                 <ul className="flex flex-col">{children}</ul>
             )}
+        </div>
+    )
+}
+
+/** One step. A habit ticks where it stands; anything else opens the page where it's done. */
+/** The columns every row of the day shares: time, mark, item, area, length. */
+const ROW_GRID =
+    'grid grid-cols-[44px_20px_minmax(0,1fr)_auto] items-start gap-x-3 sm:grid-cols-[52px_20px_minmax(0,1fr)_104px_68px]'
+
+/** "45 min", "1 h 05 min". */
+function lengthLabel(minutes: number | null | undefined): string {
+    if (!minutes) return '—'
+    if (minutes < 60) return `${minutes} min`
+    const h = Math.floor(minutes / 60)
+    const m = minutes % 60
+    return m ? `${h} h ${String(m).padStart(2, '0')} min` : `${h} h`
+}
+
+/** The column names, once above the day. */
+function ColumnHeads() {
+    return (
+        <div className={`${ROW_GRID} pb-1.5 text-[12px] text-neutral-500`} aria-hidden="true">
+            <span>Time</span>
+            <span />
+            <span>Item</span>
+            <span className="hidden sm:block">Area</span>
+            <span className="text-right">Length</span>
         </div>
     )
 }
@@ -506,50 +492,94 @@ function StepRow({
 }) {
     const quiet = step.state === 'done' || step.state === 'handled'
     const tag = KIND_TAG[step.kind]
+    const href = step.to ?? ACTION[step.kind].to
+    const time = step.time ?? (step.part === null ? 'Any' : '—')
+
+    const timeCell = <span className="nums pt-0.5 text-[13px] text-neutral-500">{time}</span>
+    const areaCell = (
+        <span className="hidden min-w-0 items-center gap-1.5 truncate pt-0.5 text-[12px] font-medium sm:flex">
+            {icon ? (
+                <>
+                    <i className={`${icon} text-[11px] text-teal-600`} aria-hidden="true" />
+                    <span className="text-teal-600">Habit</span>
+                </>
+            ) : (
+                tag && <span className={AREA_TEXT[tag.tone]}>{tag.label}</span>
+            )}
+        </span>
+    )
+    const lengthCell = (
+        <span className={`pt-0.5 text-right text-[13px] text-neutral-600 ${step.minutes ? 'tabular-nums' : ''}`}>
+            {lengthLabel(step.minutes)}
+        </span>
+    )
+
+    // The next thing to do opens out: bigger, with its action right there.
+    if (isNext) {
+        const action = ACTION[step.kind]
+        return (
+            <li className={`${ROW_GRID} -mx-3 rounded-lg border-t border-hairline bg-coral-50/60 px-3 py-5`}>
+                {timeCell}
+                <StateMark step={step} isNext />
+                <div className="min-w-0">
+                    <p className="text-[24px] font-medium leading-tight tracking-[-0.03em] text-neutral-950">
+                        {step.kind === 'protein' ? `Get to ${step.title}` : step.title}
+                    </p>
+                    {step.detail && <p className="mt-1 text-[13px] text-neutral-500">{step.detail}</p>}
+                    <div className="mt-3.5 flex flex-wrap items-center gap-2">
+                        {step.habitId ? (
+                            <button
+                                type="button"
+                                onClick={() => onTick(step.habitId!)}
+                                className="inline-flex h-11 items-center gap-2 rounded-lg bg-coral-500 px-4 text-sm font-medium text-white transition-colors hover:bg-coral-600 lg:h-9"
+                            >
+                                <i className="fa-solid fa-check text-xs" aria-hidden="true" />
+                                {action.label}
+                            </button>
+                        ) : (
+                            <Link
+                                to={href}
+                                className="inline-flex h-11 items-center gap-2 rounded-lg bg-coral-500 px-4 text-sm font-medium text-white transition-colors hover:bg-coral-600 lg:h-9"
+                            >
+                                {action.label}
+                                <i className="fa-solid fa-arrow-right text-xs" aria-hidden="true" />
+                            </Link>
+                        )}
+                    </div>
+                </div>
+                {areaCell}
+                {lengthCell}
+            </li>
+        )
+    }
+
     const body = (
         <>
-            <StateMark step={step} isNext={isNext} />
-            <div className="min-w-0 flex-1">
+            {timeCell}
+            <StateMark step={step} isNext={false} />
+            <div className="min-w-0">
                 <p
-                    className={`truncate text-[15px] ${
-                        quiet ? 'text-neutral-500' : 'text-neutral-900'
-                    } ${isNext ? 'font-medium' : ''}`}
+                    className={`truncate text-sm font-medium ${
+                        quiet ? 'text-neutral-500 line-through decoration-neutral-300' : 'text-neutral-900'
+                    }`}
                 >
                     {step.title}
                 </p>
-                {step.detail && (
-                    <p className="mt-0.5 truncate text-[13px] text-neutral-500">{step.detail}</p>
-                )}
+                {step.detail && <p className="mt-0.5 truncate text-[13px] text-neutral-500">{step.detail}</p>}
             </div>
-            {icon ? (
-                <i className={`${icon} shrink-0 pt-1 text-xs text-neutral-500`} aria-hidden="true" />
-            ) : (
-                tag && (
-                    <span
-                        className={`mt-0.5 hidden h-6 shrink-0 items-center rounded-full px-2.5 text-[12px] font-medium sm:inline-flex ${AREA_TONES[tag.tone].tile}`}
-                    >
-                        {tag.label}
-                    </span>
-                )
-            )}
+            {areaCell}
+            {lengthCell}
         </>
     )
-    const cls = `group flex w-full items-start gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-neutral-50 ${
-        isNext ? 'bg-coral-50/60 hover:bg-coral-50' : ''
-    }`
+    const cls = `${ROW_GRID} w-full py-3 text-left`
     return (
-        <li className="border-t border-neutral-100 first:border-t-0">
+        <li className="border-t border-hairline">
             {step.habitId ? (
-                <button
-                    type="button"
-                    className={cls}
-                    aria-pressed={step.state === 'done'}
-                    onClick={() => onTick(step.habitId!)}
-                >
+                <button type="button" className={cls} aria-pressed={step.state === 'done'} onClick={() => onTick(step.habitId!)}>
                     {body}
                 </button>
             ) : (
-                <Link to={step.to ?? ACTION[step.kind].to} className={cls}>
+                <Link to={href} className={cls}>
                     {body}
                 </Link>
             )}
@@ -562,7 +592,7 @@ function StateMark({ step, isNext }: { step: DayStep; isNext: boolean }) {
     const box = 'mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px]'
     if (step.state === 'done')
         return (
-            <span className={`${box} bg-success text-white`} aria-label="Done">
+            <span className={`${box} bg-neutral-900 text-white`} aria-label="Done">
                 <i className="fa-solid fa-check" aria-hidden="true" />
             </span>
         )

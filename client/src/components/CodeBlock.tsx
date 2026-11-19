@@ -15,7 +15,7 @@ export default function CodeBlock({ code, language = 'tsx' }: CodeBlockProps) {
     }
 
     return (
-        <div className="relative overflow-hidden rounded-2xl bg-neutral-950 text-neutral-100">
+        <div className="relative overflow-hidden rounded-xl bg-neutral-950 text-neutral-100">
             <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-2.5">
                 <span className="text-[11px] font-medium tracking-[0.06em] uppercase text-neutral-500">
                     {language}

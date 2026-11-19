@@ -390,7 +390,7 @@ export default function LiveRouteMap({
 
     return (
         <section className="flex flex-col gap-2" aria-label="Your route, live">
-            <div className="relative h-[42svh] min-h-[260px] overflow-hidden rounded-2xl bg-neutral-100">
+            <div className="relative h-[42svh] min-h-[260px] overflow-hidden rounded-xl bg-neutral-100">
                 <div
                     ref={inlineSlot}
                     className="isolate h-full w-full"

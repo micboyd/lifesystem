@@ -268,7 +268,7 @@ export function BatchDrawer({
                     </div>
 
                     {pasting && (
-                        <div className="flex flex-col gap-2 rounded-2xl bg-neutral-50 p-3">
+                        <div className="flex flex-col gap-2 rounded-xl bg-neutral-50 p-3">
                             <Textarea
                                 aria-label="Ingredients as JSON"
                                 rows={5}
@@ -293,7 +293,7 @@ export function BatchDrawer({
                     {rows.map((r, i) => (
                         <div
                             key={i}
-                            className="flex flex-col gap-2 rounded-2xl border border-neutral-200 p-3"
+                            className="flex flex-col gap-2 rounded-xl border border-neutral-200 p-3"
                         >
                             <div className="flex items-end gap-2">
                                 <div className="min-w-0 flex-1">
@@ -394,7 +394,7 @@ export function BatchDrawer({
                 />
 
                 {valid && (
-                    <div className="flex flex-col gap-4 rounded-2xl bg-neutral-50 p-4">
+                    <div className="flex flex-col gap-4 rounded-xl bg-neutral-50 p-4">
                         <Figures label="The whole tray" macros={total} />
 
                         <div className="flex flex-col gap-1.5">

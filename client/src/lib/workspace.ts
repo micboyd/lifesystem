@@ -10,6 +10,8 @@ export interface NavItem {
     icon: string
     /** The life area's tint and hue for the icon tile, so each destination keeps its colour everywhere. */
     tone: string
+    /** The area's colour as a solid fill, for the small square beside its name. */
+    dot: string
 }
 
 export const BRAND = {
@@ -22,72 +24,72 @@ export const BRAND = {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-    { label: 'Home', to: '/', icon: 'fa-house', tone: 'bg-area-home-bg text-area-home' },
+    { label: 'Home', to: '/', icon: 'fa-house', tone: 'bg-area-home-bg text-area-home', dot: 'bg-area-home' },
     {
         label: 'Calendar',
         to: '/calendar',
         icon: 'fa-calendar-days',
-        tone: 'bg-brand-50 text-brand-500',
+        tone: 'bg-brand-50 text-brand-500', dot: 'bg-brand-500',
     },
     {
         label: 'Timebox',
         to: '/timebox',
         icon: 'fa-table-list',
-        tone: 'bg-brand-50 text-brand-500',
+        tone: 'bg-brand-50 text-brand-500', dot: 'bg-brand-400',
     },
     {
         label: 'Finances',
         to: '/finances',
         icon: 'fa-wallet',
-        tone: 'bg-area-money-bg text-area-money',
+        tone: 'bg-area-money-bg text-area-money', dot: 'bg-area-money',
     },
     {
         label: 'Habits & goals',
         to: '/goals',
         icon: 'fa-bullseye',
-        tone: 'bg-area-habits-bg text-area-habits',
+        tone: 'bg-area-habits-bg text-area-habits', dot: 'bg-area-habits',
     },
     {
         label: 'Fitness',
         to: '/fitness',
         icon: 'fa-dumbbell',
-        tone: 'bg-area-fitness-bg text-area-fitness',
+        tone: 'bg-area-fitness-bg text-area-fitness', dot: 'bg-area-fitness',
     },
     {
         label: 'Nutrition',
         to: '/nutrition',
         icon: 'fa-bowl-food',
-        tone: 'bg-area-nutrition-bg text-area-nutrition',
+        tone: 'bg-area-nutrition-bg text-area-nutrition', dot: 'bg-area-nutrition',
     },
     {
         label: 'Walking',
         to: '/walking',
         icon: 'fa-person-walking',
-        tone: 'bg-area-walking-bg text-area-walking',
+        tone: 'bg-area-walking-bg text-area-walking', dot: 'bg-area-walking',
     },
     {
         label: 'Timeline',
         to: '/timeline',
         icon: 'fa-route',
-        tone: 'bg-area-home-bg text-area-home',
+        tone: 'bg-area-home-bg text-area-home', dot: 'bg-coral-500',
     },
     {
         label: 'Consistency',
         to: '/consistency',
         icon: 'fa-gauge-high',
-        tone: 'bg-area-countdowns-bg text-area-countdowns',
+        tone: 'bg-area-countdowns-bg text-area-countdowns', dot: 'bg-area-countdowns',
     },
     {
         label: 'Notes',
         to: '/notes',
         icon: 'fa-note-sticky',
-        tone: 'bg-neutral-100 text-neutral-700',
+        tone: 'bg-neutral-100 text-neutral-700', dot: 'bg-neutral-400',
     },
     {
         label: 'Weather',
         to: '/weather',
         icon: 'fa-cloud-sun',
-        tone: 'bg-area-weather-bg text-area-weather',
+        tone: 'bg-area-weather-bg text-area-weather', dot: 'bg-area-weather',
     },
 ]
 

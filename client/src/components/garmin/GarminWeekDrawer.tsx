@@ -169,7 +169,7 @@ export default function GarminWeekDrawer({
                     </div>
                 )}
                 {entries && entries.length === 0 && (
-                    <p className="rounded-2xl bg-neutral-50 px-4 py-6 text-center text-sm text-neutral-500">
+                    <p className="rounded-xl bg-neutral-50 px-4 py-6 text-center text-sm text-neutral-500">
                         No conditioning planned in the next 7 days.
                     </p>
                 )}

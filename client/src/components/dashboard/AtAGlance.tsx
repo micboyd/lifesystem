@@ -122,7 +122,7 @@ export default function AtAGlance({
     return (
         // One white band holding the four figures: 2×2 on phones, a row of four
         // from lg, ruled between. The page's only full-width surface.
-        <div className="grid grid-cols-2 overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-neutral-900/[0.06] lg:grid-cols-4 lg:divide-x lg:divide-neutral-100 max-lg:[&>*:nth-child(-n+2)]:border-b max-lg:[&>*:nth-child(odd)]:border-r max-lg:[&>*]:border-neutral-100">
+        <div className="grid grid-cols-2 overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-neutral-900/[0.06] lg:grid-cols-4 lg:divide-x lg:divide-neutral-100 max-lg:[&>*:nth-child(-n+2)]:border-b max-lg:[&>*:nth-child(odd)]:border-r max-lg:[&>*]:border-neutral-100">
             <Tile
                 to="/goals"
                 icon="fa-solid fa-repeat"

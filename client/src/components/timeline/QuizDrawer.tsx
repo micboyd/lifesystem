@@ -193,7 +193,7 @@ export default function QuizDrawer({
                         onChange={(v) => pick('creatine', v === 'no')(v)}
                     />
                     {draft.creatine !== 'no' && (
-                        <div className="mt-4 flex flex-col gap-4 rounded-2xl bg-neutral-50 p-4">
+                        <div className="mt-4 flex flex-col gap-4 rounded-xl bg-neutral-50 p-4">
                             <div className="flex flex-col gap-2">
                                 <span className={FIELD_LABEL}>Daily dose</span>
                                 <PillToggle
@@ -361,7 +361,7 @@ function Choices<T extends string | number>({
                         role="radio"
                         aria-checked={on}
                         onClick={() => onChange(o.value)}
-                        className={`flex min-h-[56px] w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left transition-colors ${
+                        className={`flex min-h-[56px] w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left transition-colors ${
                             on
                                 ? 'bg-neutral-900 text-white'
                                 : 'bg-white text-neutral-900 ring-1 ring-inset ring-neutral-200 hover:bg-neutral-50'

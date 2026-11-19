@@ -27,8 +27,11 @@ export default function Container({
     children,
     className = '',
 }: ContainerProps) {
+    // Modules run the full width of the screen now; both props stay for callers.
+    void fluid
+    void wide
     return (
-        <Tag className={`mx-auto w-full px-4 sm:px-6 ${fluid ? '' : wide ? 'max-w-7xl' : 'max-w-6xl'} ${className}`}>
+        <Tag className={`w-full px-5 sm:px-8 lg:px-10 ${className}`}>
             {children}
         </Tag>
     )

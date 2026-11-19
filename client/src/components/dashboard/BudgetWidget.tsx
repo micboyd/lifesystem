@@ -186,7 +186,7 @@ export default function BudgetWidget({ date }: { date: string }) {
                 </p>
             ) : (
                 dayOff ? (
-                    <div className="rounded-2xl bg-white p-5 ring-1 ring-neutral-900/[0.06]">
+                    <div className="rounded-xl bg-white p-5 ring-1 ring-neutral-900/[0.06]">
                         <DayOffNotice label={dayOffLabel} />
                         {totals.monthlyRemaining !== 0 && (
                             <p
@@ -198,7 +198,7 @@ export default function BudgetWidget({ date }: { date: string }) {
                         )}
                     </div>
                 ) : (
-                    <div className="rounded-2xl bg-white p-5 ring-1 ring-neutral-900/[0.06]">
+                    <div className="rounded-xl bg-white p-5 ring-1 ring-neutral-900/[0.06]">
                         <div className="flex items-end justify-between gap-4">
                             <div>
                                 <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-coral-600">

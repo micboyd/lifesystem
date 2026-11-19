@@ -349,9 +349,9 @@ export default function TimePicker({
         'grid h-7 w-7 place-items-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700 active:bg-neutral-200'
 
     const digitDisplay =
-        'h-12 w-14 rounded-xl border border-neutral-200 text-center text-2xl font-medium tabular-nums text-neutral-900 transition-colors hover:border-neutral-300 hover:bg-neutral-50'
+        'h-12 w-14 rounded-xl border border-neutral-200 text-center text-2xl font-medium nums text-neutral-900 transition-colors hover:border-neutral-300 hover:bg-neutral-50'
     const digitInput =
-        'h-12 w-14 rounded-xl border border-neutral-900 bg-white text-center text-2xl font-medium tabular-nums text-neutral-900 ring-4 ring-neutral-100 focus:outline-none'
+        'h-12 w-14 rounded-xl border border-neutral-900 bg-white text-center text-2xl font-medium nums text-neutral-900 ring-4 ring-neutral-100 focus:outline-none'
 
     return (
         <div ref={containerRef} className={`relative ${className}`}>

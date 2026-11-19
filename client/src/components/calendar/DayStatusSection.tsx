@@ -67,7 +67,7 @@ export default function DayStatusSection({ date, defaultAdding = false }: Props)
                 return (
                     <div
                         key={record._id}
-                        className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 ${opt.bg} border-transparent`}
+                        className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 ${opt.bg} border-transparent`}
                     >
                         <div className="min-w-0">
                             <p className={`text-sm font-semibold ${opt.text}`}>{opt.label}</p>

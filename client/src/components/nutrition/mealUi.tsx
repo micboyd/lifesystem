@@ -67,7 +67,7 @@ export function CategoryIcon({ type, size = 'md' }: { type: MealType; size?: 'sm
         size === 'sm'
             ? 'h-7 w-7 text-[11px] rounded-lg'
             : size === 'lg'
-              ? 'h-12 w-12 text-lg rounded-2xl'
+              ? 'h-12 w-12 text-lg rounded-xl'
               : 'h-9 w-9 text-sm rounded-xl'
     return (
         <span
@@ -148,7 +148,7 @@ export function BoxParts({ parts, weighHint }: { parts: BoxPart[]; weighHint?: s
             <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                 In each box
             </p>
-            <ul className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200">
+            <ul className="divide-y divide-neutral-100 rounded-xl border border-neutral-200">
                 {parts.map((p, n) => (
                     <li key={n} className="flex items-baseline gap-3 px-4 py-3">
                         <span className="w-20 shrink-0 text-right text-lg font-semibold tabular-nums text-neutral-950">

@@ -718,7 +718,7 @@ function WorkoutLibrary({
                                     type="button"
                                     aria-label={`View ${workout.name}`}
                                     onClick={() => setDrawer({ mode: 'view', workout })}
-                                    className="absolute inset-0 z-10 rounded-3xl focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500"
+                                    className="absolute inset-0 z-10 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500"
                                 />
                                 <div className="flex items-start justify-between gap-2">
                                     <div className="min-w-0">

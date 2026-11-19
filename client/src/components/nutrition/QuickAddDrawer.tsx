@@ -162,7 +162,7 @@ export function QuickAddDrawer({
                             Macros add up to {kcal(implied)} kcal — use that
                         </button>
                     )}
-                    <div className="flex flex-col gap-2 rounded-2xl bg-neutral-50 px-3.5 py-3">
+                    <div className="flex flex-col gap-2 rounded-xl bg-neutral-50 px-3.5 py-3">
                         <MacroBar macros={macros} thick />
                         <MacroLegend macros={macros} compact />
                     </div>

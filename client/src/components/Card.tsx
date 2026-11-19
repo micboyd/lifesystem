@@ -30,12 +30,12 @@ export function Card({
     flush = false,
     hover = true,
 }: CardRootProps) {
-    // Tighter padding on phones: `p-6` would eat 48px of a 375px viewport.
-    // Flat by design: a hairline ring and a whisper of shadow. Hover deepens the
-    // shadow a touch rather than lifting the card, so grids stay still.
-    const base = `rounded-3xl bg-white ring-1 ring-neutral-900/[0.06] shadow-sm ${flush ? '' : 'p-4 sm:p-6'}`
-    const hoverCls = hover ? 'transition-shadow duration-200 hover:shadow-lg' : ''
-    return <Tag className={`${base} ${hoverCls} ${className}`}>{children}</Tag>
+    // Open and editorial: no box. A hairline above marks where a section starts,
+    // and the content sits straight on the page. `flush` drops the top padding for
+    // sections that bring their own rows; `hover` is kept for the API only.
+    void hover
+    const base = `border-t border-hairline ${flush ? '' : 'pt-5 sm:pt-6'}`
+    return <Tag className={`${base} ${className}`}>{children}</Tag>
 }
 
 export function CardHeader({ children, className = '' }: CardProps) {
@@ -44,7 +44,7 @@ export function CardHeader({ children, className = '' }: CardProps) {
 
 export function CardTitle({ children, className = '' }: CardProps) {
     return (
-        <h3 className={`text-lg font-semibold tracking-[-0.015em] text-neutral-900 ${className}`}>
+        <h3 className={`text-xl font-medium tracking-[-0.02em] text-neutral-900 ${className}`}>
             {children}
         </h3>
     )
@@ -66,7 +66,7 @@ export function CardAction({ to, state, children, className = '' }: CardActionPr
         <Link
             to={to}
             state={state}
-            className={`inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-coral-600 transition-colors hover:text-coral-700 ${className}`}
+            className={`inline-flex shrink-0 items-center gap-1.5 text-[13px] font-medium text-neutral-500 transition-colors hover:text-neutral-900 ${className}`}
         >
             {children}
             <i className="fa-solid fa-arrow-right text-xs" aria-hidden="true" />

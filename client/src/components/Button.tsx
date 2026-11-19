@@ -22,7 +22,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 const variantClasses: Record<Variant, string> = {
     primary: 'bg-coral-500 text-white hover:bg-coral-600 active:bg-coral-700',
     secondary:
-        'bg-white text-neutral-900 border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50 active:bg-neutral-100',
+        'bg-transparent text-neutral-900 border border-hairline hover:border-neutral-300 hover:bg-white active:bg-neutral-100',
     ghost: 'bg-transparent text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900 active:bg-neutral-200',
     strong: 'bg-neutral-900 text-neutral-50 hover:bg-neutral-800 active:bg-neutral-700',
     danger: 'bg-red-50 text-red-600 hover:bg-red-100 active:bg-red-100',
@@ -30,9 +30,9 @@ const variantClasses: Record<Variant, string> = {
 
 // 44px is the default so every primary control meets the touch-target size.
 const sizeClasses: Record<Size, string> = {
-    sm: 'h-9 rounded-[10px] px-3.5 text-[13px]',
-    md: 'h-11 rounded-xl px-[18px] text-sm',
-    lg: 'h-12 rounded-xl px-6 text-[15px]',
+    sm: 'h-9 rounded-lg px-3 text-[13px] lg:h-8',
+    md: 'h-11 rounded-lg px-4 text-sm lg:h-9',
+    lg: 'h-12 rounded-lg px-5 text-[15px] lg:h-11',
 }
 
 export default function Button({

@@ -122,10 +122,10 @@ export default function Consistency() {
         <Container as="main" className="py-8 sm:py-10">
             <header className="mb-6 flex flex-wrap items-end justify-between gap-3 sm:mb-8">
                 <div className="min-w-0">
-                    <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">
+                    <h1 className="text-[34px] font-medium leading-[1.1] tracking-[-0.045em] text-neutral-950 sm:text-[44px]">
                         Consistency
                     </h1>
-                    <p className="mt-1 text-sm text-neutral-500">
+                    <p className="mt-2 max-w-2xl text-[18px] leading-[26px] tracking-[-0.01em] text-neutral-600">
                         How closely you’re sticking to the plan, in numbers.
                     </p>
                 </div>

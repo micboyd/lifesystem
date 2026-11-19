@@ -25,7 +25,7 @@ export function ConditionIcon({
 /** The condition icon in a soft tile, for drawer headers. */
 export function ConditionTile({ code, isDay = true }: { code: number; isDay?: boolean }) {
     return (
-        <span className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-neutral-50 text-[32px]">
+        <span className="grid h-16 w-16 shrink-0 place-items-center rounded-xl bg-neutral-50 text-[32px]">
             <ConditionIcon code={code} isDay={isDay} />
         </span>
     )
@@ -78,7 +78,7 @@ export function Metric({
     sub?: ReactNode
 }) {
     return (
-        <div className="rounded-2xl bg-neutral-50 px-4 py-3">
+        <div className="rounded-xl bg-neutral-50 px-4 py-3">
             <p className="flex items-center gap-1.5 text-xs font-medium text-neutral-500">
                 <i className={`${icon} w-3.5 text-center text-[11px]`} aria-hidden="true" />
                 {label}
@@ -96,7 +96,7 @@ export function MetricGrid({ children }: { children: ReactNode }) {
 /** The plain-English clothing tip in a quiet callout. */
 export function WearNote({ children }: { children: ReactNode }) {
     return (
-        <div className="flex gap-3 rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-700">
+        <div className="flex gap-3 rounded-xl bg-neutral-50 px-4 py-3 text-sm text-neutral-700">
             <i className="fa-solid fa-shirt mt-0.5 text-neutral-500" aria-hidden="true" />
             <p className="first-letter:uppercase">{children}</p>
         </div>

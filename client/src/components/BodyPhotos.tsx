@@ -250,7 +250,7 @@ export default function BodyPhotos({
                     )}
 
                     {(laterProgress.length > 0 || goals.length > 0) && (
-                        <div className="flex flex-col gap-3 rounded-2xl bg-neutral-50 p-3 sm:p-4">
+                        <div className="flex flex-col gap-3 rounded-xl bg-neutral-50 p-3 sm:p-4">
                             <p className="text-[13px] font-semibold text-neutral-900">
                                 Compare original with
                             </p>
@@ -354,7 +354,7 @@ function ComparePane({
                     <button
                         type="button"
                         onClick={() => onOpen(photo)}
-                        className="block aspect-[3/4] w-full overflow-hidden rounded-2xl bg-neutral-100 ring-1 ring-neutral-900/[0.06]"
+                        className="block aspect-[3/4] w-full overflow-hidden rounded-xl bg-neutral-100 ring-1 ring-neutral-900/[0.06]"
                         aria-label={`Open ${label.toLowerCase()} photo`}
                     >
                         <img src={photo.thumbUrl} alt="" className="h-full w-full object-cover" />
@@ -441,7 +441,7 @@ function SliderCompare({
     const [pos, setPos] = useState(50)
     return (
         <div className="flex flex-col gap-2">
-            <div className="relative mx-auto aspect-[3/4] w-full max-w-md select-none overflow-hidden rounded-2xl bg-neutral-100 ring-1 ring-neutral-900/[0.06]">
+            <div className="relative mx-auto aspect-[3/4] w-full max-w-md select-none overflow-hidden rounded-xl bg-neutral-100 ring-1 ring-neutral-900/[0.06]">
                 <img
                     src={after.url}
                     alt=""
@@ -567,7 +567,7 @@ function EmptyPane({
     onAction: () => void
 }) {
     return (
-        <div className="flex aspect-[3/4] w-full flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-neutral-200 p-3 text-center">
+        <div className="flex aspect-[3/4] w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-neutral-200 p-3 text-center">
             <p className="text-[12px] leading-snug text-neutral-500">{text}</p>
             <button
                 type="button"
@@ -854,7 +854,7 @@ function PhotoDrawer({
                         <img
                             src={photo.url}
                             alt=""
-                            className="w-full rounded-2xl bg-neutral-100 object-contain"
+                            className="w-full rounded-xl bg-neutral-100 object-contain"
                         />
                     </a>
                     {weight != null && kind === 'progress' && (
@@ -885,7 +885,7 @@ function PhotoDrawer({
                         onChange={(e) => setNote(e.target.value)}
                     />
                     {set.length > 1 && (
-                        <div className="flex items-center justify-between gap-3 rounded-2xl bg-neutral-50 px-4 py-3">
+                        <div className="flex items-center justify-between gap-3 rounded-xl bg-neutral-50 px-4 py-3">
                             <p className="text-[13px] text-neutral-600">
                                 Taken with {set.length - 1} other{' '}
                                 {set.length - 1 === 1 ? 'photo' : 'photos'} (

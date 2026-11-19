@@ -16,9 +16,7 @@ export function Surface({
 }) {
     return (
         <div
-            className={`rounded-[20px] bg-white ring-1 ring-neutral-900/[0.06] ${
-                flush ? '' : 'p-4 sm:p-5'
-            } ${className}`}
+            className={`border-t border-hairline ${flush ? '' : 'pt-4 sm:pt-5'} ${className}`}
         >
             {children}
         </div>

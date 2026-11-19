@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import DashSection, { DASH, SectionLoading } from './DashSection'
+import DashSection, { DASH, GlanceMetric, SectionLoading } from './DashSection'
 import { useSteps, type StepsData } from './useSteps'
 import { useWalks } from '../walking/useWalks'
 import { useAuth } from '../../context/AuthContext'
@@ -53,8 +53,8 @@ export default function StepsWidget({ data }: { data?: StepsData } = {}) {
             {!s || (!hasData && !settled) ? (
                 <SectionLoading />
             ) : !hasData ? (
-                <>
-                    <p className={DASH.empty}>
+                <ul className="border-y border-hairline">
+                    <li className={`${DASH.row} text-[15px] text-neutral-500`}>
                         {disconnected || status === 'expired' ? (
                             <Link to="/profile#garmin" className={DASH.emptyLink}>
                                 {status === 'expired' ? 'Reconnect Garmin' : 'Connect Garmin'}
@@ -62,16 +62,16 @@ export default function StepsWidget({ data }: { data?: StepsData } = {}) {
                         ) : (
                             'No steps from Garmin yet.'
                         )}
-                    </p>
-                    <ul className={`${DASH.block} ${DASH.list}`}>{walksRow}</ul>
-                </>
+                    </li>
+                    {walksRow}
+                </ul>
             ) : (
                 <>
                     <Today steps={s.today} target={target} />
 
                     <WeekBars week={s.week} today={s.today} target={target} />
 
-                    <dl className={`${DASH.block} grid grid-cols-3 gap-3 rounded-2xl bg-neutral-50 p-4`}>
+                    <dl className={`${DASH.block} grid grid-cols-3 gap-4 border-t border-hairline pt-4`}>
                         <Stat
                             label="Average"
                             value={s.average === null ? '—' : fmt(s.average)}
@@ -250,12 +250,20 @@ function WalksToday({ today }: { today: string }) {
     if (!walks) return null
     const next = nextWalk(walks)
     const totals = walkDayTotals(walks, weightKg)
-    const value =
-        walks.length === 0
-            ? 'Plan one'
-            : next
-              ? `Next ${next.time} · ${totals.done} of ${totals.count} done`
-              : `All ${totals.count} done`
+    if (walks.length === 0)
+        return (
+            <li className={`${DASH.row} text-[15px] text-neutral-500`}>
+                <p>
+                    No walks today.{' '}
+                    <Link to={`/walking?date=${today}`} className={DASH.emptyLink}>
+                        Plan one
+                    </Link>
+                </p>
+            </li>
+        )
+    const value = next
+        ? `Next ${next.time} · ${totals.done} of ${totals.count} done`
+        : `All ${totals.count} done`
     return (
         <li>
             <Link to={`/walking?date=${today}`} className={`group ${DASH.row}`}>
@@ -264,31 +272,26 @@ function WalksToday({ today }: { today: string }) {
                 >
                     Walks today
                 </p>
-                <span className={walks.length === 0 ? DASH.rowValue : DASH.rowFigure}>{value}</span>
+                <span className={DASH.rowFigure}>{value}</span>
             </Link>
         </li>
     )
 }
 
-/** Today's steps as one figure and bar, for a summary strip beside protein and calories. */
+/** Today's steps as one headline figure, beside protein and calories. */
 export function StepsGlance({ data }: { data: StepsData }) {
     const target = useAuth().user?.settings?.stepGoal
     const today = todayKey()
     const steps = data.days?.find((d) => d.date === today)?.steps ?? null
     if (!target) return null
     return (
-        <Link to="/walking" className="group block min-w-0 flex-1 sm:w-36 sm:flex-none">
-            <p className="text-[12px] text-neutral-500 group-hover:text-neutral-900">Steps</p>
-            <p className="nums mt-0.5 truncate text-[15px] font-medium text-neutral-900">
-                {steps === null ? '—' : fmt(steps)}
-                <span className="font-normal text-neutral-500"> / {fmt(target)}</span>
-            </p>
-            <div className={`mt-1.5 ${DASH.track}`}>
-                <div
-                    className="h-full rounded-full bg-success"
-                    style={{ width: `${Math.min(100, ((steps ?? 0) / target) * 100)}%` }}
-                />
-            </div>
-        </Link>
+        <GlanceMetric
+            label="Steps"
+            value={steps === null ? '—' : fmt(steps)}
+            goal={fmt(target)}
+            share={(steps ?? 0) / target}
+            bar="bg-success"
+            to="/walking"
+        />
     )
 }

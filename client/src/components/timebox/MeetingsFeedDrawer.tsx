@@ -141,7 +141,7 @@ export default function MeetingsFeedDrawer({ open, onClose, feed, onChanged }: P
                 </p>
 
                 {connected && feed && (
-                    <section className="flex flex-col gap-3 rounded-2xl bg-neutral-50 px-4 py-3.5">
+                    <section className="flex flex-col gap-3 rounded-xl bg-neutral-50 px-4 py-3.5">
                         <div className="flex items-start gap-3">
                             <span
                                 className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-white text-xs text-neutral-700 ring-1 ring-neutral-200"

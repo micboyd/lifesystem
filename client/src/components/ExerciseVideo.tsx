@@ -50,7 +50,7 @@ export function VideoSheet({
             {/* Mounted only while open, so closing the sheet stops the video. */}
             {open && (
                 <div
-                    className={`overflow-hidden rounded-2xl bg-black ${
+                    className={`overflow-hidden rounded-xl bg-black ${
                         video.vertical ? 'mx-auto aspect-[9/16] h-[65dvh] max-w-full' : 'aspect-video w-full'
                     }`}
                 >

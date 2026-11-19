@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react'
+import { ModuleAside } from '../ModuleLayout'
 import Spinner from '../Spinner'
 import Button from '../Button'
 import EmptyState from '../EmptyState'
@@ -51,6 +52,7 @@ import {
     clearPlanRange,
 } from '../../services/mealPlan'
 import { createMeal } from '../../services/meals'
+import PlannerLibrary, { type LibraryDrag, type LibraryEntry } from '../planner/PlannerLibrary'
 import { listDailyEnergy, saveDailyEnergy, deleteDailyEnergy } from '../../services/dailyEnergy'
 import { GARMIN_CALORIES_PULLED, pullGarminCaloriesQuietly } from '../../services/garmin'
 import { listNutritionPhases } from '../../services/nutritionPhases'
@@ -495,6 +497,22 @@ export default function NutritionPlanner({
     }
 
     const libraryEmpty = meals.length === 0
+
+    // The meal library beside the week: drag a meal onto a slot, or click to add.
+    const [libDrag, setLibDrag] = useState<LibraryDrag<MealType> | null>(null)
+    const [libSlot, setLibSlot] = useState<MealType>('dinner')
+    const libraryEntries: LibraryEntry<MealType>[] = useMemo(
+        () =>
+            meals.map((m) => ({
+                kind: m.types[0] ?? 'dinner',
+                alsoKinds: m.types.slice(1),
+                id: m._id,
+                name: m.name,
+                meta: `${Math.round(m.macros.calories).toLocaleString('en-GB')} kcal · ${Math.round(m.macros.protein)} g protein`,
+                dot: 'bg-orange-600',
+            })),
+        [meals]
+    )
     const weekHasClearable = entries.some(anyMeal)
 
     // Picking a day focuses it; on wide screens it also scrolls there.
@@ -583,7 +601,14 @@ export default function NutritionPlanner({
                     description="Add a meal (or make a batch) in your library first, then drop it into the plan."
                 />
             ) : (
+                <div className="flex items-start gap-8">
+                <div className="min-w-0 flex-1">
                 <WeekView
+                    libraryDrag={libDrag}
+                    onDropLibrary={(date, slot, item) => {
+                        setLibDrag(null)
+                        void handleAdd(date, slot, item.id, false, date <= today)
+                    }}
                     board={board}
                     weekStart={range.start}
                     selected={anchor}
@@ -606,6 +631,36 @@ export default function NutritionPlanner({
                     onClearDay={(date) => openClear({ type: 'day', date })}
                     onSaveOut={saveOut}
                 />
+                </div>
+                {board && (
+                    <ModuleAside>
+                    <PlannerLibrary<MealType, MealType>
+                        title="Meals"
+                        className="min-h-0 flex-1"
+                        items={libraryEntries}
+                        filters={[
+                            { value: 'all', label: 'All' },
+                            { value: 'breakfast', label: 'Breakfast' },
+                            { value: 'lunch', label: 'Lunch' },
+                            { value: 'dinner', label: 'Dinner' },
+                            { value: 'snack', label: 'Snack' },
+                        ]}
+                        target={shortDayLabel(anchor)}
+                        parts={[
+                            { value: 'breakfast', label: 'Breakfast' },
+                            { value: 'lunch', label: 'Lunch' },
+                            { value: 'dinner', label: 'Dinner' },
+                            { value: 'snack', label: 'Snack' },
+                        ]}
+                        part={libSlot}
+                        onPart={setLibSlot}
+                        onAdd={(item) => void handleAdd(anchor, libSlot, item.id, false, anchor <= today)}
+                        onDragStart={setLibDrag}
+                        onDragEnd={() => setLibDrag(null)}
+                    />
+                    </ModuleAside>
+                )}
+                </div>
             )}
 
             <AddDrawer
@@ -870,7 +925,12 @@ function WeekView({
     onReorder,
     onClearDay,
     onSaveOut,
+    libraryDrag,
+    onDropLibrary,
 }: {
+    /** A meal being dragged in from the library, for a slot to take. */
+    libraryDrag: LibraryDrag<MealType> | null
+    onDropLibrary: (date: string, slot: MealType, item: LibraryDrag<MealType>) => void
     /** Lay the seven days side by side across the screen, rather than stacked. */
     board: boolean
     weekStart: string
@@ -923,6 +983,11 @@ function WeekView({
         const dragged = dragId ? entries.find((e) => e._id === dragId) : null
         const target = dropAt
         resetDrag()
+        // From the library: plan the meal where it was dropped.
+        if (!dragged && libraryDrag && target) {
+            onDropLibrary(target.date, target.slot, libraryDrag)
+            return
+        }
         if (!dragged || !target) return
 
         const display = slotItems(target.date, target.slot).map((e) => e._id)
@@ -964,7 +1029,7 @@ function WeekView({
                     onAwayDay={() => onAwayDay(date)}
                     onQuickAdd={() => onQuickAdd(date)}
                     onBackFromAway={() => onBackFromAway(date)}
-                    dragActive={dragId !== null}
+                    dragActive={dragId !== null || libraryDrag !== null}
                     draggedId={dragId}
                     dropForDay={dropAt && dropAt.date === date ? dropAt : null}
                     onEntryDragStart={setDragId}
@@ -1119,7 +1184,7 @@ function DayCard({
                     )}
                 </div>
             ) : (
-                <div className="flex flex-col divide-y divide-neutral-100">
+                <div className="flex flex-col">
                     {MEAL_TYPES.map((slot) => (
                         <SlotSection
                             key={slot}
@@ -1256,8 +1321,8 @@ function ExtrasSection({
         <div
             className={
                 compact
-                    ? 'flex flex-col gap-1.5 py-2.5 first:pt-0 last:pb-0'
-                    : 'flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:grid sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:items-start sm:gap-3'
+                    ? 'flex flex-col gap-1.5 border-t border-hairline py-2.5 first:pt-0 last:pb-0'
+                    : 'flex flex-col gap-2 border-t border-hairline py-3 first:pt-0 last:pb-0 sm:grid sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:items-start sm:gap-3'
             }
         >
             <span className={`flex items-center gap-2 ${compact ? '' : 'sm:pt-1.5'}`}>
@@ -1350,6 +1415,7 @@ function PlannedRow({
         <PlanRow
             compact={compact}
             bar={entry.extra || entry.away ? 'bg-neutral-300' : CATEGORY[entry.slot].solid}
+            tint={entry.extra || entry.away || done || skipped ? 'bg-neutral-50' : CATEGORY[entry.slot].tile}
             title={entry.name}
             titleTone={(done && !entry.extra) || skipped ? 'text-neutral-500' : 'text-neutral-900'}
             meta={plannedMeta(entry)}
@@ -1419,7 +1485,7 @@ function DayEnergy({
     const fromGarmin = garminOut !== null && out === garminOut
 
     return (
-        <div className="rounded-2xl bg-neutral-50">
+        <div className="rounded-xl bg-neutral-50">
             <button
                 type="button"
                 onClick={() => setOpen((v) => !v)}

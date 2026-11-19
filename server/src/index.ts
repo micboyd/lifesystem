@@ -11,6 +11,7 @@ import cors from 'cors'
 import birthdayRoutes from './routes/birthdayRoutes'
 import progressPhotoRoutes from './routes/progressPhotoRoutes'
 import calendarRoutes from './routes/calendarRoutes'
+import { startFeedSyncLoop } from './lib/icalSync'
 import icalRoutes from './routes/icalRoutes'
 import conditioningRoutes from './routes/conditioningRoutes'
 import conditioningLogRoutes from './routes/conditioningLogRoutes'
@@ -231,6 +232,9 @@ connectDB()
         }
 
         app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
+
+        // Google meetings stay fresh even when Timebox isn't opened.
+        startFeedSyncLoop()
     })
     .catch((err) => {
         console.error('Failed to connect to the database:', err)

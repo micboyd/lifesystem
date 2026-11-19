@@ -74,13 +74,13 @@ export function DayTitle({
     const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()]
     return (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <h3 className={`font-semibold tracking-tight text-neutral-900 ${compact ? 'text-base' : 'text-lg'}`}>
-                {compact ? weekday.slice(0, 3) : weekday}
+            <h3 className={`font-semibold tracking-[-0.01em] text-neutral-900 ${compact ? 'text-[15px]' : 'text-lg'}`}>
+                {compact ? weekday.slice(0, 3) : weekday} <span className="nums">{day}</span>
+                {!compact && <span className="ml-1.5 text-sm font-normal tracking-normal text-neutral-500">{MONTHS[month]}</span>}
             </h3>
-            <span className="text-sm text-neutral-500">
-                {day} {compact ? MONTHS[month].slice(0, 3) : MONTHS[month]}
-            </span>
-            {isToday && <span className="text-sm font-medium text-coral-600">Today</span>}
+            {isToday && (
+                <span className="rounded-full bg-coral-500 px-2 py-0.5 text-[11px] font-semibold text-white">Today</span>
+            )}
             {children}
             {actions && <div className="-my-1.5 ml-auto flex shrink-0 items-center gap-1">{actions}</div>}
         </div>
@@ -165,35 +165,59 @@ export function PlanSlot({
           }
         : {}
 
+    const slotMenu =
+        onContextMenu &&
+        ((ev: MouseEvent) => {
+            ev.preventDefault()
+            onContextMenu(ev)
+        })
+
+    // An empty slot with nothing in flight shrinks to one faint "+ Lunch" line,
+    // so the days' real plans aren't buried under blanks.
+    if (empty && !dragActive) {
+        return (
+            <div
+                onContextMenu={slotMenu}
+                className={`border-t border-hairline first:border-t-0 ${compact ? 'py-1 first:pt-0 last:pb-0' : 'py-1.5 first:pt-0 last:pb-0'}`}
+            >
+                <button
+                    type="button"
+                    onClick={onAdd}
+                    aria-label={addLabel}
+                    className={`-mx-1.5 flex w-[calc(100%+0.75rem)] items-center gap-2 rounded-lg px-1.5 text-left text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900 ${
+                        compact ? 'min-h-8 text-[13px]' : 'min-h-10 text-sm sm:min-h-8 sm:text-[13px]'
+                    }`}
+                >
+                    <i className="fa-solid fa-plus w-3 shrink-0 text-center text-[10px]" aria-hidden="true" />
+                    <span>{label}</span>
+                </button>
+            </div>
+        )
+    }
+
     return (
         <div
             {...dropProps}
-            onContextMenu={
-                onContextMenu &&
-                ((ev) => {
-                    ev.preventDefault()
-                    onContextMenu(ev)
-                })
-            }
+            onContextMenu={slotMenu}
             className={`${
                 compact
-                    ? 'flex flex-col gap-1.5 py-2.5 first:pt-0 last:pb-0'
+                    ? 'flex flex-col gap-1 border-t border-hairline py-2.5 first:border-t-0 first:pt-0 last:pb-0'
                     : // Phones: the slot's name over its rows, so rows get the full width.
-                      'flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:grid sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:items-start sm:gap-3'
-            } ${drop ? '-mx-1.5 rounded-xl bg-coral-50 px-1.5 ring-2 ring-inset ring-coral-200' : ''}`}
+                      'flex flex-col gap-2 border-t border-hairline py-3 first:border-t-0 first:pt-0 last:pb-0 sm:grid sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:items-start sm:gap-3'
+            } ${drop ? '-mx-1.5 rounded-lg bg-coral-50 px-1.5 ring-[1.5px] ring-inset ring-coral-500' : ''}`}
         >
             <div className={`flex items-center justify-between gap-2 ${compact ? '' : 'sm:flex-col sm:items-start sm:pt-1.5'}`}>
                 <span className="flex items-center gap-2">
                     {marker}
-                    <span className="text-[13px] font-medium text-neutral-500">{label}</span>
+                    <span className="text-[13px] font-semibold text-neutral-800">{label}</span>
                 </span>
                 <button
                     type="button"
                     onClick={onAdd}
                     aria-label={addLabel}
                     title={addLabel}
-                    className={`grid shrink-0 place-items-center rounded-full text-neutral-500 ring-1 ring-inset ring-neutral-200 transition-colors hover:bg-neutral-900 hover:text-white hover:ring-neutral-900 ${
-                        compact ? 'h-6 w-6' : 'h-9 w-9 sm:h-8 sm:w-8'
+                    className={`grid shrink-0 place-items-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-900 hover:text-white ${
+                        compact ? 'h-6 w-6' : 'h-9 w-9 sm:h-7 sm:w-7'
                     }`}
                 >
                     <i className="fa-solid fa-plus text-[10px]" aria-hidden="true" />
@@ -233,20 +257,17 @@ export function EmptySlotTile({
 }) {
     return (
         <span
-            className={`flex items-center rounded-xl outline-1 -outline-offset-1 outline-dashed transition-colors ${
-                compact ? 'p-2' : 'px-2.5 py-2'
+            className={`flex items-center rounded-lg outline-1 -outline-offset-1 outline-dashed transition-colors ${
+                compact ? 'px-2 py-1.5' : 'px-2.5 py-2'
             } ${
                 active
-                    ? 'bg-coral-50 text-coral-600 outline-coral-300'
-                    : 'text-neutral-500 outline-neutral-200 group-hover:text-neutral-600 group-hover:outline-neutral-300'
+                    ? 'bg-coral-50 text-coral-700 outline-coral-500'
+                    : 'text-neutral-500 outline-transparent group-hover:text-neutral-700 group-hover:outline-neutral-300'
             }`}
         >
-            <span className="flex min-w-0 items-stretch gap-2.5">
-                <span className="w-1 shrink-0" aria-hidden="true" />
-                <span className="min-w-0 flex-1 py-0.5">
-                    <span className="block truncate text-sm font-medium">{title}</span>
-                    <span className="mt-0.5 block truncate text-[13px] opacity-80">{detail}</span>
-                </span>
+            <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-medium">{title}</span>
+                <span className="block truncate text-[12px] opacity-80">{detail}</span>
             </span>
         </span>
     )
@@ -267,6 +288,7 @@ export function DropLine() {
 export function PlanRow({
     compact = false,
     bar,
+    tint = 'bg-neutral-50',
     title,
     titleTone = 'text-neutral-900',
     meta,
@@ -284,6 +306,8 @@ export function PlanRow({
     compact?: boolean
     /** The bar's colour class. */
     bar: string
+    /** The block's fill — a light tint of the bar's colour, like a calendar event. */
+    tint?: string
     title: ReactNode
     /** The name's colour (and any strike-through). */
     titleTone?: string
@@ -293,7 +317,7 @@ export function PlanRow({
     onOpen?: () => void
     trailing?: ReactNode
     draggable?: boolean
-    /** Sits in a slot lane, so it stands off it in white. */
+    /** Sits in a slot lane (no longer drawn differently). */
     lane?: boolean
     onDragStart?: () => void
     onDragEnd?: () => void
@@ -305,15 +329,18 @@ export function PlanRow({
     onContextMenu?: (ev: MouseEvent) => void
 }) {
     const [dragging, setDragging] = useState(false)
+    // Rows sit straight on the page now, lane or not; kept in the API for callers.
+    void lane
 
     const body = (
         <span className="flex min-w-0 items-stretch gap-2.5">
+            {/* The item's colour as a bar down its whole height — its type at a glance. */}
             <span className={`w-1 shrink-0 rounded-full ${bar}`} aria-hidden="true" />
             <span className="min-w-0 flex-1 py-0.5">
-                <span className={`block truncate font-medium ${compact ? 'text-sm' : 'text-[15px] sm:text-sm'} ${titleTone}`}>
+                <span className={`block truncate font-semibold leading-snug ${compact ? 'text-sm' : 'text-[15px]'} ${titleTone}`}>
                     {title}
                 </span>
-                <span className="mt-0.5 block truncate text-[13px] text-neutral-500">{meta}</span>
+                <span className="block truncate text-[12.5px] leading-snug text-neutral-600">{meta}</span>
             </span>
         </span>
     )
@@ -342,11 +369,9 @@ export function PlanRow({
             }
             data-plan-row={dropId}
             onContextMenu={onContextMenu}
-            className={`group relative flex items-center rounded-xl transition-colors ${
-                compact ? 'gap-1 p-2' : 'min-h-14 gap-2 px-3 py-2 sm:min-h-0 sm:px-2.5'
-            } ${lane ? 'bg-white ring-1 ring-neutral-900/[0.06]' : 'bg-neutral-50'} ${
-                onOpen ? (lane ? 'hover:ring-neutral-900/[0.12]' : 'hover:bg-neutral-100') : ''
-            } ${draggable ? 'md:cursor-grab md:active:cursor-grabbing' : ''} ${dragging ? 'opacity-40' : ''}`}
+            className={`group relative flex items-center rounded-xl transition-shadow ${tint} ${
+                compact ? 'min-h-14 gap-1.5 py-2 pl-2 pr-2' : 'min-h-16 gap-2 py-2.5 pl-2.5 pr-2.5 sm:min-h-[3.75rem]'
+            } ${onOpen ? 'hover:shadow-[inset_0_0_0_1px_rgb(0_0_0/0.08)]' : ''} ${draggable ? 'md:cursor-grab md:active:cursor-grabbing' : ''} ${dragging ? 'opacity-40' : ''}`}
         >
             {dropEdge && (
                 <span
@@ -368,7 +393,7 @@ export function PlanRow({
                     type="button"
                     onClick={onOpen}
                     aria-label={`View ${name}`}
-                    className="min-w-0 flex-1 rounded-xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-300"
+                    className="min-w-0 flex-1 rounded-md text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900"
                 >
                     {body}
                 </button>
@@ -381,7 +406,7 @@ export function PlanRow({
 }
 
 /** The size of a row's round trailing button: a thumb's width on a phone. */
-export const rowButtonSize = (compact: boolean) => (compact ? 'h-6 w-6' : 'h-10 w-10 sm:h-8 sm:w-8')
+export const rowButtonSize = (compact: boolean) => (compact ? 'h-7 w-7' : 'h-10 w-10 sm:h-8 sm:w-8')
 
 /** The row's tick: done (green), or a hairline circle waiting to be tapped. */
 export function RowTick({
@@ -407,8 +432,8 @@ export function RowTick({
             onClick={onClick}
             className={`grid shrink-0 place-items-center rounded-full transition-colors ${rowButtonSize(compact)} ${
                 done
-                    ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
-                    : 'bg-white text-neutral-300 ring-1 ring-inset ring-neutral-200 hover:text-emerald-600 hover:ring-emerald-300'
+                    ? 'bg-neutral-900 text-white hover:bg-neutral-700'
+                    : 'bg-white text-transparent ring-[1.5px] ring-inset ring-neutral-900/15 hover:text-neutral-500 hover:ring-neutral-500'
             }`}
         >
             <i className="fa-solid fa-check text-[11px]" aria-hidden="true" />
@@ -436,7 +461,7 @@ export function WeekClipboardBanner({
     onForget: () => void
 }) {
     return (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-neutral-900 px-4 py-2.5 text-sm text-white">
+        <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-neutral-900 px-3 py-2 text-[13px] text-white">
             <i className="fa-solid fa-copy text-xs text-white/60" aria-hidden="true" />
             <span className="min-w-0 flex-1">
                 Copied {what} from {fromLabel}
@@ -446,7 +471,7 @@ export function WeekClipboardBanner({
                 <button
                     type="button"
                     onClick={onPaste}
-                    className="h-8 rounded-full bg-white px-3 text-[13px] font-semibold text-neutral-900"
+                    className="h-7 rounded-md bg-white px-2.5 text-[12px] font-medium text-neutral-900"
                 >
                     Paste here
                 </button>
@@ -474,7 +499,7 @@ export function CopiedBanner({
     onForget: () => void
 }) {
     return (
-        <div className="flex items-center gap-3 rounded-2xl bg-neutral-100 px-4 py-2 text-[13px] text-neutral-700">
+        <div role="status" className="flex items-center gap-3 rounded-lg bg-surface-muted px-3 py-1.5 text-[13px] text-neutral-700">
             <i className="fa-solid fa-paste text-xs text-neutral-500" aria-hidden="true" />
             <span className="min-w-0 flex-1 truncate">
                 <span className="font-semibold text-neutral-900">{name}</span> copied — right-click a slot, or tap +, to

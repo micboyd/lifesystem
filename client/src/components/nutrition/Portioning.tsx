@@ -178,7 +178,7 @@ function PortionCard({
     }
 
     return (
-        <li className="flex flex-col overflow-hidden rounded-2xl bg-white ring-1 ring-neutral-900/[0.06]">
+        <li className="flex flex-col overflow-hidden border-t border-hairline pt-1">
             <div className="px-4 pt-4">
                 <p className="text-sm font-semibold text-neutral-900">{meal.name}</p>
                 <p className="text-xs text-neutral-500">

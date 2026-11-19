@@ -1,6 +1,8 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import Container from '../components/Container'
 import Tabs from '../components/Tabs'
+import ModuleLayout from '../components/ModuleLayout'
+import RecentSpends from '../components/finance/RecentSpends'
 
 const TABS = ['Monthly', 'Statement', 'Budgets', 'Logs', 'Forecast', 'Spaces'] as const
 type FinanceTab = (typeof TABS)[number]
@@ -35,6 +37,7 @@ export default function FinanceLayout() {
 
     if (FULL_WIDTH_TABS.includes(active)) {
         return (
+            <ModuleLayout aside={<RecentSpends />} asideLabel="Recent spending">
             <main className="min-h-screen">
                 <Container className="pt-10">
                     <Tabs
@@ -48,18 +51,21 @@ export default function FinanceLayout() {
                     <Outlet />
                 </Container>
             </main>
+            </ModuleLayout>
         )
     }
 
     return (
-        <Container as="main" className="py-10">
-            <Tabs
-                tabs={[...TABS]}
-                value={active}
-                onChange={(tab) => navigate(PATHS[tab as FinanceTab])}
-                className="mb-8"
-            />
-            <Outlet />
-        </Container>
+        <ModuleLayout aside={<RecentSpends />} asideLabel="Recent spending">
+            <Container as="main" className="py-10">
+                <Tabs
+                    tabs={[...TABS]}
+                    value={active}
+                    onChange={(tab) => navigate(PATHS[tab as FinanceTab])}
+                    className="mb-8"
+                />
+                <Outlet />
+            </Container>
+        </ModuleLayout>
     )
 }

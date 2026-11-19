@@ -233,7 +233,7 @@ export function DayDrawer({
                     {warnings.length > 0 && (
                         <div className="flex flex-col gap-2">
                             {warnings.map((w) => (
-                                <div key={w.id} className={`flex gap-3 rounded-2xl border px-4 py-3 ${SEVERITY_STYLES[w.severity]}`}>
+                                <div key={w.id} className={`flex gap-3 rounded-xl border px-4 py-3 ${SEVERITY_STYLES[w.severity]}`}>
                                     <i className={`${w.icon} mt-0.5 ${SEVERITY_ICON_STYLES[w.severity]}`} aria-hidden="true" />
                                     <div>
                                         <p className="text-sm font-semibold">{w.title}</p>
@@ -246,7 +246,7 @@ export function DayDrawer({
 
                     {slices.length > 0 && (
                         <Section title="Through the day">
-                            <ul className="divide-y divide-neutral-100 overflow-hidden rounded-2xl ring-1 ring-neutral-900/[0.06]">
+                            <ul className="divide-y divide-neutral-100 overflow-hidden rounded-xl ring-1 ring-neutral-900/[0.06]">
                                 {slices.map((h) => {
                                     const past = d.date === today && h.hour + 3 <= nowHour
                                     return (

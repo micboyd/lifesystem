@@ -34,7 +34,7 @@ export const LARGE_QUERY = '(min-width: 1024px)'
  * four roomy cards instead of seven squashed ones.
  */
 export const BOARD_GRID =
-    'grid items-stretch gap-3 grid-cols-3 xl:grid-cols-4 3xl:grid-cols-7'
+    'grid items-start gap-3 grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7'
 
 /** Whether a media query matches, kept live as the window resizes. */
 export function useMediaQuery(query: string): boolean {
@@ -179,15 +179,19 @@ const HeroToneContext = createContext<HeroTone>('dark')
 const useSoftHero = () => useContext(HeroToneContext) === 'soft'
 
 /** The panel behind a hero, for planners that lay out their own top. */
-export function HeroShell({ tone = 'dark', children }: { tone?: HeroTone; children: ReactNode }) {
-    const soft = tone === 'soft'
+export function HeroShell({ tone: _tone = 'dark', children }: { tone?: HeroTone; children: ReactNode }) {
+    // Open and editorial: every hero is the soft one now, controls in dark type
+    // straight on the page. `tone` stays in the API so callers needn't change.
+    void _tone
+    const tone: HeroTone = 'soft'
+    const soft = true
     return (
         <HeroToneContext.Provider value={tone}>
             <section
                 className={
                     soft
                         ? 'text-neutral-900'
-                        : 'relative overflow-hidden rounded-3xl bg-neutral-900 text-neutral-50'
+                        : 'relative overflow-hidden rounded-xl bg-neutral-900 text-neutral-50'
                 }
             >
                 <div
@@ -345,7 +349,7 @@ export function ProgressRing({
                 ) : (
                     <>
                         <p
-                            className={`font-bold tabular-nums ${soft ? 'text-base sm:text-lg' : 'text-lg sm:text-xl'}`}
+                            className={`font-semibold nums ${soft ? 'text-base sm:text-lg' : 'text-lg sm:text-xl'}`}
                         >
                             {value}
                             <span className={soft ? 'text-neutral-500' : 'text-white/50'}>
@@ -373,7 +377,7 @@ export function DayStrip({ children, light = false }: { children: ReactNode; lig
     const soft = useSoftHero()
     return (
         <div
-            className={`grid grid-cols-7 gap-1.5 rounded-2xl p-1.5 ${
+            className={`grid grid-cols-7 gap-1.5 rounded-xl p-1.5 ${
                 light
                     ? 'bg-neutral-100'
                     : soft
@@ -437,7 +441,7 @@ export function DayPill({
                 {weekday.slice(0, 3)}
             </span>
             <span
-                className={`grid h-7 w-7 place-items-center rounded-full text-sm font-bold tabular-nums sm:h-8 sm:w-8 sm:text-base ${
+                className={`grid h-7 w-7 place-items-center rounded-full text-sm font-semibold nums sm:h-8 sm:w-8 sm:text-base ${
                     isToday ? 'bg-coral-500 text-white' : ''
                 }`}
             >
@@ -481,25 +485,28 @@ export function DayBadge({ date, isToday }: { date: string; isToday: boolean }) 
     const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()]
     return (
         <div
-            className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl leading-none ${
-                isToday ? 'bg-coral-500 text-white' : 'bg-neutral-100 text-neutral-900'
+            className={`grid h-12 w-12 shrink-0 place-items-start leading-none ${
+                isToday ? 'text-coral-600' : 'text-neutral-900'
             }`}
         >
-            <div className="text-center">
+            <div className="text-left">
                 <p
                     className={`text-[11px] font-medium uppercase tracking-[0.06em] ${
-                        isToday ? 'text-white/80' : 'text-neutral-500'
+                        isToday ? 'text-coral-600' : 'text-neutral-500'
                     }`}
                 >
                     {weekday.slice(0, 3)}
                 </p>
-                <p className="mt-0.5 text-lg font-bold tabular-nums">{day}</p>
+                <p className="mt-1 text-[22px] font-normal tracking-[-0.03em] nums">{day}</p>
             </div>
         </div>
     )
 }
 
-/** The shell of a day card — the white rounded panel, today ringed in coral. */
+/**
+ * The shell of a day card — a white rounded panel, so each day reads as one
+ * thing on the page; today is ringed in coral.
+ */
 export function DayCardShell({
     id,
     isToday,
@@ -517,9 +524,11 @@ export function DayCardShell({
     return (
         <section
             id={id}
-            className={`relative scroll-mt-32 flex-col overflow-hidden rounded-[20px] bg-white ${
-                compact ? 'gap-3 p-3' : 'gap-4 p-4 sm:p-5'
-            } ${isToday ? 'ring-2 ring-coral-200' : 'ring-1 ring-neutral-900/[0.06]'} ${className}`}
+            className={`relative scroll-mt-32 flex-col rounded-2xl bg-white ${
+                compact ? 'gap-3 p-4' : 'gap-4 p-4 sm:p-5'
+            } ${
+                isToday ? 'ring-2 ring-coral-400' : 'ring-1 ring-neutral-900/[0.07]'
+            } ${className}`}
         >
             {children}
         </section>

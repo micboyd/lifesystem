@@ -1,12 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { MenuItem } from './DropdownMenu'
+import type { MenuEntry } from './DropdownMenu'
 
 interface ContextMenuProps {
     /** Viewport coordinates of the originating right-click. */
     x: number
     y: number
-    items: MenuItem[]
+    /** Menu items; 'divider' draws a hairline between groups. */
+    items: MenuEntry[]
     onClose: () => void
 }
 
@@ -58,33 +59,37 @@ export default function ContextMenu({ x, y, items, onClose }: ContextMenuProps) 
             style={{ left: pos.left, top: pos.top }}
             onMouseDown={(e) => e.stopPropagation()}
             onContextMenu={(e) => e.preventDefault()}
-            className="fixed z-[100] min-w-44 rounded-2xl bg-white p-1.5 shadow-xl ring-1 ring-neutral-900/[0.06]"
+            className="fixed z-[100] min-w-48 rounded-xl bg-white p-1 shadow-lg ring-1 ring-hairline"
         >
-            {items.map((item) => (
-                <button
-                    key={item.label}
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                        item.onClick?.()
-                        onClose()
-                    }}
-                    className={[
-                        'flex min-h-10 w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-left text-sm transition-colors duration-100',
-                        item.danger
-                            ? 'text-red-600 hover:bg-red-50'
-                            : 'text-neutral-700 hover:bg-neutral-100',
-                    ].join(' ')}
-                >
-                    {item.icon && (
-                        <i
-                            className={`${item.icon} w-4 text-center text-xs ${item.danger ? 'text-red-500' : 'text-neutral-500'}`}
-                            aria-hidden="true"
-                        />
-                    )}
-                    {item.label}
-                </button>
-            ))}
+            {items.map((item, i) =>
+                item === 'divider' ? (
+                    <div key={`divider-${i}`} className="my-1 h-px bg-hairline" role="separator" />
+                ) : (
+                    <button
+                        key={item.label}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                            item.onClick?.()
+                            onClose()
+                        }}
+                        className={[
+                            'flex min-h-9 w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors duration-100',
+                            item.danger
+                                ? 'text-red-600 hover:bg-red-50'
+                                : 'text-neutral-700 hover:bg-neutral-100',
+                        ].join(' ')}
+                    >
+                        {item.icon && (
+                            <i
+                                className={`${item.icon} w-4 text-center text-xs ${item.danger ? 'text-red-500' : 'text-neutral-500'}`}
+                                aria-hidden="true"
+                            />
+                        )}
+                        {item.label}
+                    </button>
+                )
+            )}
         </div>,
         document.body
     )

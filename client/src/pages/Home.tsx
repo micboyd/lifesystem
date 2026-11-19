@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import Container from '../components/Container'
-import { DashCards } from '../components/dashboard/DashSection'
+import { DashCompact } from '../components/dashboard/DashSection'
+import ModuleLayout from '../components/ModuleLayout'
 import DashboardHeader from '../components/dashboard/DashboardHeader'
 import DashboardDateNav from '../components/dashboard/DashboardDateNav'
 import YourDayWidget from '../components/dashboard/YourDayWidget'
@@ -15,54 +15,48 @@ import BirthdaysWidget from '../components/dashboard/BirthdaysWidget'
 import { todayKey } from '../lib/calendar'
 
 /**
- * The day on one page, most important first. A greeting; Your day's score and
- * targets in one strip; then the plan — what's happening now and the day in
- * order — with the weather beside it, since it shapes the day. Then steps and
- * calories burned side by side, and, quieter, a row of things to glance
- * at: the timeline, countdowns, and birthdays when one is close. Every section sits on its own card.
+ * Today, hybrid style. The page: a greeting and the day in a sentence, the
+ * headline figures, then the day in order as one list. The context column
+ * beside it (below it on narrower screens): steps, weather, the timeline,
+ * countdowns and birthdays, each a compact section split by hairlines.
  */
 export default function Home() {
     const [date, setDate] = useState(todayKey())
     const { show: showTomorrow } = useTomorrowVisible(date)
-    // Read once here: the summary strip and the steps card both show them.
+    // Read once here: the headline figures and the steps section both show them.
     const steps = useSteps(todayKey())
 
-    return (
-        <Container as="main" wide className="pb-20 pt-8 sm:pt-12">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-                <DashboardHeader />
-                <DashboardDateNav date={date} onChange={setDate} />
+    const context = (
+        <DashCompact>
+            <div className="flex flex-col gap-8 [&>*+*]:border-t [&>*+*]:border-hairline [&>*+*]:pt-7">
+                <StepsWidget data={steps} />
+                <CaloriesOutWidget />
+                <WeatherWidget />
+                <TimelineWidget />
+                <CountdownsWidget show="until" />
+                <CountdownsWidget show="since" />
+                <BirthdaysWidget date={date} />
             </div>
+        </DashCompact>
+    )
 
-            <DashCards>
-                <div className="mt-8 sm:mt-10">
-                    <YourDayWidget
-                        date={date}
-                        glance={date === todayKey() ? <StepsGlance data={steps} /> : undefined}
-                        aside={<WeatherWidget />}
-                    />
+    return (
+        <ModuleLayout aside={context} asideLabel="Context">
+            <div className="px-5 pb-20 pt-8 sm:px-10 sm:pt-10">
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                    <DashboardHeader />
+                    <DashboardDateNav date={date} onChange={setDate} />
                 </div>
-
-                {/* Evenings only: tonight's prep for tomorrow, across the whole page. */}
+                <div className="mt-2">
+                    <YourDayWidget date={date} glance={date === todayKey() ? <StepsGlance data={steps} /> : undefined} />
+                </div>
+                {/* Evenings only: tonight's prep for tomorrow. */}
                 {showTomorrow && (
-                    <div className="mt-5">
+                    <div className="mt-14">
                         <TomorrowWidget date={date} />
                     </div>
                 )}
-
-                {/* Activity from the watch, side by side so neither pushes the page down. */}
-                <div className="mt-5 grid items-start gap-5 md:grid-cols-2">
-                    <StepsWidget data={steps} />
-                    <CaloriesOutWidget />
-                </div>
-
-                <div className="mt-5 grid items-start gap-5 md:grid-cols-2 lg:grid-cols-3">
-                    <TimelineWidget />
-                    <CountdownsWidget show="until" />
-                    <CountdownsWidget show="since" />
-                    <BirthdaysWidget date={date} />
-                </div>
-            </DashCards>
-        </Container>
+            </div>
+        </ModuleLayout>
     )
 }

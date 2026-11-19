@@ -142,7 +142,15 @@ export function nowOrNext(
 export const MIN_GAP = 15
 
 export type AgendaRow =
-    | { kind: 'block'; key: string; item: Timebox; start: number; end: number; meetings: Timebox[] }
+    | {
+          kind: 'block'
+          key: string
+          item: Timebox
+          start: number
+          end: number
+          /** Title of the earlier item this one starts inside, so the overlap shows. */
+          during?: string
+      }
     | { kind: 'planned'; key: string; suggestion: PlanSuggestion; start: number; end: number }
     | { kind: 'free'; key: string; start: number; end: number }
     | { kind: 'work'; key: string; start: number; end: number; meetings: Timebox[] }
@@ -224,10 +232,10 @@ export function inLunch(item: Timebox, work: WorkWindow | null): boolean {
  * row outside them. Overlapping items simply follow each other.
  *
  * The lunch break, on a working day, is always one row holding everything that
- * starts in it — your own blocks and meetings alike. Other Google meetings sit
- * inside the row that holds their start time — your own block first (the
- * latest-starting one, when blocks overlap), else the work row — and stand on
- * their own only when nothing holds them.
+ * starts in it — your own blocks and meetings alike. A Google meeting in plain
+ * working hours is listed inside that work row. Anything that starts inside one
+ * of your own blocks — a meeting or another block — stands as its own row at
+ * its own time, marked `during` that block, so the overlap shows through.
  */
 export function agendaRows(
     items: Timebox[],
@@ -270,7 +278,6 @@ export function agendaRows(
                 item,
                 start: timeToMinutes(item.startTime),
                 end: timeToMinutes(item.endTime),
-                meetings: [] as Timebox[],
             })),
         ...suggestions
             .filter((s) => !s.boxed)
@@ -319,14 +326,9 @@ export function agendaRows(
     for (const m of [...nested].sort((a, b) => a.startTime.localeCompare(b.startTime))) {
         const start = timeToMinutes(m.startTime)
         const holds = (r: AgendaRow) => r.start <= start && start < r.end
-        const own = rows.filter(
-            (r): r is Extract<AgendaRow, { kind: 'block' }> =>
-                r.kind === 'block' && !r.item.source && holds(r)
-        )
-        const host =
-            own.sort((a, b) => b.start - a.start)[0] ??
-            rows.find((r) => r.kind === 'work' && holds(r))
-        if (host && 'meetings' in host) host.meetings.push(m)
+        const inOwn = rows.some((r) => r.kind === 'block' && !r.item.source && holds(r))
+        const host = inOwn ? undefined : rows.find((r) => r.kind === 'work' && holds(r))
+        if (host?.kind === 'work') host.meetings.push(m)
         else
             loose.push({
                 kind: 'block',
@@ -334,11 +336,47 @@ export function agendaRows(
                 item: m,
                 start,
                 end: timeToMinutes(m.endTime),
-                meetings: [],
             })
     }
-    if (!loose.length) return rows
-    return [...rows, ...loose].sort((a, b) => a.start - b.start)
+    const all = loose.length ? [...rows, ...loose].sort((a, b) => a.start - b.start) : rows
+
+    // Mark each block that starts inside an earlier block or plan item.
+    all.forEach((r, i) => {
+        if (r.kind !== 'block') return
+        const over = all
+            .slice(0, i)
+            .filter((q) => (q.kind === 'block' || q.kind === 'planned') && q.start <= r.start && r.start < q.end)
+            .sort((a, b) => b.start - a.start)[0]
+        if (over?.kind === 'block') r.during = over.item.title
+        else if (over?.kind === 'planned') r.during = over.suggestion.title
+    })
+    return all
+}
+
+// ── Moving, copying, pasting ────────────────────────────────────────────────
+
+const LAST_MIN = 24 * 60 - 1
+
+/**
+ * New times for something `length` minutes long starting at `startMin`, kept
+ * inside the day: it slides back rather than running past 23:59.
+ */
+export function placeAt(startMin: number, length: number): { startTime: string; endTime: string } {
+    const len = Math.max(5, Math.min(length, LAST_MIN))
+    const start = Math.max(0, Math.min(Math.round(startMin), LAST_MIN - len))
+    return { startTime: minutesToTime(start), endTime: minutesToTime(start + len) }
+}
+
+/** A block's length in minutes. */
+export const blockLength = (item: Pick<Timebox, 'startTime' | 'endTime'>) =>
+    timeToMinutes(item.endTime) - timeToMinutes(item.startTime)
+
+/**
+ * Where something dropped or pasted on a row lands: straight after a block, or
+ * at the start of a gap, work, lunch or planned row.
+ */
+export function landingFor(row: AgendaRow): number {
+    return row.kind === 'block' ? row.end : row.start
 }
 
 /** Working minutes no block covers (lunch not included) — neither boxed nor free. */
@@ -349,19 +387,31 @@ export function unboxedWorkMinutes(items: Timebox[], work: WorkWindow | null): n
         .reduce((sum, z) => sum + z.end - z.start - boxedMinutes(items, z.start, z.end), 0)
 }
 
-/** A block's place on the day strip, as percentages of the visible day. */
+/**
+ * Each block's place on the day strip, as percentages of the visible day, in
+ * start order (longest first on a tie). `over` is true when a block starts
+ * inside an earlier one — decided in whole minutes, so blocks that merely
+ * touch (one ends at 10:00, the next starts at 10:00) never count.
+ */
 export function stripSegments(
     items: Timebox[],
     bounds: { start: number; end: number }
-): { item: Timebox; left: number; width: number }[] {
+): { item: Timebox; left: number; width: number; over: boolean }[] {
     const span = bounds.end - bounds.start
-    return items
-        .map((item) => {
-            const s = Math.max(bounds.start, timeToMinutes(item.startTime))
-            const e = Math.min(bounds.end, timeToMinutes(item.endTime))
-            return { item, left: ((s - bounds.start) / span) * 100, width: ((e - s) / span) * 100 }
-        })
-        .filter((seg) => seg.width > 0)
+    const spans = items
+        .map((item) => ({
+            item,
+            s: Math.max(bounds.start, timeToMinutes(item.startTime)),
+            e: Math.min(bounds.end, timeToMinutes(item.endTime)),
+        }))
+        .filter(({ s, e }) => e > s)
+        .sort((a, b) => a.s - b.s || b.e - a.e)
+    return spans.map(({ item, s, e }, i) => ({
+        item,
+        left: ((s - bounds.start) / span) * 100,
+        width: ((e - s) / span) * 100,
+        over: spans.slice(0, i).some((o) => o.s <= s && s < o.e),
+    }))
 }
 
 // ── From your plans ─────────────────────────────────────────────────────────

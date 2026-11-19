@@ -1207,7 +1207,7 @@ function ExerciseStep({
                     type="button"
                     onClick={() => onWarmUpDone(!warmedUp)}
                     aria-pressed={warmedUp}
-                    className={`flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl text-[15px] font-semibold transition-colors ${
+                    className={`flex h-14 w-full items-center justify-center gap-2.5 rounded-xl text-[15px] font-semibold transition-colors ${
                         warmedUp
                             ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                             : 'bg-neutral-900 text-white hover:bg-neutral-800'
@@ -1257,7 +1257,7 @@ function ExerciseStep({
                         return (
                             <div
                                 key={si}
-                                className={`grid ${cols} items-center gap-x-2 rounded-2xl px-2 py-2 ring-1 ring-inset transition-colors ${
+                                className={`grid ${cols} items-center gap-x-2 rounded-xl px-2 py-2 ring-1 ring-inset transition-colors ${
                                     s.done
                                         ? 'bg-emerald-50 ring-emerald-100'
                                         : here
@@ -1434,7 +1434,7 @@ function TargetCard({
     onUse: () => void
 }) {
     return (
-        <div className="flex items-center gap-4 rounded-2xl bg-white p-4 ring-1 ring-inset ring-neutral-900/[0.08]">
+        <div className="flex items-center gap-4 rounded-xl bg-white p-4 ring-1 ring-inset ring-neutral-900/[0.08]">
             <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
                     <i
@@ -1565,7 +1565,7 @@ function SkippedStrip({
     onRestore: (i: number) => void
 }) {
     return (
-        <div className="-mt-3 flex flex-col divide-y divide-neutral-100 rounded-2xl bg-neutral-50 px-4">
+        <div className="-mt-3 flex flex-col divide-y divide-neutral-100 rounded-xl bg-neutral-50 px-4">
             {skipped.map(({ ex, i }) => (
                 <div key={i} className="flex items-center gap-3 py-1.5">
                     <i
@@ -1678,7 +1678,7 @@ function WrapUp({
             )}
 
             {skipped.length > 0 && (
-                <div className="flex flex-col gap-1 rounded-2xl bg-neutral-50 px-4 py-3">
+                <div className="flex flex-col gap-1 rounded-xl bg-neutral-50 px-4 py-3">
                     <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
                         Skipped · not logged
                     </p>

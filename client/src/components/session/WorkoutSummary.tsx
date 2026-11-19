@@ -32,7 +32,7 @@ export function SummaryStats({
     items: { label: string; value: string | number; unit?: string }[]
 }) {
     return (
-        <dl className="grid grid-flow-col auto-cols-fr divide-x divide-neutral-200 rounded-2xl bg-neutral-50 py-3">
+        <dl className="grid grid-flow-col auto-cols-fr divide-x divide-neutral-200 rounded-xl bg-neutral-50 py-3">
             {items.map((s) => (
                 <div key={s.label} className="flex min-w-0 flex-col items-center gap-0.5 px-2">
                     <dt className="order-last text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
@@ -81,7 +81,7 @@ export function SummaryExerciseList({ rows }: { rows: SummaryRow[] }) {
 
 function RowList({ rows }: { rows: SummaryRow[] }) {
     return (
-        <ul className="divide-y divide-neutral-100 overflow-hidden rounded-2xl border border-neutral-200">
+        <ul className="divide-y divide-neutral-100 overflow-hidden rounded-xl border border-neutral-200">
             {rows.map((r) => {
                 const body = (
                     <>

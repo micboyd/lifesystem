@@ -465,7 +465,7 @@ export default function RouteMap({
     return (
         <>
             <div
-                className={`relative isolate w-full overflow-hidden bg-neutral-100 ${fill ? 'h-full' : 'h-[320px] rounded-2xl sm:h-[380px]'} ${className}`}
+                className={`relative isolate w-full overflow-hidden bg-neutral-100 ${fill ? 'h-full' : 'h-[320px] rounded-xl sm:h-[380px]'} ${className}`}
             >
                 <div
                     ref={inlineSlot}

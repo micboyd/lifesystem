@@ -79,7 +79,7 @@ export function GarminErrorBlock({
 }) {
     const reconnect = code === 'not_connected' || code === 'session_expired'
     return (
-        <div className="flex flex-col gap-3 rounded-2xl bg-danger-bg px-4 py-3.5 text-red-700 sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-3 rounded-xl bg-danger-bg px-4 py-3.5 text-red-700 sm:flex-row sm:items-center">
             <p className="flex-1 text-sm">
                 <i className="fa-solid fa-circle-exclamation mr-2" aria-hidden="true" />
                 {message}

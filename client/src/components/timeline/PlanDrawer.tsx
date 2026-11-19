@@ -117,7 +117,7 @@ function InTimeline({
               : `Week ${Math.floor(daysBetween(start, today) / 7) + 1} of ${Math.max(1, Math.ceil((daysBetween(start, end) + 1) / 7))}`
 
     return (
-        <section className="rounded-2xl bg-neutral-50 p-5">
+        <section className="rounded-xl bg-neutral-50 p-5">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className={OVERLINE}>Your timeline in this plan</p>
                 <p className="nums text-[13px] text-neutral-500">

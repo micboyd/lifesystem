@@ -163,7 +163,7 @@ export default function TimeboxDrawer({ open, date, editing, draft, onClose, onS
                         </p>
                     )}
                     {editing.notes && (
-                        <p className="whitespace-pre-line break-words rounded-2xl bg-neutral-50 px-4 py-3.5 text-sm leading-relaxed text-neutral-700">
+                        <p className="whitespace-pre-line break-words rounded-xl bg-neutral-50 px-4 py-3.5 text-sm leading-relaxed text-neutral-700">
                             {editing.notes}
                         </p>
                     )}

@@ -18,9 +18,11 @@ export default function Tabs({ tabs, value, defaultTab, onChange, className = ''
         onChange?.(tab)
     }
 
+    // Open and editorial: plain text links on a hairline, the current one underlined.
     return (
         <div
-            className={`inline-flex max-w-full gap-1 overflow-x-auto scrollbar-none rounded-xl bg-neutral-100 p-1 ${className}`}
+            role="tablist"
+            className={`flex max-w-full gap-6 overflow-x-auto scrollbar-none border-b border-hairline ${className}`}
         >
             {tabs.map((tab) => {
                 const selected = tab === active
@@ -28,12 +30,14 @@ export default function Tabs({ tabs, value, defaultTab, onChange, className = ''
                     <button
                         key={tab}
                         type="button"
+                        role="tab"
+                        aria-selected={selected}
                         onClick={() => select(tab)}
                         className={[
-                            'h-9 rounded-[9px] px-4 text-[13px] font-medium transition-all duration-200 whitespace-nowrap',
+                            'h-10 shrink-0 whitespace-nowrap text-sm font-medium transition-colors duration-150',
                             selected
-                                ? 'bg-white text-neutral-900 shadow-sm ring-1 ring-neutral-900/[0.04]'
-                                : 'text-neutral-600 hover:text-neutral-900',
+                                ? 'text-neutral-900 shadow-[inset_0_-2px_0_var(--color-ink)]'
+                                : 'text-neutral-500 hover:text-neutral-900',
                         ].join(' ')}
                     >
                         {tab}

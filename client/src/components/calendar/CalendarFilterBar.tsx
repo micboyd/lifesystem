@@ -282,7 +282,7 @@ function ManagePanel({
                 ))}
             </div>
 
-            <div className="flex flex-col gap-3 rounded-2xl border border-dashed border-neutral-200 p-4">
+            <div className="flex flex-col gap-3 rounded-xl border border-dashed border-neutral-200 p-4">
                 <Input
                     label="New calendar"
                     placeholder="Gym"
@@ -329,7 +329,7 @@ function CalendarRow({
     const [name, setName] = useState(calendar.name)
 
     return (
-        <div className="flex flex-col gap-2 rounded-2xl border border-neutral-200 p-3">
+        <div className="flex flex-col gap-2 rounded-xl border border-neutral-200 p-3">
             <div className="flex items-center gap-2">
                 <input
                     value={name}

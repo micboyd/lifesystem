@@ -138,7 +138,7 @@ export default function HabitTiles({ date = todayKey() }: { date?: string }) {
                             title={habit.description || habit.name}
                             aria-pressed={completed}
                             className={[
-                                'group relative flex aspect-square flex-col items-center justify-center gap-2 rounded-2xl p-2.5 text-center transition-colors duration-150',
+                                'group relative flex aspect-square flex-col items-center justify-center gap-2 rounded-xl p-2.5 text-center transition-colors duration-150',
                                 completed
                                     ? 'bg-success text-white'
                                     : 'bg-white text-neutral-600 ring-1 ring-inset ring-neutral-200 hover:ring-neutral-300',

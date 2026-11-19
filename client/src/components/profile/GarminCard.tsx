@@ -113,7 +113,7 @@ export default function GarminCard() {
                             sign-in securely.
                         </Alert>
                     ) : connected ? (
-                        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-neutral-50 px-4 py-3">
+                        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-neutral-50 px-4 py-3">
                             <div className="min-w-0">
                                 <p className="text-sm font-semibold text-neutral-900">
                                     <i className="fa-solid fa-circle-check mr-2 text-success" aria-hidden="true" />

@@ -468,7 +468,7 @@ export default function EventEditor({
 
                     {/* Cross-calendar overlap — information, not a blocker. */}
                     {overlaps.length > 0 && (
-                        <div className="flex flex-col gap-2 rounded-2xl bg-neutral-50 px-4 py-3">
+                        <div className="flex flex-col gap-2 rounded-xl bg-neutral-50 px-4 py-3">
                             <p className="flex items-center gap-1.5 text-[13px] font-medium text-neutral-700">
                                 <i className="fa-solid fa-layer-group text-[11px] text-neutral-500" aria-hidden="true" />
                                 Also in this slot

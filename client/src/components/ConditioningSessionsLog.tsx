@@ -326,7 +326,7 @@ function LogRow({
                 type="button"
                 aria-label={`View ${log.name}`}
                 onClick={onOpen}
-                className="absolute inset-0 z-10 rounded-3xl focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500"
+                className="absolute inset-0 z-10 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500"
             />
 
             <div className="flex items-start gap-2 p-4">
@@ -520,7 +520,7 @@ export function ConditioningLogSummary({
             {log.notes && (
                 <div className="flex flex-col gap-1.5">
                     <p className="text-[13px] font-medium text-neutral-700">Notes</p>
-                    <p className="whitespace-pre-wrap rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-700">
+                    <p className="whitespace-pre-wrap rounded-xl bg-neutral-50 px-4 py-3 text-sm text-neutral-700">
                         {log.notes}
                     </p>
                 </div>

@@ -96,7 +96,7 @@ export default function LocationPicker({
                     <Spinner />
                 </div>
             ) : results.length > 0 ? (
-                <ul className="divide-y divide-neutral-100 overflow-hidden rounded-2xl ring-1 ring-neutral-900/[0.06]">
+                <ul className="divide-y divide-neutral-100 overflow-hidden rounded-xl ring-1 ring-neutral-900/[0.06]">
                     {results.map((r) => (
                         <li key={`${r.latitude},${r.longitude}`}>
                             <button

@@ -79,7 +79,7 @@ function MonthArrow({ dir, onClick, disabled = false }: { dir: 'prev' | 'next'; 
             title={label}
             onClick={onClick}
             disabled={disabled}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/10 text-neutral-200 transition-colors hover:bg-white/20 hover:text-white disabled:pointer-events-none disabled:opacity-40 sm:h-9 sm:w-9"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-surface-muted text-neutral-700 transition-colors hover:bg-neutral-200 hover:text-neutral-950 disabled:pointer-events-none disabled:opacity-40 sm:h-9 sm:w-9"
         >
             <i className={`fa-solid ${dir === 'prev' ? 'fa-chevron-left' : 'fa-chevron-right'} text-xs`} aria-hidden="true" />
         </button>
@@ -93,7 +93,7 @@ function Figure({ label, dot, value }: { label: string; dot: string; value: numb
                 <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${dot}`} aria-hidden="true" />
                 {label}
             </p>
-            <p className="mt-1.5 truncate text-xl font-medium tabular-nums tracking-[-0.03em] text-white sm:text-2xl">
+            <p className="mt-1.5 truncate text-xl font-medium tabular-nums tracking-[-0.03em] text-neutral-950 sm:text-2xl">
                 {formatMoney(value, 0)}
             </p>
         </div>
@@ -562,7 +562,7 @@ export default function Finances() {
     return (
         <>
             {/* Hero — the month and where it lands, before any detail */}
-            <section className="mb-4 rounded-3xl bg-neutral-900 p-5 text-neutral-50 sm:p-7">
+            <section className="mb-6 border-b border-hairline pb-6 sm:pb-8">
                 <div className="flex items-center gap-3">
                     <div className="flex shrink-0 items-center gap-1.5">
                         <MonthArrow
@@ -573,15 +573,15 @@ export default function Finances() {
                         <MonthArrow dir="next" onClick={() => setMonth((m) => addMonths(m, 1))} />
                     </div>
                     <div className="min-w-0 flex-1">
-                        <h1 className="truncate text-xl font-semibold tracking-tight text-white sm:text-[22px]">
+                        <h1 className="truncate text-xl font-semibold tracking-tight text-neutral-950 sm:text-[22px]">
                             {monthLabel}
                         </h1>
-                        <p className="truncate text-[13px] text-neutral-400">
+                        <p className="truncate text-[13px] text-neutral-500">
                             {isCurrent ? 'This month' : (
                                 <button
                                     type="button"
                                     onClick={() => setMonth(currentMonth())}
-                                    className="font-medium text-white underline underline-offset-4"
+                                    className="font-medium text-neutral-950 underline underline-offset-4"
                                 >
                                     Back to this month
                                 </button>
@@ -597,13 +597,13 @@ export default function Finances() {
                     <div className="mt-7 grid grid-cols-3 gap-x-4 gap-y-6 lg:grid-cols-[1.6fr_1fr_1fr_1fr] lg:items-end">
                         <div className="col-span-3 lg:col-span-1">
                             <p className={HERO_OVERLINE}>Left over</p>
-                            <p className="mt-2 text-[40px] font-medium leading-none tracking-[-0.04em] tabular-nums text-white">
+                            <p className="mt-2 text-[40px] font-medium leading-none tracking-[-0.04em] tabular-nums text-neutral-950">
                                 {net > 0 ? '+' : ''}
                                 {formatMoney(net, 0)}
                             </p>
                             <p className="mt-2 text-[13px] text-neutral-500">
                                 {net < 0 ? (
-                                    <span className="inline-flex rounded-full bg-coral-500/20 px-2 py-0.5 text-xs font-medium text-coral-300">
+                                    <span className="inline-flex rounded-full bg-coral-50 px-2 py-0.5 text-xs font-medium text-coral-700">
                                         More going out than coming in
                                     </span>
                                 ) : (
@@ -618,12 +618,12 @@ export default function Finances() {
                 )}
 
                 {totalOwed > 0 && (
-                    <div className="mt-6 border-t border-white/10 pt-4">
+                    <div className="mt-6 border-t border-hairline pt-4">
                         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                            <p className="text-[15px] text-neutral-100">
+                            <p className="text-[15px] text-neutral-800">
                                 {leftToPay > 0 ? (
                                     <>
-                                        <span className="font-medium tabular-nums text-white">{formatMoney(leftToPay)}</span> left to pay
+                                        <span className="font-medium tabular-nums text-neutral-950">{formatMoney(leftToPay)}</span> left to pay
                                     </>
                                 ) : (
                                     'Everything’s paid'
@@ -634,9 +634,9 @@ export default function Finances() {
                                 <span className="tabular-nums">{formatMoney(totalOwed, 0)}</span> paid
                             </p>
                         </div>
-                        <div className="mt-2.5 h-1 w-full overflow-hidden rounded-full bg-white/15">
+                        <div className="mt-2.5 h-1 w-full overflow-hidden rounded-full bg-hairline">
                             <div
-                                className="h-full rounded-full bg-white transition-all duration-300"
+                                className="h-full rounded-full bg-neutral-900 transition-all duration-300"
                                 style={{ width: `${paidPct}%` }}
                             />
                         </div>
@@ -648,7 +648,7 @@ export default function Finances() {
             {activePlans.length > 0 && (
                 <div
                     className={[
-                        'mb-4 flex items-center gap-3 rounded-2xl px-4 py-3',
+                        'mb-4 flex items-center gap-3 rounded-xl px-4 py-3',
                         savingsShort ? 'bg-warning-bg' : 'bg-neutral-100',
                     ].join(' ')}
                 >
@@ -680,7 +680,7 @@ export default function Finances() {
 
             {/* Groups */}
             {monthGroups.length === 0 ? (
-                <div className="rounded-3xl border border-dashed border-neutral-300 px-6 py-12 text-center">
+                <div className="rounded-xl border border-dashed border-neutral-300 px-6 py-12 text-center">
                     <p className="text-[15px] text-neutral-500">
                         {groups.length === 0
                             ? 'No groups yet. Start with your income, then your bills.'

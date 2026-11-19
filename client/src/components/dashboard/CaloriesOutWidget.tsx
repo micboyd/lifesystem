@@ -79,7 +79,7 @@ export default function CaloriesOutWidget() {
 
                     <WeekBars week={s.week} today={todayKcal} average={s.average} />
 
-                    <dl className={`${DASH.block} grid grid-cols-3 gap-3 rounded-2xl bg-neutral-50 p-4`}>
+                    <dl className={`${DASH.block} grid grid-cols-3 gap-3 rounded-xl bg-neutral-50 p-4`}>
                         <Stat
                             label="Average"
                             value={s.average === null ? '—' : fmt(s.average)}

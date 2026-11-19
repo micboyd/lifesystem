@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
+import { ModuleAside } from './ModuleLayout'
 import Spinner from './Spinner'
 import Button from './Button'
 import Input from './Input'
@@ -68,7 +69,12 @@ import {
     deletePlanNote,
 } from '../services/fitnessPlan'
 import { FITNESS_PLAN_KINDS, FITNESS_PLAN_PARTS, FITNESS_FLAG_COLORS } from '../types'
+import PlannerLibrary, { type LibraryDrag, type LibraryEntry } from './planner/PlannerLibrary'
+import { logVolume } from '../lib/trainingLoad'
+import { listWeightLogs } from '../services/weightLogs'
+import { daysBetween } from '../lib/weightTrend'
 import type {
+    WeightLog,
     WorkoutLog,
     ConditioningLog,
     Workout,
@@ -142,27 +148,29 @@ function kindsLabel(kinds: FitnessPlanKind[]): string {
 }
 
 // Each plan kind carries its own colour so the categories read apart at a
-// glance — coral for strength, sky for conditioning (matching the chips used
+// glance — violet for strength, blue for conditioning (matching the chips used
 // elsewhere in Fitness).
 const KIND_TONE: Record<
     FitnessPlanKind,
-    { label: string; icon: string; row: string; chip: string; tile: string; dot: string }
+    { label: string; icon: string; row: string; chip: string; tile: string; dot: string; block: string }
 > = {
     workout: {
-        label: 'text-coral-600',
-        icon: 'text-coral-500',
-        row: 'border-l-2 border-coral-300 bg-coral-50/60',
-        chip: 'bg-coral-50 text-coral-700',
-        tile: 'bg-coral-50 text-coral-500',
-        dot: 'bg-coral-500',
+        block: 'bg-violet-50',
+        label: 'text-violet-600',
+        icon: 'text-violet-600',
+        row: 'bg-violet-50/60',
+        chip: 'bg-violet-50 text-violet-700',
+        tile: 'bg-violet-50 text-violet-600',
+        dot: 'bg-violet-600',
     },
     conditioning: {
+        block: 'bg-sky-50',
         label: 'text-sky-600',
-        icon: 'text-sky-500',
-        row: 'border-l-2 border-sky-300 bg-sky-50/60',
+        icon: 'text-sky-600',
+        row: 'bg-sky-50/60',
         chip: 'bg-sky-50 text-sky-700',
-        tile: 'bg-sky-50 text-sky-500',
-        dot: 'bg-sky-500',
+        tile: 'bg-sky-50 text-sky-600',
+        dot: 'bg-sky-600',
     },
 }
 
@@ -521,6 +529,17 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     // and the "Send next 7 days" drawer.
     const [garminStates, setGarminStates] = useState<Record<string, GarminEntryState>>({})
     const [garminWeekOpen, setGarminWeekOpen] = useState(false)
+    // The week's logs (for the totals) and when each library item was last done.
+    const [weekLogs, setWeekLogs] = useState<{
+        workouts: WorkoutLog[]
+        conditioning: ConditioningLog[]
+        lastWeekVolume: number
+    }>({ workouts: [], conditioning: [], lastWeekVolume: 0 })
+    const [lastDone, setLastDone] = useState<Map<string, string>>(new Map())
+    const [weights, setWeights] = useState<WeightLog[]>([])
+    // An item being dragged out of the library, and where a click in it adds to.
+    const [libDrag, setLibDrag] = useState<LibraryDrag<FitnessPlanKind> | null>(null)
+    const [libPart, setLibPart] = useState<FitnessPlanPart>('evening')
 
     const today = todayKey()
     const toast = useToast()
@@ -635,6 +654,17 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         const start = mondayOf(anchor)
         return { start, end: addDays(start, 6) }
     }, [anchor])
+
+    // Weigh-ins around the week, for its body-weight figure.
+    useEffect(() => {
+        let active = true
+        listWeightLogs(addDays(range.start, -14))
+            .then((logs) => active && setWeights(logs))
+            .catch(() => undefined)
+        return () => {
+            active = false
+        }
+    }, [range.start])
 
     // The libraries — loaded once, for the add drawer, the "is it empty" check
     // and the detail drawer (exercises resolve a workout's exercise names).
@@ -765,6 +795,24 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                     if (l.session && inRange(l.date))
                         keys.set(doneKey('conditioning', l.session, l.date), l._id)
                 setDoneLogs(keys)
+                // The totals: this week's logs, and last week's volume to compare with.
+                const lastStart = addDays(range.start, -7)
+                const lastEnd = addDays(range.start, -1)
+                setWeekLogs({
+                    workouts: wLogs.filter((l) => inRange(l.date)),
+                    conditioning: cLogs.filter((l) => inRange(l.date)),
+                    lastWeekVolume: wLogs
+                        .filter((l) => l.date >= lastStart && l.date <= lastEnd)
+                        .reduce((sum, l) => sum + logVolume(l), 0),
+                })
+                // When each library item was last done, up to today, for the library list.
+                const last = new Map<string, string>()
+                const note = (key: string, date: string) => {
+                    if (date <= todayKey() && (!last.has(key) || last.get(key)! < date)) last.set(key, date)
+                }
+                for (const l of wLogs) if (l.workout) note(`workout:${l.workout}`, l.date)
+                for (const l of cLogs) if (l.session) note(`conditioning:${l.session}`, l.date)
+                setLastDone(last)
             })
             .finally(() => active && setLoading(false))
         return () => {
@@ -1078,6 +1126,34 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     }, [entries])
 
     const libraryEmpty = workouts.length === 0 && sessions.length === 0
+
+    // The library list: workouts then sessions, each with when it was last done.
+    const libraryEntries: LibraryEntry<FitnessPlanKind>[] = useMemo(() => {
+        const ago = (key: string) => {
+            const date = lastDone.get(key)
+            if (!date) return 'never'
+            const d = daysBetween(date, today)
+            return d === 0 ? 'today' : d === 1 ? '1 day' : `${d} days`
+        }
+        return [
+            ...workouts.map((w) => ({
+                kind: 'workout' as const,
+                id: w._id,
+                name: w.name,
+                meta: `Strength · ${w.main.length} ${w.main.length === 1 ? 'exercise' : 'exercises'}`,
+                dot: KIND_TONE.workout.dot,
+                aside: ago(`workout:${w._id}`),
+            })),
+            ...sessions.map((c) => ({
+                kind: 'conditioning' as const,
+                id: c._id,
+                name: c.name,
+                meta: [c.category, c.duration ? `${c.duration} min` : null].filter(Boolean).join(' · '),
+                dot: KIND_TONE.conditioning.dot,
+                aside: ago(`conditioning:${c._id}`),
+            })),
+        ]
+    }, [workouts, sessions, lastDone, today])
     const weekHasClearable = entries.some(clearable)
 
     // Which categories the displayed week still has sessions to do in — a paste
@@ -1179,6 +1255,17 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 board={board}
             />
 
+            {!(libLoading || loading) && (
+                <WeekTotals
+                    entries={entries}
+                    isDone={isDone}
+                    logs={weekLogs}
+                    weights={weights}
+                    weekEnd={range.end}
+                    today={today}
+                />
+            )}
+
             {clipboard && (
                 <WeekClipboardBanner
                     what={kindsLabel(clipboard.kinds)}
@@ -1209,7 +1296,14 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 />
             ) : (
                 <GarminStatesContext.Provider value={garminStates}>
+                <div className="flex items-start gap-8">
+                <div className="min-w-0 flex-1">
                 <WeekView
+                    libraryDrag={libDrag}
+                    onDropLibrary={(date, part, item) => {
+                        setLibDrag(null)
+                        void handleAdd(date, item.kind, item.id, part)
+                    }}
                     board={board}
                     weekStart={range.start}
                     selected={anchor}
@@ -1234,6 +1328,30 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                     calendarByDate={calendarByDate}
                     onShowEvents={setEventsDate}
                 />
+                </div>
+                {board && (
+                    <ModuleAside>
+                    <PlannerLibrary<FitnessPlanKind, FitnessPlanPart>
+                        title="Library"
+                        className="min-h-0 flex-1"
+                        items={libraryEntries}
+                        filters={[
+                            { value: 'all', label: 'All' },
+                            { value: 'workout', label: 'Strength' },
+                            { value: 'conditioning', label: 'Conditioning' },
+                        ]}
+                        target={shortDayLabel(anchor)}
+                        parts={FITNESS_PLAN_PARTS.map((p) => ({ value: p, label: PART_META[p].label }))}
+                        part={libPart}
+                        onPart={setLibPart}
+                        onAdd={(item) => void handleAdd(anchor, item.kind, item.id, libPart)}
+                        onDragStart={setLibDrag}
+                        onDragEnd={() => setLibDrag(null)}
+                        asideLabel="Last done"
+                    />
+                    </ModuleAside>
+                )}
+                </div>
                 </GarminStatesContext.Provider>
             )}
 
@@ -1529,7 +1647,7 @@ function DayEventsSheet({
                     {shown.events.map((event) => (
                         <li
                             key={event._id}
-                            className="flex items-start gap-3 rounded-2xl border border-neutral-200 px-3 py-3"
+                            className="flex items-start gap-3 rounded-xl border border-neutral-200 px-3 py-3"
                         >
                             <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-sky-50 text-sky-600">
                                 <i className="fa-regular fa-calendar text-xs" aria-hidden="true" />
@@ -2166,7 +2284,12 @@ function WeekView({
     onShowOverloads,
     calendarByDate,
     onShowEvents,
+    libraryDrag,
+    onDropLibrary,
 }: {
+    /** Something being dragged in from the library, for a slot to take. */
+    libraryDrag: LibraryDrag<FitnessPlanKind> | null
+    onDropLibrary: (date: string, part: FitnessPlanPart, item: LibraryDrag<FitnessPlanKind>) => void
     /** Lay the seven days side by side across the screen, rather than stacked. */
     board: boolean
     weekStart: string
@@ -2233,6 +2356,11 @@ function WeekView({
         const dragged = dragId ? entries.find((e) => e._id === dragId) : null
         const target = dropAt
         resetDrag()
+        // From the library: plan it where it was dropped.
+        if (!dragged && libraryDrag && target) {
+            onDropLibrary(target.date, target.part, libraryDrag)
+            return
+        }
         if (!dragged || !target) return
 
         const display = slotItems(target.date, target.part).map((e) => e._id)
@@ -2292,7 +2420,7 @@ function WeekView({
                     onTick={onTick}
                     onRowMenu={onRowMenu}
                     onSlotMenu={(ev, part) => onSlotMenu(ev, date, part)}
-                    dragActive={dragId !== null}
+                    dragActive={dragId !== null || libraryDrag !== null}
                     draggedId={dragId}
                     dropForDay={dropAt && dropAt.date === date ? dropAt : null}
                     onEntryDragStart={setDragId}
@@ -2312,6 +2440,99 @@ function WeekView({
             ))}
             {!board && <SwipeHint />}
         </div>
+    )
+}
+
+/** One headline figure for the week: label, the number in mono, a line of context. */
+function WeekFigure({ label, value, unit, sub }: { label: string; value: string; unit?: string; sub: string }) {
+    return (
+        <div className="min-w-0">
+            <p className="text-[12px] text-neutral-600">{label}</p>
+            <p className="mt-1 truncate text-[26px] leading-tight tracking-[-0.045em] text-neutral-950 sm:text-[28px]">
+                <span className="tabular-nums">{value}</span>
+                {unit && <span className="text-[13px] tracking-normal text-neutral-500">{unit}</span>}
+            </p>
+            <p className="mt-0.5 truncate text-[12px] text-neutral-500">{sub}</p>
+        </div>
+    )
+}
+
+/**
+ * The week in four numbers: sessions done against planned, strength volume
+ * (from logged sets) against last week, conditioning minutes logged against
+ * planned, and body weight as a 7-day average.
+ */
+function WeekTotals({
+    entries,
+    isDone,
+    logs,
+    weights,
+    weekEnd,
+    today,
+}: {
+    entries: FitnessPlanEntry[]
+    isDone: (entry: FitnessPlanEntry) => boolean
+    logs: { workouts: WorkoutLog[]; conditioning: ConditioningLog[]; lastWeekVolume: number }
+    weights: WeightLog[]
+    weekEnd: string
+    today: string
+}) {
+    const fmt = (n: number) => Math.round(n).toLocaleString('en-GB')
+    const live = entries.filter((e) => !e.skipped || isDone(e))
+    const done = entries.filter(isDone).length
+    const skipped = entries.length - live.length
+    const toCome = live.filter((e) => !isDone(e) && e.date >= today).length
+
+    const volume = logs.workouts.reduce((sum, l) => sum + logVolume(l), 0)
+    const vsLast = logs.lastWeekVolume
+    const volumeSub =
+        vsLast > 0
+            ? `${volume >= vsLast ? '+' : '−'}${Math.round((Math.abs(volume - vsLast) / vsLast) * 100)}% on last week`
+            : volume > 0
+              ? 'Nothing logged last week'
+              : 'Logged sets count here'
+
+    const condDone = logs.conditioning.reduce((sum, l) => sum + (l.duration || 0), 0)
+    const condPlanned = live
+        .filter((e) => e.kind === 'conditioning')
+        .reduce((sum, e) => sum + (e.session?.duration ?? 0), 0)
+
+    // Body weight: the average of the last 7 days' weigh-ins up to the week's end
+    // (or today), against the 7 days before.
+    const upTo = weekEnd < today ? weekEnd : today
+    const avg = (from: number, to: number) => {
+        const inWindow = weights.filter((w) => {
+            const d = daysBetween(w.date, upTo)
+            return d >= from && d <= to
+        })
+        return inWindow.length ? inWindow.reduce((s, w) => s + w.weight, 0) / inWindow.length : null
+    }
+    const thisAvg = avg(0, 6)
+    const prevAvg = avg(7, 13)
+    const weightSub =
+        thisAvg !== null && prevAvg !== null
+            ? `${thisAvg <= prevAvg ? '−' : '+'}${Math.abs(thisAvg - prevAvg).toFixed(1)} kg on the 7 days before`
+            : thisAvg !== null
+              ? '7-day average'
+              : 'No weigh-ins this week'
+
+    return (
+        <section aria-label="This week" className="grid grid-cols-2 gap-x-8 gap-y-5 border-y border-hairline py-5 lg:grid-cols-4">
+            <WeekFigure
+                label="Sessions"
+                value={String(done)}
+                unit={` / ${live.length}`}
+                sub={[toCome > 0 ? `${toCome} to come` : null, skipped > 0 ? `${skipped} skipped` : null].filter(Boolean).join(' · ') || (live.length ? 'All done' : 'Nothing planned')}
+            />
+            <WeekFigure label="Strength volume" value={fmt(volume)} unit=" kg" sub={volumeSub} />
+            <WeekFigure
+                label="Conditioning"
+                value={fmt(condDone)}
+                unit={` / ${fmt(condPlanned)} min`}
+                sub={condPlanned > 0 ? `${Math.max(0, condPlanned - condDone)} min planned still` : 'None planned'}
+            />
+            <WeekFigure label="Body weight" value={thisAvg !== null ? thisAvg.toFixed(1) : '—'} unit={thisAvg !== null ? ' kg' : undefined} sub={weightSub} />
+        </section>
     )
 }
 
@@ -2456,15 +2677,21 @@ function DayCard({
         </p>
     ) : (
         <div className="flex flex-col gap-1.5">
-            <p className="text-[13px] text-neutral-500">
-                {total} {total === 1 ? 'session' : 'sessions'}
-                {minutes > 0 && ` · about ${minutes} min`}
-                {doneCount > 0 && <span className="text-emerald-700"> · {doneCount} done</span>}
-                {skippedCount > 0 && <span> · {skippedCount} skipped</span>}
+            <p className="flex items-baseline justify-between gap-2 text-[12px] text-neutral-500">
+                <span className="truncate">
+                    {doneCount}/{toDo} done
+                    {skippedCount > 0 && <span> · {skippedCount} skipped</span>}
+                </span>
+                {/* The day's load: planned minutes across its sessions. */}
+                {minutes > 0 && (
+                    <span className="shrink-0 text-neutral-700" title="Planned minutes">
+                        <span className="tabular-nums">{minutes}</span> min
+                    </span>
+                )}
             </p>
-            <div className="h-1 overflow-hidden rounded-full bg-neutral-100">
+            <div className="h-0.5 overflow-hidden bg-hairline">
                 <div
-                    className="h-full rounded-full bg-emerald-500 transition-[width] duration-500"
+                    className="h-full bg-neutral-900 transition-[width] duration-500"
                     style={{ width: `${toDo > 0 ? (doneCount / toDo) * 100 : 0}%` }}
                 />
             </div>
@@ -2550,7 +2777,7 @@ function DayCard({
         >
             {/* A flagged day wears a coloured strip down its left edge. */}
             {tone && (
-                <span className={`absolute inset-y-0 left-0 w-1 ${tone.bar}`} aria-hidden="true" />
+                <span className={`absolute inset-y-0 left-0 w-1 rounded-l-2xl ${tone.bar}`} aria-hidden="true" />
             )}
 
             <header className="flex flex-col gap-2">
@@ -2570,7 +2797,7 @@ function DayCard({
                 {summary}
             </header>
 
-            <div className="flex flex-col divide-y divide-neutral-100">
+            <div className="flex flex-col">
                 {FITNESS_PLAN_PARTS.map((part) => (
                     <SlotSection
                         key={part}
@@ -2777,6 +3004,7 @@ function PlannedRow({
         <PlanRow
             compact={compact}
             bar={skipped ? 'bg-neutral-300' : KIND_TONE[entry.kind].dot}
+            tint={skipped || done ? 'bg-neutral-50' : KIND_TONE[entry.kind].block}
             title={name}
             titleTone={
                 skipped
@@ -3348,7 +3576,7 @@ function PlannedDetailDrawer({
                     <div className="flex flex-col gap-6">
                         <PlannedMeta entry={e} done={done} />
                         {skipping && (
-                            <div className="flex flex-col gap-3 rounded-2xl bg-neutral-50 p-4">
+                            <div className="flex flex-col gap-3 rounded-xl bg-neutral-50 p-4">
                                 <Textarea
                                     label="Why are you skipping it?"
                                     hint="Optional — it shows on the plan beside the no-entry sign."
@@ -3379,14 +3607,14 @@ function PlannedDetailDrawer({
                         )}
                         {skipped && !skipping && (
                             // The meta line's badge already says Skipped; this is the why.
-                            <p className="whitespace-pre-line rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
+                            <p className="whitespace-pre-line rounded-xl bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
                                 {e.skipReason || 'No reason given.'}
                             </p>
                         )}
                         {isSession && !done && !skipped && (
                             // Getting ready: the watch, the route, and the run once
                             // it's synced — one list, one row each.
-                            <div className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200">
+                            <div className="divide-y divide-neutral-100 rounded-xl border border-neutral-200">
                                 <GarminRunPanel entry={e} done={done} onLinked={(logId) => onRunLinked(e, logId)} />
                                 <GarminSendPanel entryId={e._id} onSent={onGarminSent} />
                                 <RouteCard entry={e} />

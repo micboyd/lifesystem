@@ -46,7 +46,7 @@ function Section({ title, description, preview, code }: SectionProps) {
                 {description && <p className="mt-1 text-sm text-neutral-500">{description}</p>}
             </div>
             {/* Live preview */}
-            <div className="rounded-2xl border border-neutral-100 bg-neutral-50 p-8">{preview}</div>
+            <div className="rounded-xl border border-neutral-100 bg-neutral-50 p-8">{preview}</div>
             {/* Code snippet */}
             <CodeBlock code={code} />
         </section>

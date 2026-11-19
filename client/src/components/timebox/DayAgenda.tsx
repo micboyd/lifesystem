@@ -1,10 +1,19 @@
-import type { ReactNode } from 'react'
+import {
+    createContext,
+    useContext,
+    useState,
+    type ContextType,
+    type DragEvent,
+    type MouseEvent,
+    type ReactNode,
+} from 'react'
 import Tooltip from '../Tooltip'
 import { CATEGORY_STYLE } from './timeboxStyles'
 import {
     clashGroups,
     clashesWith,
     inLunch,
+    landingFor,
     type AgendaRow,
     type PlanSuggestion,
     type WorkWindow,
@@ -27,16 +36,34 @@ interface Props {
     /** Tap the lunch break to box it. */
     onLunch: (start: number, end: number) => void
     onPlan: (s: PlanSuggestion) => void
+    /**
+     * Right-click. `row` is the row under the pointer (null for an item listed
+     * inside a work / lunch row); `item` is the block or meeting, when there is one.
+     */
+    onMenu?: (e: MouseEvent, row: AgendaRow | null, item?: Timebox) => void
+    /** A block of your own was dragged to land at `startMin`. */
+    onMove?: (item: Timebox, startMin: number) => void
 }
 
+/** What rows deeper down need to open the menu on an item, or start dragging one. */
+const ActionsContext = createContext<{
+    itemMenu?: (e: MouseEvent, item: Timebox) => void
+    dragStart: (e: DragEvent, item: Timebox) => void
+    dragEnd: () => void
+}>({ dragStart: () => {}, dragEnd: () => {} })
+
+/** Only your own blocks move; meetings come from Google and stay put. */
+const movable = (item: Timebox) => !item.source
+
 /** A little taller for longer blocks, so the day keeps some shape without sprawling. */
-const heightFor = (min: number) => Math.round(Math.min(132, Math.max(60, min * 0.55)))
+const heightFor = (min: number) => Math.round(Math.min(104, Math.max(0, min * 0.45)))
 
 /**
- * The day top to bottom as quiet cards on the canvas: a thin colour bar for the
- * category, the title in ink and the times in grey. Meetings, and everything in
- * the lunch break, are listed inside the card that holds them; items that clash
- * sit side by side with a small warning. Free time is a light dashed line.
+ * The day top to bottom as one open list on the page, rows divided by hairlines:
+ * the start time on the left, a slim colour rule for the category, the title in
+ * ink and the times in grey. Meetings, and everything in the lunch break, are
+ * listed under the row that holds them; items that clash sit side by side with a
+ * small warning. Free time is a quiet line you can tap to fill.
  */
 export default function DayAgenda({
     rows,
@@ -48,42 +75,135 @@ export default function DayAgenda({
     onOpenMeeting,
     onLunch,
     onPlan,
+    onMenu,
+    onMove,
 }: Props) {
+    const [dragging, setDragging] = useState<Timebox | null>(null)
+    const [over, setOver] = useState<string | null>(null)
+
+    const dragStart = (e: DragEvent, item: Timebox) => {
+        e.stopPropagation()
+        e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer.setData('text/plain', item.title)
+        setDragging(item)
+    }
+    const dragEnd = () => {
+        setDragging(null)
+        setOver(null)
+    }
+
     return (
-        <ol className="flex flex-col gap-2.5">
-            {rows.map((row) => (
-                <li key={row.key} className="flex gap-3 sm:gap-4">
-                    <span className="w-11 shrink-0 pt-3.5 text-right text-[12px] font-medium nums text-neutral-400">
-                        {row.kind === 'free' ? '' : minutesToTime(row.start)}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                        {row.kind === 'block' ? (
-                            <Block row={row} nowMin={nowMin} onOpen={onOpen} work={work} />
-                        ) : row.kind === 'work' ? (
-                            <Work
-                                row={row}
-                                nowMin={nowMin}
-                                onWork={onWork}
-                                onOpenMeeting={onOpenMeeting}
-                                work={work}
-                            />
-                        ) : row.kind === 'lunch' ? (
-                            <Lunch
-                                row={row}
-                                nowMin={nowMin}
-                                onLunch={onLunch}
-                                onOpenMeeting={onOpenMeeting}
-                                work={work}
-                            />
-                        ) : row.kind === 'planned' ? (
-                            <Planned row={row} onPlan={onPlan} />
-                        ) : (
-                            <Free start={row.start} end={row.end} onFill={onFill} />
-                        )}
-                    </div>
-                </li>
-            ))}
-        </ol>
+        <ActionsContext.Provider
+            value={{
+                itemMenu: onMenu ? (e, item) => onMenu(e, null, item) : undefined,
+                dragStart,
+                dragEnd,
+            }}
+        >
+            <ol className="divide-y divide-hairline border-y border-hairline">
+                {rows.map((row) => {
+                    const { running } = timing(row.start, row.end, nowMin)
+                    const own = row.kind === 'block' && movable(row.item) ? row.item : null
+                    const isDragged = !!dragging && row.kind === 'block' && row.item === dragging
+                    const target = !!dragging && !isDragged && over === row.key
+                    const lands = landingFor(row)
+                    return (
+                        <li
+                            key={row.key}
+                            draggable={!!own && !!onMove}
+                            onDragStart={own ? (e) => dragStart(e, own) : undefined}
+                            onDragEnd={dragEnd}
+                            onDragOver={(e) => {
+                                if (!dragging || isDragged) return
+                                e.preventDefault()
+                                e.dataTransfer.dropEffect = 'move'
+                                if (over !== row.key) setOver(row.key)
+                            }}
+                            onDragLeave={(e) => {
+                                if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+                                    setOver(null)
+                            }}
+                            onDrop={(e) => {
+                                e.preventDefault()
+                                if (dragging && !isDragged) onMove?.(dragging, lands)
+                                dragEnd()
+                            }}
+                            onContextMenu={
+                                onMenu
+                                    ? (e) => {
+                                          e.preventDefault()
+                                          onMenu(
+                                              e,
+                                              row,
+                                              row.kind === 'block' ? row.item : undefined
+                                          )
+                                      }
+                                    : undefined
+                            }
+                            className={[
+                                'relative flex gap-4 sm:gap-6',
+                                row.kind === 'free' ? 'py-1' : 'py-3.5',
+                                own && onMove ? 'md:cursor-grab md:active:cursor-grabbing' : '',
+                                isDragged ? 'opacity-40' : '',
+                                target ? 'bg-coral-50/50' : '',
+                            ].join(' ')}
+                        >
+                            {target && (
+                                <span
+                                    className={`pointer-events-none absolute inset-x-0 z-10 flex items-center gap-2 ${
+                                        row.kind === 'block' ? '-bottom-px' : '-top-px'
+                                    }`}
+                                    aria-hidden="true"
+                                >
+                                    <span className="h-0.5 flex-1 bg-coral-500" />
+                                    <span className="-my-2 rounded-md bg-coral-500 px-1.5 py-0.5 text-[11px] font-medium nums text-white">
+                                        Move to {minutesToTime(lands)}
+                                    </span>
+                                </span>
+                            )}
+                            <span
+                                className={`w-11 shrink-0 text-[13px] nums ${row.kind === 'free' ? '' : 'pt-px'} ${
+                                    running ? 'font-medium text-coral-600' : 'text-neutral-500'
+                                }`}
+                            >
+                                {row.kind === 'free' ? '' : minutesToTime(row.start)}
+                            </span>
+                            <div
+                                className={`min-w-0 flex-1 ${
+                                    row.kind === 'block' && row.during
+                                        ? 'border-l-2 border-amber-300 pl-3 sm:pl-4'
+                                        : ''
+                                }`}
+                            >
+                                {row.kind === 'block' ? (
+                                    <Block row={row} nowMin={nowMin} onOpen={onOpen} />
+                                ) : row.kind === 'work' ? (
+                                    <Work
+                                        row={row}
+                                        nowMin={nowMin}
+                                        onWork={onWork}
+                                        onOpenMeeting={onOpenMeeting}
+                                        work={work}
+                                    />
+                                ) : row.kind === 'lunch' ? (
+                                    <Lunch
+                                        row={row}
+                                        nowMin={nowMin}
+                                        onLunch={onLunch}
+                                        onOpenMeeting={onOpenMeeting}
+                                        work={work}
+                                    />
+                                ) : row.kind === 'planned' ? (
+                                    <Planned row={row} onPlan={onPlan} />
+                                ) : (
+                                    <Free start={row.start} end={row.end} onFill={onFill} />
+                                )}
+                            </div>
+                        </li>
+                    )
+                })}
+            </ol>
+        </ActionsContext.Provider>
     )
 }
 
@@ -96,7 +216,7 @@ function timing(start: number, end: number, nowMin: number | null) {
     }
 }
 
-/** "Now · 25m left" — the only colour a running card gets. */
+/** "Now · 25m left" — the only colour a running row gets. */
 function NowPill({ end, nowMin }: { end: number; nowMin: number }) {
     return (
         <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-coral-50 px-2 py-0.5 text-[11px] font-semibold text-coral-700">
@@ -107,21 +227,21 @@ function NowPill({ end, nowMin }: { end: number; nowMin: number }) {
 }
 
 /**
- * The card every row kind shares: a rounded surface with an optional colour bar
- * down the left, a tappable header, and an optional list underneath.
+ * The shape every row kind shares: a slim colour rule down the left (solid for
+ * your blocks, dashed for things not boxed yet), a tappable header, and an
+ * optional list underneath. No surface: the hairlines between rows do the work.
  */
 function Card({
     bar,
-    tone = 'plain',
-    running,
+    dashed = false,
     past,
     minHeight,
     header,
     children,
 }: {
     bar?: string
-    tone?: 'plain' | 'work'
-    running: boolean
+    dashed?: boolean
+    running?: boolean
     past: boolean
     minHeight?: number
     header: ReactNode
@@ -130,21 +250,15 @@ function Card({
     return (
         <div
             style={minHeight ? { minHeight } : undefined}
-            className={[
-                'flex overflow-hidden rounded-2xl ring-1 transition-opacity',
-                tone === 'work'
-                    ? 'bg-sky-50/70'
-                    : 'bg-white shadow-[0_1px_2px_rgba(26,25,23,0.04)]',
-                running
-                    ? 'ring-coral-300'
-                    : tone === 'work'
-                      ? 'ring-sky-100'
-                      : 'ring-neutral-900/[0.06]',
-                past ? 'opacity-55' : '',
-            ].join(' ')}
+            className={`flex gap-3 transition-opacity ${past ? 'opacity-50' : ''}`}
         >
-            {bar && <span className={`w-1 shrink-0 ${bar}`} aria-hidden="true" />}
-            <div className="flex min-w-0 flex-1 flex-col justify-center">
+            {bar && (
+                <span
+                    className={`shrink-0 rounded-full ${dashed ? `border-l-2 border-dashed ${bar}` : `w-[3px] ${bar}`}`}
+                    aria-hidden="true"
+                />
+            )}
+            <div className="flex min-w-0 flex-1 flex-col">
                 {header}
                 {children}
             </div>
@@ -152,7 +266,7 @@ function Card({
     )
 }
 
-/** The header line of a card: title row and a grey time line, as one button. */
+/** The header line of a row: title and a grey time line, as one button. */
 function Header({
     title,
     icons,
@@ -170,14 +284,14 @@ function Header({
     hint?: string
 }) {
     return (
-        <div className="flex items-center gap-2 pr-3">
+        <div className="flex items-start gap-2">
             <button
                 type="button"
                 onClick={onClick}
-                className="group flex min-w-0 flex-1 flex-col gap-0.5 px-4 py-3 text-left"
+                className="group flex min-w-0 flex-1 flex-col gap-0.5 text-left"
             >
                 <span className="flex min-w-0 items-center gap-2">
-                    <span className="min-w-0 truncate text-[15px] font-medium leading-snug text-neutral-900">
+                    <span className="min-w-0 truncate text-[15px] font-medium leading-snug text-neutral-900 decoration-neutral-300 underline-offset-4 group-hover:underline">
                         {title}
                     </span>
                     {icons}
@@ -199,14 +313,12 @@ function Block({
     row,
     nowMin,
     onOpen,
-    work,
 }: {
     row: Extract<AgendaRow, { kind: 'block' }>
     nowMin: number | null
     onOpen: (item: Timebox) => void
-    work: WorkWindow | null
 }) {
-    const { item, start, end, meetings } = row
+    const { item, start, end, during } = row
     const { running, past } = timing(start, end, nowMin)
     return (
         <Card
@@ -215,7 +327,7 @@ function Block({
             }
             running={running}
             past={past}
-            minHeight={meetings.length ? undefined : heightFor(end - start)}
+            minHeight={during ? undefined : heightFor(end - start)}
             header={
                 <Header
                     onClick={() => onOpen(item)}
@@ -260,12 +372,17 @@ function Block({
                 />
             }
         >
-            <SubItems items={meetings} nowMin={nowMin} onOpen={onOpen} work={work} />
+            {during && (
+                <p className="mt-1 flex min-w-0 items-center gap-1.5 text-[12px] text-amber-700">
+                    <i className="fa-solid fa-layer-group text-[10px]" aria-hidden="true" />
+                    <span className="truncate">During {during}</span>
+                </p>
+            )}
         </Card>
     )
 }
 
-/** Working hours no block of your own covers — a soft blue card, meetings inside. */
+/** Working hours no block of your own covers — a pale sky rule, meetings listed under it. */
 function Work({
     row,
     nowMin,
@@ -283,7 +400,7 @@ function Work({
     const { running, past } = timing(start, end, nowMin)
     return (
         <Card
-            tone="work"
+            bar="bg-sky-200"
             running={running}
             past={past}
             minHeight={meetings.length ? undefined : heightFor(end - start)}
@@ -297,7 +414,7 @@ function Work({
                                 className="fa-solid fa-briefcase text-[11px] text-sky-500"
                                 aria-hidden="true"
                             />
-                            Work
+                            <span className="text-neutral-600">Work</span>
                         </span>
                     }
                     meta={
@@ -340,7 +457,8 @@ function Lunch({
     const { running, past } = timing(start, end, nowMin)
     return (
         <Card
-            bar="bg-amber-300"
+            bar="border-amber-300"
+            dashed
             running={running}
             past={past}
             header={
@@ -353,7 +471,7 @@ function Lunch({
                                 className="fa-solid fa-utensils text-[11px] text-amber-500"
                                 aria-hidden="true"
                             />
-                            Lunch break
+                            <span className="text-neutral-600">Lunch break</span>
                         </span>
                     }
                     meta={
@@ -379,8 +497,8 @@ function Lunch({
 }
 
 /**
- * The items inside a card, under a hairline: one quiet line each, time then
- * title. Items that overlap sit side by side as small amber-edged tiles; each
+ * The items under a row: one quiet line each, time then title. Items that
+ * overlap sit side by side, each with an amber rule down its left; each
  * clashing item, and each meeting in the lunch break, carries a small warning
  * icon whose tooltip says why.
  */
@@ -397,7 +515,7 @@ function SubItems({
 }) {
     if (!items.length) return null
     return (
-        <ul className="mx-3 mb-2 flex flex-col gap-0.5 border-t border-neutral-900/[0.06] pt-1.5">
+        <ul className="mt-2 flex flex-col gap-0.5">
             {clashGroups(items).map((group) => {
                 const warningsFor = (m: Timebox) => [
                     ...(m.source && inLunch(m, work) ? ['In your lunch break'] : []),
@@ -440,6 +558,22 @@ function SubItems({
             })}
         </ul>
     )
+}
+
+/** Right-click and drag for one item listed inside a row. */
+function itemHandlers(actions: ContextType<typeof ActionsContext>, item: Timebox) {
+    return {
+        onContextMenu: actions.itemMenu
+            ? (e: MouseEvent) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  actions.itemMenu!(e, item)
+              }
+            : undefined,
+        draggable: movable(item),
+        onDragStart: movable(item) ? (e: DragEvent) => actions.dragStart(e, item) : undefined,
+        onDragEnd: actions.dragEnd,
+    }
 }
 
 /** A meeting's video icon, or your own block's category dot. */
@@ -486,9 +620,11 @@ function SubLine({
         timeToMinutes(item.endTime),
         nowMin
     )
+    const actions = useContext(ActionsContext)
     return (
         <div
-            className={`flex items-center gap-2 rounded-lg transition-colors hover:bg-neutral-900/[0.03] ${past ? 'opacity-50' : ''}`}
+            {...itemHandlers(actions, item)}
+            className={`-mx-1.5 flex items-center gap-2 rounded-md transition-colors hover:bg-surface-muted ${past ? 'opacity-50' : ''}`}
         >
             <button
                 type="button"
@@ -501,7 +637,9 @@ function SubLine({
                     {item.startTime} – {item.endTime}
                 </span>
                 <Marker item={item} />
-                <span className="min-w-0 truncate text-[14px] text-neutral-800">{item.title}</span>
+                <span className="min-w-0 truncate text-[14px] font-medium text-neutral-900">
+                    {item.title}
+                </span>
                 <Warning warnings={warnings} />
             </button>
             {item.joinUrl && <JoinButton href={item.joinUrl} />}
@@ -509,7 +647,7 @@ function SubLine({
     )
 }
 
-/** One of several clashing items, side by side: time over title on a soft amber tile. */
+/** One of several clashing items, side by side: time over title beside an amber rule. */
 function SubTile({
     item,
     nowMin,
@@ -526,9 +664,11 @@ function SubTile({
         timeToMinutes(item.endTime),
         nowMin
     )
+    const actions = useContext(ActionsContext)
     return (
         <div
-            className={`flex min-w-0 items-center gap-1.5 rounded-lg bg-amber-50/70 pr-1.5 ring-1 ring-inset ring-amber-200/70 ${past ? 'opacity-50' : ''}`}
+            {...itemHandlers(actions, item)}
+            className={`flex min-w-0 items-center gap-1.5 border-l-2 border-amber-300 pr-1.5 transition-colors hover:bg-surface-muted ${past ? 'opacity-50' : ''}`}
         >
             <button
                 type="button"
@@ -562,7 +702,7 @@ function JoinButton({ href, compact = false }: { href: string; compact?: boolean
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
             aria-label="Join the call"
-            className={`inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-sky-50 text-[12px] font-semibold text-sky-700 ring-1 ring-inset ring-sky-200 transition-colors hover:bg-sky-100 ${
+            className={`inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg border border-hairline text-[12px] font-medium text-sky-700 transition-colors hover:border-sky-300 hover:bg-white ${
                 compact ? 'w-7 justify-center' : 'px-2.5'
             }`}
         >
@@ -572,7 +712,7 @@ function JoinButton({ href, compact = false }: { href: string; compact?: boolean
     )
 }
 
-/** Unclaimed time: a light dashed line you can tap to fill. */
+/** Unclaimed time: a quiet line of grey text you can tap to fill. */
 function Free({
     start,
     end,
@@ -586,27 +726,21 @@ function Free({
         <button
             type="button"
             onClick={() => onFill(start, end)}
-            className="group flex h-10 w-full items-center gap-3 rounded-xl px-2 text-left text-[13px] text-neutral-400 transition-colors hover:bg-white/70 hover:text-neutral-700"
+            className="group flex h-9 w-full items-center gap-2 text-left text-[13px] nums text-neutral-400 transition-colors hover:text-neutral-900"
         >
-            <span
-                className="h-px flex-1 border-t border-dashed border-neutral-300 group-hover:border-neutral-400"
-                aria-hidden="true"
-            />
-            <span className="flex shrink-0 items-center gap-1.5 nums">
-                <i className="fa-solid fa-plus text-[10px]" aria-hidden="true" />
+            <i className="fa-solid fa-plus text-[10px]" aria-hidden="true" />
+            <span>
                 {formatDuration(end - start)} free
-                <span className="text-neutral-300">·</span>
-                {minutesToTime(start)} – {minutesToTime(end)}
+                <span className="text-neutral-300 group-hover:text-neutral-400">
+                    {' '}
+                    · {minutesToTime(start)} – {minutesToTime(end)}
+                </span>
             </span>
-            <span
-                className="h-px w-6 border-t border-dashed border-neutral-300 group-hover:border-neutral-400"
-                aria-hidden="true"
-            />
         </button>
     )
 }
 
-/** A planned meal not boxed yet: a dashed outline to tap and add. */
+/** A planned meal not boxed yet: a dashed rule to tap and add. */
 function Planned({
     row,
     onPlan,
@@ -619,25 +753,25 @@ function Planned({
         <button
             type="button"
             onClick={() => onPlan(s)}
-            className="flex min-h-14 w-full items-center gap-3 rounded-2xl border border-dashed border-neutral-300 px-4 py-2.5 text-left transition-colors hover:border-neutral-400 hover:bg-white/70"
+            className="group flex w-full gap-3 text-left"
         >
             <span
-                className={`h-2 w-2 shrink-0 rounded-full ${CATEGORY_STYLE[s.category].dot}`}
+                className={`shrink-0 rounded-full border-l-2 border-dashed ${CATEGORY_STYLE[s.category].outline}`}
                 aria-hidden="true"
             />
             <span className="min-w-0 flex-1">
-                <span className="block truncate text-[15px] font-medium leading-snug text-neutral-800">
+                <span className="block truncate text-[15px] font-medium leading-snug text-neutral-600 group-hover:text-neutral-900">
                     {s.title}
                 </span>
                 <span className="block truncate text-[13px] text-neutral-500">
                     <i
-                        className={`fa-solid fa-bowl-food mr-1.5 text-[11px] text-neutral-400`}
+                        className="fa-solid fa-bowl-food mr-1.5 text-[11px] text-neutral-400"
                         aria-hidden="true"
                     />
                     Planned · {s.detail}
                 </span>
             </span>
-            <span className="shrink-0 text-[13px] font-medium text-neutral-600">
+            <span className="shrink-0 self-center text-[13px] font-medium text-neutral-500 group-hover:text-neutral-900">
                 <i className="fa-solid fa-plus mr-1 text-[11px]" aria-hidden="true" />
                 Add
             </span>

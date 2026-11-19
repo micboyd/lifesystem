@@ -231,7 +231,7 @@ function AdjustForm({ variant, suggestedAmount, onAdd, onCancel }: AdjustFormPro
     }
 
     return (
-        <form onSubmit={submit} className="flex w-full flex-col gap-2 rounded-2xl border border-neutral-200 bg-neutral-50/60 p-3">
+        <form onSubmit={submit} className="flex w-full flex-col gap-2 rounded-xl border border-neutral-200 bg-neutral-50/60 p-3">
             <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-neutral-700">{copy.title}</span>
                 <button
@@ -327,7 +327,7 @@ function MonthlyOverview({ rows, groups, entries, spends, topUps, excludedDates,
     if (stats.length === 0) return null
 
     return (
-        <div className="mb-6 overflow-hidden rounded-2xl border border-neutral-200 bg-white">
+        <div className="mb-6 overflow-hidden border-y border-hairline">
             <button
                 type="button"
                 onClick={() => setOpen((o) => !o)}
@@ -1164,26 +1164,26 @@ function AllowanceHero({ periodLabel, rangeLabel, allowance, remaining, spent, s
     const over = remaining < -RECONCILE_EPSILON
     const pct = Math.min(100, (spent / (allowance || 1)) * 100)
     return (
-        <div className="rounded-2xl bg-neutral-950 p-4 text-white sm:p-5">
+        <div className="border-t border-hairline pt-4 sm:pt-5">
             <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                 <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                     {periodLabel}
                 </span>
-                <span className="text-[11px] font-medium tabular-nums text-neutral-500">{rangeLabel}</span>
+                <span className="text-[11px] font-medium nums text-neutral-500">{rangeLabel}</span>
             </div>
 
             {/* Wraps on narrow cards: a four-figure amount plus its caption is
                 wider than a phone-width card at the desktop type size. */}
             <div className="mt-3 flex flex-wrap items-baseline gap-x-2">
-                <p className={['text-3xl font-bold tabular-nums tracking-tight sm:text-4xl', over ? 'text-red-400' : 'text-white'].join(' ')}>
+                <p className={['text-3xl font-bold tabular-nums tracking-tight sm:text-4xl', over ? 'text-red-600' : 'text-neutral-950'].join(' ')}>
                     £{fmt(Math.abs(remaining))}
                 </p>
                 <span className="text-sm font-medium text-neutral-500">{over ? 'over budget' : 'left to spend'}</span>
             </div>
 
-            <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+            <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
                 <div
-                    className={['h-full rounded-full transition-all duration-500', over ? 'bg-red-400' : 'bg-emerald-400'].join(' ')}
+                    className={['h-full rounded-full transition-all duration-500', over ? 'bg-red-500' : 'bg-success'].join(' ')}
                     style={{ width: `${pct}%` }}
                 />
             </div>
@@ -1441,7 +1441,7 @@ function BudgetCard({
                 spread, so surface the day-off state instead of a bare £0. */}
             {trackingView &&
                 (allWeekExcluded ? (
-                    <div className="flex items-center gap-3 rounded-2xl bg-neutral-100 p-4 ring-1 ring-neutral-900/[0.04]">
+                    <div className="flex items-center gap-3 rounded-xl bg-neutral-100 p-4 ring-1 ring-neutral-900/[0.04]">
                         <i className="fa-solid fa-plane-departure text-neutral-500" aria-hidden="true" />
                         <div>
                             <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
@@ -1489,7 +1489,7 @@ function BudgetCard({
                         <i className={`fa-solid fa-chevron-down text-[9px] transition-transform ${dayOffInfoOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
                     </button>
                     {dayOffInfoOpen && (
-                        <div className="rounded-2xl bg-neutral-50 px-4 py-3 text-xs text-neutral-600">
+                        <div className="rounded-xl bg-neutral-50 px-4 py-3 text-xs text-neutral-600">
                             £{fmt(excludedDaySpendTotal)} was spent on day-off days this month. It counts
                             toward your day-off pot, not this budget
                             {isLinked && excludedFromSpaceTotal > RECONCILE_EPSILON
@@ -1879,8 +1879,8 @@ export default function Budgets() {
         <>
             <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
                 <div>
-                    <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">Budgets</h1>
-                    <p className="mt-1 text-sm text-neutral-500">Spending targets derived from your monthly figures.</p>
+                    <h1 className="text-[34px] font-medium leading-[1.1] tracking-[-0.045em] text-neutral-950 sm:text-[44px]">Budgets</h1>
+                    <p className="mt-2 max-w-2xl text-[18px] leading-[26px] tracking-[-0.01em] text-neutral-600">Spending targets derived from your monthly figures.</p>
                 </div>
 
                 {/* On phones this becomes its own full-width row with the arrows

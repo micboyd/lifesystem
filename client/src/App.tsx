@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Routes, Route, Outlet, Navigate, useLocation, useParams } from 'react-router-dom'
 import { documentTitleForPath } from './lib/pageTitle'
-import Sidebar from './components/Sidebar'
+import AppNav, { SIDEBAR_PAD } from './components/AppNav'
+import { useMediaQuery } from './components/planner/WeekPlannerUI'
 import ProtectedRoute from './components/ProtectedRoute'
 import Home from './pages/Home'
 import Calendar from './pages/Calendar'
@@ -32,27 +33,35 @@ import Profile from './pages/Profile'
 import StyleGuide from './pages/StyleGuide'
 import NotFound from './pages/NotFound'
 
-/** The signed-in app shell: sidebar nav plus the matched page. */
+/** The signed-in app shell: the sidebar (or phone bars) plus the matched page. */
 function AppLayout() {
-    // Persist the desktop rail's collapsed state across reloads.
-    const [collapsed, setCollapsed] = useState(
-        () => localStorage.getItem('sidebarCollapsed') === '1'
-    )
+    const wide = useMediaQuery('(min-width: 1024px)')
+    // The sidebar folds to an icon rail; remembered across reloads.
+    const [collapsed, setCollapsed] = useState(() => {
+        try {
+            return localStorage.getItem('sidebarCollapsed') === '1'
+        } catch {
+            return false
+        }
+    })
     useEffect(() => {
-        localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0')
+        try {
+            localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0')
+        } catch {
+            /* storage unavailable: the choice just isn't remembered */
+        }
     }, [collapsed])
 
     return (
         <div className="min-h-screen bg-canvas">
-            <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
-            {/* Offset the content column for the fixed rail on large screens. */}
-            <div
-                className={`flex min-h-screen flex-col transition-[padding] duration-200 ease-out ${collapsed ? 'lg:pl-20' : 'lg:pl-64'}`}
+            <AppNav wide={wide} collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
+            <main
+                className={`transition-[padding] duration-200 ease-out ${
+                    wide ? (collapsed ? SIDEBAR_PAD.collapsed : SIDEBAR_PAD.open) : 'pb-24'
+                }`}
             >
-                <main className="flex-1">
-                    <Outlet />
-                </main>
-            </div>
+                <Outlet />
+            </main>
         </div>
     )
 }

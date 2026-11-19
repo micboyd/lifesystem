@@ -32,7 +32,7 @@ export type AreaTone = keyof typeof AREA_TONES
  * - Figures: `.nums` — aligned digits in the body font, so the page reads in one face.
  */
 export const DASH = {
-    list: 'divide-y divide-neutral-200 border-y border-neutral-200',
+    list: 'divide-y divide-hairline border-y border-hairline',
     row: 'flex min-h-[52px] items-center gap-3 py-3.5',
     /** A row whose text can wrap onto several lines: icon pinned to the first line. */
     rowWrap: 'flex items-start gap-3 py-3.5',
@@ -43,18 +43,18 @@ export const DASH = {
     rowIcon: 'w-4 shrink-0 text-center text-sm text-neutral-500',
     subhead: 'text-[13px] text-neutral-600',
     note: 'text-[13px] text-neutral-500',
-    empty: 'border-y border-neutral-200 py-5 text-[15px] text-neutral-500',
+    empty: 'border-y border-hairline py-5 text-[15px] text-neutral-500',
     emptyLink: 'font-medium text-neutral-900 underline underline-offset-4',
     block: 'mt-6',
     stack: 'flex flex-col gap-6',
     figure: 'text-[40px] font-medium leading-none tracking-[-0.04em] nums text-neutral-950',
     figureSm: 'text-2xl font-medium tracking-[-0.03em] nums text-neutral-950',
-    track: 'h-1 w-full overflow-hidden rounded-full bg-neutral-200',
+    track: 'h-0.5 w-full overflow-hidden bg-hairline',
     dot: 'inline-block h-2 w-2 shrink-0 rounded-full',
 } as const
 
 /** The white card a section sits on when the page asks for cards (Home does). */
-export const DASH_CARD = 'rounded-3xl bg-white p-5 shadow-sm ring-1 ring-neutral-900/[0.06] sm:p-6'
+export const DASH_CARD = 'border-t border-hairline pt-6'
 
 const DashCardContext = createContext(false)
 
@@ -69,6 +69,13 @@ export function DashCards({ children }: { children: ReactNode }) {
 /** Whether sections here sit on cards. */
 export function useDashCards() {
     return useContext(DashCardContext)
+}
+
+const DashCompactContext = createContext(false)
+
+/** Wrap a side column's sections in this: smaller headings and tighter rows. */
+export function DashCompact({ children }: { children: ReactNode }) {
+    return <DashCompactContext.Provider value={true}>{children}</DashCompactContext.Provider>
 }
 
 /** The tinted icon tile used beside headings and figures. */
@@ -108,28 +115,36 @@ export default function DashSection({
     className?: string
 }) {
     const card = useDashCards()
+    const compact = useContext(DashCompactContext)
+    // Open and editorial: the heading carries the section on its own, no icon
+    // tile beside it (`icon` and `tone` stay in the API for pages that pass them).
+    void icon
+    void tone
     return (
-        <section className={`min-w-0 ${card ? DASH_CARD : ''} ${className}`}>
-            <div className="mb-5 flex items-center justify-between gap-4">
-                <div className="flex min-w-0 items-center gap-3">
-                    {icon && <AreaIcon icon={icon} tone={tone} />}
-                    <div className="min-w-0">
-                        <h2
-                            className={`${card ? 'text-lg' : 'text-xl'} font-semibold tracking-[-0.015em] text-neutral-900`}
-                        >
-                            {title}
-                        </h2>
-                        {meta && <p className="mt-0.5 truncate text-[13px] text-neutral-500">{meta}</p>}
-                    </div>
+        <section
+            className={`min-w-0 ${card ? DASH_CARD : ''} ${compact ? '[&>:last-child]:border-b-0' : ''} ${className}`}
+        >
+            <div className={`flex items-baseline justify-between gap-4 ${compact ? 'mb-3' : 'mb-4'}`}>
+                <div className="min-w-0">
+                    <h2
+                        className={
+                            compact
+                                ? 'text-sm font-semibold text-neutral-900'
+                                : 'text-lg font-medium tracking-[-0.02em] text-neutral-900'
+                        }
+                    >
+                        {title}
+                    </h2>
+                    {meta && <p className={`truncate text-neutral-500 ${compact ? 'text-[12px]' : 'mt-1 text-[13px]'}`}>{meta}</p>}
                 </div>
                 {to && action && (
                     <Link
                         to={to}
-                        className="group inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-neutral-500 transition-colors hover:text-neutral-900"
+                        className="group inline-flex shrink-0 items-center gap-1.5 text-[13px] font-medium text-neutral-500 transition-colors hover:text-neutral-900"
                     >
                         {action}
                         <i
-                            className="fa-solid fa-arrow-right text-[11px] transition-transform duration-150 group-hover:translate-x-0.5"
+                            className="fa-solid fa-arrow-right text-[10px] transition-transform duration-150 group-hover:translate-x-0.5"
                             aria-hidden="true"
                         />
                     </Link>
@@ -137,6 +152,60 @@ export default function DashSection({
             </div>
             {children}
         </section>
+    )
+}
+
+/** Each area's hue as plain text, for tags and labels that sit on the page. */
+export const AREA_TEXT: Record<AreaTone, string> = {
+    coral: 'text-coral-600',
+    navy: 'text-brand-500',
+    green: 'text-success',
+    amber: 'text-amber-700',
+    sky: 'text-sky-600',
+    violet: 'text-violet-600',
+    orange: 'text-orange-600',
+    teal: 'text-teal-600',
+}
+
+/**
+ * One headline figure: a label, the number large in mono with its goal beside
+ * it, and a 2px line underneath filled to the share done. No box.
+ */
+export function GlanceMetric({
+    label,
+    value,
+    goal,
+    share,
+    bar = 'bg-neutral-900',
+    to,
+}: {
+    label: string
+    value: string
+    goal?: string
+    /** 0–1, how far along. */
+    share: number
+    /** The fill's colour class. */
+    bar?: string
+    to?: string
+}) {
+    const body = (
+        <>
+            <span className="block text-[12px] text-neutral-600 group-hover:text-neutral-900">{label}</span>
+            <span className="mt-1.5 block truncate text-[28px] leading-[1.15] tracking-[-0.045em] tabular-nums text-neutral-950 sm:text-[32px]">
+                {value}
+                {goal && <span className="text-[13px] tracking-normal text-neutral-500"> / {goal}</span>}
+            </span>
+            <span className="mt-2.5 block h-0.5 bg-hairline">
+                <span className={`block h-full ${bar} transition-[width] duration-500`} style={{ width: `${Math.min(100, Math.max(0, share * 100))}%` }} />
+            </span>
+        </>
+    )
+    return to ? (
+        <Link to={to} className="group block min-w-0">
+            {body}
+        </Link>
+    ) : (
+        <div className="min-w-0">{body}</div>
     )
 }
 

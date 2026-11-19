@@ -69,7 +69,7 @@ function SubItemRow({ item, onSave, onDelete, onTogglePaid }: SubItemRowProps) {
 
     if (editing) {
         return (
-            <li className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-4 py-3">
+            <li className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3">
                 <Input
                     ref={nameRef}
                     autoFocus
@@ -116,7 +116,7 @@ function SubItemRow({ item, onSave, onDelete, onTogglePaid }: SubItemRowProps) {
     }
 
     return (
-        <li className={`group/item flex items-center gap-3 rounded-2xl border bg-white px-4 py-3.5 transition-colors ${item.paid ? 'border-emerald-100 bg-emerald-50/40' : 'border-neutral-100 hover:border-neutral-200'}`}>
+        <li className={`group/item flex items-center gap-3 rounded-xl border bg-white px-4 py-3.5 transition-colors ${item.paid ? 'border-emerald-100 bg-emerald-50/40' : 'border-neutral-100 hover:border-neutral-200'}`}>
             <button
                 type="button"
                 onClick={() => onTogglePaid(item._id, !item.paid)}
@@ -180,7 +180,7 @@ function AddItemForm({ onSave, onCancel }: AddItemFormProps) {
     }
 
     return (
-        <li className="flex items-center gap-2 rounded-2xl border border-neutral-300 bg-neutral-50 px-4 py-3">
+        <li className="flex items-center gap-2 rounded-xl border border-neutral-300 bg-neutral-50 px-4 py-3">
             <Input
                 autoFocus
                 className="flex-1 !py-1.5 !text-sm"
@@ -367,10 +367,10 @@ export default function FinanceBreakdown() {
                                 {group.name}
                             </span>
                         </div>
-                        <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">
+                        <h1 className="text-[34px] font-medium leading-[1.1] tracking-[-0.045em] text-neutral-950 sm:text-[44px]">
                             {row.name}
                         </h1>
-                        <p className="mt-1 text-sm text-neutral-500">
+                        <p className="mt-2 max-w-2xl text-[18px] leading-[26px] tracking-[-0.01em] text-neutral-600">
                             {isRecurring ? `Breakdown for ${formatMonth(month)}` : 'Row breakdown'}
                         </p>
                     </header>
@@ -414,7 +414,7 @@ export default function FinanceBreakdown() {
                     )}
 
                     {/* Total card */}
-                    <div className="mb-6 rounded-3xl ring-1 ring-neutral-900/[0.06] bg-white p-4 sm:p-6">
+                    <div className="mb-6 border-t border-hairline pt-5 sm:pt-6">
                         <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             {isRecurring
                                 ? `Total for ${formatMonth(month)}`
@@ -459,7 +459,7 @@ export default function FinanceBreakdown() {
 
                         {/* Payment progress */}
                         {breakdownTotal > 0 && (
-                            <div className="mt-4 rounded-2xl bg-neutral-50 px-4 py-3">
+                            <div className="mt-4 rounded-xl bg-neutral-50 px-4 py-3">
                                 <div className="mb-2 flex items-baseline justify-between gap-2">
                                     <span className="text-xs font-semibold text-neutral-500">Payment progress</span>
                                     <span className={`text-xs font-bold tabular-nums ${leftToPay === 0 ? 'text-emerald-600' : 'text-neutral-700'}`}>
@@ -517,7 +517,7 @@ export default function FinanceBreakdown() {
                         )}
 
                         {items.length === 0 && !adding && (
-                            <li className="rounded-2xl border border-dashed border-neutral-200 p-8 text-center">
+                            <li className="rounded-xl border border-dashed border-neutral-200 p-8 text-center">
                                 <p className="text-sm text-neutral-500">
                                     No breakdown items yet. Add one to start itemising this row.
                                 </p>

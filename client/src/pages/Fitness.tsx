@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import ModuleLayout from '../components/ModuleLayout'
 import { useSearchParams } from 'react-router-dom'
 import PhaseHeading, { phaseSpan } from '../components/PhaseHeading'
 import Container from '../components/Container'
@@ -154,14 +155,15 @@ export default function Fitness() {
     const fluid = tab === 'Planner' && isLarge
 
     return (
+        <ModuleLayout asideLabel="Library">
         <main className="py-10">
             <Container>
                 <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
                     <div>
-                        <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">
+                        <h1 className="text-[34px] font-medium leading-[1.1] tracking-[-0.045em] text-neutral-950 sm:text-[44px]">
                             Fitness
                         </h1>
-                        <p className="mt-1 text-sm text-neutral-500">{SUBTITLE[tab]}</p>
+                        <p className="mt-2 max-w-2xl text-[18px] leading-[26px] tracking-[-0.01em] text-neutral-600">{SUBTITLE[tab]}</p>
                     </div>
                     <Button
                         variant="secondary"
@@ -212,6 +214,7 @@ export default function Fitness() {
 
             <FitnessExportCenter open={exportOpen} onClose={() => setExportOpen(false)} />
         </main>
+        </ModuleLayout>
     )
 }
 
@@ -522,7 +525,7 @@ function SessionCard({
                 type="button"
                 aria-label={`View ${session.name}`}
                 onClick={onOpen}
-                className="absolute inset-0 z-10 rounded-3xl focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500"
+                className="absolute inset-0 z-10 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500"
             />
 
             <div className="flex items-start justify-between gap-2">

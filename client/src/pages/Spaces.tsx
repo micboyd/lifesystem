@@ -112,13 +112,13 @@ export default function Spaces() {
     return (
         <>
             <header className="mb-8">
-                <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">Spaces</h1>
-                <p className="mt-1 text-sm text-neutral-500">
+                <h1 className="text-[34px] font-medium leading-[1.1] tracking-[-0.045em] text-neutral-950 sm:text-[44px]">Spaces</h1>
+                <p className="mt-2 max-w-2xl text-[18px] leading-[26px] tracking-[-0.01em] text-neutral-600">
                     A live snapshot of every Starling space and its balance.
                 </p>
             </header>
 
-            <div className="mb-8 rounded-3xl bg-neutral-950 p-6 text-white sm:p-8">
+            <div className="mb-8 border-b border-hairline pb-6 sm:pb-8">
                 <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                     Total across all spaces
                 </p>

@@ -4,6 +4,9 @@ import {
     clashGroups,
     clashesWith,
     inLunch,
+    landingFor,
+    placeAt,
+    blockLength,
     ownBlocks,
     boxedMinutes,
     dayBounds,
@@ -129,13 +132,29 @@ describe('agendaRows', () => {
         ])
     })
 
-    it('never shows free time inside an overlap', () => {
-        const rows = agendaRows([box('a', '09:00', '12:00'), box('b', '10:00', '11:00')], [], { start: 540, end: 720 })
+    it('never shows free time inside an overlap, and marks the block that starts inside another', () => {
+        const rows = agendaRows([box('a', '09:00', '12:00', 'Deep work'), box('b', '10:00', '11:00')], [], { start: 540, end: 720 })
         expect(rows.map((r) => r.kind)).toEqual(['block', 'block'])
+        expect(rows.map((r) => (r.kind === 'block' ? r.during : null))).toEqual([undefined, 'Deep work'])
     })
 })
 
 describe('stripSegments', () => {
+    it('never marks blocks that only touch as overlapping', () => {
+        // 07:05–07:35 then 07:35–08:00 on a 05:00–20:00 day: the percentages
+        // round so the second used to look like it started inside the first.
+        const segs = stripSegments([box('b', '07:35', '08:00'), box('a', '07:05', '07:35')], { start: 300, end: 1200 })
+        expect(segs.map((s) => [s.item._id, s.over])).toEqual([
+            ['a', false],
+            ['b', false],
+        ])
+    })
+
+    it('marks a block that starts inside an earlier one', () => {
+        const segs = stripSegments([box('a', '09:00', '12:00'), box('b', '10:00', '10:30')], { start: 420, end: 1380 })
+        expect(segs.map((s) => s.over)).toEqual([false, true])
+    })
+
     it('places blocks as percentages and clips to the day', () => {
         const segs = stripSegments([box('a', '06:00', '08:00'), box('b', '12:00', '13:00')], { start: 420, end: 1380 })
         expect(segs.map((s) => [Math.round(s.left * 100) / 100, Math.round(s.width * 100) / 100])).toEqual([
@@ -230,21 +249,22 @@ describe('Google meetings in working hours', () => {
         ])
     })
 
-    it('nests a meeting under your own block, and keeps one with nothing around it as a block', () => {
+    it('shows a meeting inside your own block as its own row, during that block', () => {
         const rows = agendaRows(
-            [meeting('early', '08:00', '08:30'), box('focus', '10:00', '11:00'), meeting('clash', '10:15', '10:45')],
+            [meeting('early', '08:00', '08:30'), box('focus', '10:00', '11:00', 'Focus'), meeting('clash', '10:15', '10:45')],
             [],
             { start: 480, end: 1050 },
             work
         )
         const blocks = rows.filter((r) => r.kind === 'block')
-        expect(blocks.map((r) => (r.kind === 'block' ? [r.item._id, r.meetings.map((m) => m._id)] : []))).toEqual([
-            ['early', []],
-            ['focus', ['clash']],
+        expect(blocks.map((r) => (r.kind === 'block' ? [r.item._id, r.during] : []))).toEqual([
+            ['early', undefined],
+            ['focus', undefined],
+            ['clash', 'Focus'],
         ])
     })
 
-    it('fills a day of your own blocks with its meetings, each in the block or lunch break it starts in', () => {
+    it('shows each meeting during your own blocks as its own row, and lunchtime ones in the lunch break', () => {
         const day = [
             box('morning', '08:30', '12:30'),
             box('gym', '12:40', '13:25'),
@@ -256,14 +276,20 @@ describe('Google meetings in working hours', () => {
             meeting('late', '18:00', '18:30'),
         ]
         const rows = agendaRows(day, [], { start: 420, end: 1380 }, work)
-        const held = Object.fromEntries(
-            rows.filter((r) => r.kind === 'block').map((r) => (r.kind === 'block' ? [r.item._id, r.meetings.map((m) => m._id)] : []))
+        const during = Object.fromEntries(
+            rows.filter((r) => r.kind === 'block').map((r) => (r.kind === 'block' ? [r.item._id, r.during ?? null] : []))
         )
-        expect(held).toEqual({ morning: ['daily'], afternoon: ['review'], evening: ['late'] })
+        expect(during).toEqual({
+            morning: null,
+            daily: 'morning',
+            afternoon: null,
+            review: 'afternoon',
+            evening: null,
+            late: 'evening',
+        })
         // Gym starts in the lunch break, so it and the lunchtime meeting sit in the lunch block.
         const lunch = rows.find((r) => r.kind === 'lunch')
         expect(lunch?.kind === 'lunch' && lunch.items.map((i) => i._id)).toEqual(['gym', 'lunchtime'])
-        expect(rows.some((r) => r.kind === 'block' && r.item.source)).toBe(false)
     })
 
     it('flags meetings in the lunch break, wherever they sit', () => {
@@ -354,5 +380,26 @@ describe('parseImportRepeat', () => {
         expect(parseImportRepeat(42, undefined)).toHaveProperty('error')
         expect(parseImportRepeat('weekdays', 'friday')).toHaveProperty('error')
         expect(parseImportRepeat([], undefined)).toHaveProperty('error')
+    })
+})
+
+describe('moving and pasting', () => {
+    it('keeps the length and stays inside the day', () => {
+        expect(placeAt(600, 60)).toEqual({ startTime: '10:00', endTime: '11:00' })
+        expect(placeAt(23 * 60 + 30, 60)).toEqual({ startTime: '22:59', endTime: '23:59' })
+        expect(placeAt(-20, 30)).toEqual({ startTime: '00:00', endTime: '00:30' })
+    })
+
+    it('measures a block', () => {
+        expect(blockLength(box('a', '09:15', '10:00'))).toBe(45)
+    })
+
+    it('lands after a block, or at the start of a gap', () => {
+        const rows = agendaRows([box('a', '09:00', '10:00')], [], { start: 480, end: 720 })
+        expect(rows.map((r) => [r.kind, landingFor(r)])).toEqual([
+            ['free', 480],
+            ['block', 600],
+            ['free', 600],
+        ])
     })
 })

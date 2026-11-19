@@ -2,8 +2,6 @@ import { useState, useEffect, useRef, type TouchEvent } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import Avatar from './Avatar'
-import QuickLog from './QuickLog'
-import { useMediaQuery } from './planner/WeekPlannerUI'
 import { useAuth } from '../context/AuthContext'
 import { BRAND, NAV_GROUPS, NAV_ITEMS, type NavItem } from '../lib/workspace'
 
@@ -126,7 +124,6 @@ export default function Sidebar({
 }) {
     const { pathname } = useLocation()
     const profileActive = isActive(pathname, '/profile')
-    const wide = useMediaQuery('(min-width: 1024px)')
 
     return (
         <>
@@ -141,8 +138,6 @@ export default function Sidebar({
                 </div>
                 <NavLinks pathname={pathname} items={NAV_ITEMS} collapsed={collapsed} />
                 <div className="flex shrink-0 flex-col gap-2 p-3">
-                    {/* Safe to spend today, and where a spend is logged, on wide screens. */}
-                    {wide && <QuickLog collapsed={collapsed} />}
                     <ProfileChip active={profileActive} collapsed={collapsed} />
                 </div>
 

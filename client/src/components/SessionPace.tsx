@@ -58,7 +58,7 @@ export function PaceBanner({
         const firstIndex = slots.findIndex(hasSlot)
         const first = slots[firstIndex] as Required<Slot>
         return (
-            <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+            <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3">
                 <p className="text-sm font-semibold text-neutral-900">
                     Tap <span className="text-coral-600">Completed</span> as you finish each item
                 </p>
@@ -78,7 +78,7 @@ export function PaceBanner({
             : { label: driftLabel(pace.drift), cls: TONE[driftTone(pace.drift)] }
 
     return (
-        <div className="sticky top-0 z-10 flex flex-col gap-1.5 rounded-2xl border border-neutral-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur">
+        <div className="sticky top-0 z-10 flex flex-col gap-1.5 rounded-xl border border-neutral-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur">
             <div className="flex items-center justify-between gap-3">
                 <span className={`rounded-full px-2.5 py-1 text-sm font-bold ${status.cls}`}>
                     {done ? `Done · ${status.label.toLowerCase()}` : status.label}

@@ -30,7 +30,7 @@ export default function StatTile({
     tone?: StatTone
 }) {
     return (
-        <div className="flex min-w-0 flex-col gap-1 rounded-[20px] bg-white p-4 ring-1 ring-neutral-900/[0.06]">
+        <div className="flex min-w-0 flex-col gap-1 border-t border-hairline pt-4">
             <p className="truncate text-[13px] text-neutral-500">{label}</p>
             <p className="nums truncate text-2xl font-semibold tracking-tight text-neutral-900">
                 {value}

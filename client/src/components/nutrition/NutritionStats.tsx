@@ -296,7 +296,7 @@ function Summary({
 
 function MiniStat({ label, value, sub }: { label: string; value: string; sub: string }) {
     return (
-        <div className="min-w-0 rounded-2xl bg-neutral-50 px-3 py-2 sm:bg-transparent sm:p-0 sm:text-right">
+        <div className="min-w-0 rounded-xl bg-neutral-50 px-3 py-2 sm:bg-transparent sm:p-0 sm:text-right">
             <dt className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">{label}</dt>
             <dd className="text-xl font-semibold tabular-nums text-neutral-900">
                 {value}
@@ -405,7 +405,7 @@ function DailyChart({ days }: { days: Day[] }) {
                     const { day } = parseDateKey(d.date)
                     const label = many ? (i % 5 === 0 ? String(day) : '') : weekdayOf(d.date)
                     return (
-                        <span key={d.date} className="min-w-0 flex-1 text-center text-[11px] font-medium tabular-nums text-neutral-500">
+                        <span key={d.date} className="min-w-0 flex-1 text-center text-[11px] font-medium nums text-neutral-500">
                             {label}
                         </span>
                     )

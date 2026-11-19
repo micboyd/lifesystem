@@ -24,7 +24,11 @@
     --font-weight-black: 600;
 
     /* Semantic tokens: prefer these in new code. */
-    --color-canvas: #f6f5f2;
+    /* Hybrid (editorial + compact): one near-white page, content separated by
+       hairlines dark enough to read as structure. */
+    --color-canvas: #fbfaf8;
+    --color-hairline: #e4e1da;
+    --color-surface-muted: #f4f2ee;
     --color-surface: #ffffff;
     --color-surface-sunken: #efede8;
     --color-line: #e4e1da;
@@ -203,8 +207,9 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
-/* Figures that change get Geist Mono, so columns line up and values stop
-   jittering as they update. Anything already marked tabular-nums is a figure. */
+/* Numeric data (weights, kcal, money, counts of things measured) gets Geist
+   Mono, so columns line up and values stop jittering as they update. Dates,
+   times, labels and counters of UI stay in Geist: use `.nums` for those. */
 .tabular-nums {
     font-family: var(--font-mono);
     letter-spacing: -0.01em;

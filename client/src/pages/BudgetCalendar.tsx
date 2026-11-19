@@ -362,7 +362,7 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
             type="button"
             onClick={onClick}
             className={[
-                'flex flex-col justify-center md:justify-start rounded-xl md:rounded-2xl border text-left w-full transition-all duration-150',
+                'flex flex-col justify-center md:justify-start rounded-xl md:rounded-xl border text-left w-full transition-all duration-150',
                 'px-3 py-2.5 md:p-3 min-h-[56px] md:min-h-[170px] gap-1 md:gap-2',
                 isToday ? 'border-neutral-950 ring-2 ring-neutral-950/10' : 'border-neutral-200',
                 bg,
@@ -607,7 +607,7 @@ function WeekCell({ week, today, onClick }: WeekCellProps) {
             <button
                 type="button"
                 onClick={onClick}
-                className="flex w-full flex-col gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-5 text-left transition-colors hover:border-neutral-400"
+                className="flex w-full flex-col gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-5 text-left transition-colors hover:border-neutral-400"
             >
                 {header}
                 <div className="flex items-center gap-2 text-neutral-500">
@@ -629,7 +629,7 @@ function WeekCell({ week, today, onClick }: WeekCellProps) {
             type="button"
             onClick={onClick}
             className={[
-                'flex w-full flex-col gap-4 rounded-2xl border bg-white p-5 text-left transition-colors hover:border-neutral-400',
+                'flex w-full flex-col gap-4 rounded-xl border bg-white p-5 text-left transition-colors hover:border-neutral-400',
                 isCurrent ? 'border-neutral-950 ring-2 ring-neutral-950/10' : 'border-neutral-200',
             ].join(' ')}
         >
@@ -2109,7 +2109,7 @@ export default function BudgetCalendar() {
                     <Spinner />
                 </div>
             ) : allDailyRows.length === 0 ? (
-                <div className="rounded-3xl border border-dashed border-neutral-200 bg-white p-12 text-center">
+                <div className="rounded-xl border border-dashed border-neutral-200 bg-white p-12 text-center">
                     <p className="text-sm text-neutral-500">
                         No tracked budgets set up. Enable weekly or daily tracking on a card in the Budgets tab.
                     </p>

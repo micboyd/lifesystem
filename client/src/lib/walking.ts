@@ -232,16 +232,23 @@ export interface WalkDayItem {
     title: string
     detail: string
     done: boolean
+    minutes: number | null
+    steps: number | null
 }
 
 export const walkDayItems = (walks: WalkLike[], weightKg: number | null): WalkDayItem[] =>
-    sortWalks(walks).map((w) => ({
-        id: w._id,
-        time: w.time,
-        title: walkTitle(w),
-        detail: walkFacts(w, weightKg),
-        done: !!w.doneAt,
-    }))
+    sortWalks(walks).map((w) => {
+        const e = walkEstimate(w, weightKg)
+        return {
+            id: w._id,
+            time: w.time,
+            title: walkTitle(w),
+            detail: walkFacts(w, weightKg),
+            done: !!w.doneAt,
+            minutes: e?.minutes ?? null,
+            steps: e?.steps ?? null,
+        }
+    })
 
 /** How close two starts must be for a starred route to be offered. */
 export const FAVOURITE_NEAR_M = 500

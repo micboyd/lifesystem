@@ -422,7 +422,7 @@ function NoteCard({
         <button
             type="button"
             onClick={onOpen}
-            className="flex h-full flex-col rounded-2xl border border-neutral-100 bg-white p-5 text-left shadow-sm transition-all hover:border-neutral-200 hover:shadow-md"
+            className="flex h-full flex-col rounded-xl border border-neutral-100 bg-white p-5 text-left shadow-sm transition-all hover:border-neutral-200 hover:shadow-md"
         >
             <h3 className="flex items-center gap-2 font-bold text-neutral-900 line-clamp-1">
                 {note.locked && (
@@ -566,8 +566,8 @@ export default function Notes() {
         <Container as="main" className="py-10">
             <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
                 <div>
-                    <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">Notes</h1>
-                    <p className="mt-1 text-sm text-neutral-500">
+                    <h1 className="text-[34px] font-medium leading-[1.1] tracking-[-0.045em] text-neutral-950 sm:text-[44px]">Notes</h1>
+                    <p className="mt-2 max-w-2xl text-[18px] leading-[26px] tracking-[-0.01em] text-neutral-600">
                         {notes.length} note{notes.length !== 1 ? 's' : ''}
                         {categories.length > 0 && (
                             <> · {categories.length} categor{categories.length !== 1 ? 'ies' : 'y'}</>

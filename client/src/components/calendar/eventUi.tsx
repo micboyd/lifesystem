@@ -20,7 +20,7 @@ export const PART_META: Record<Exclude<Part, 'na'>, { label: string; icon: strin
 /** The event-type icon in its tinted tile. */
 export function TypeTile({ type, size = 'md' }: { type: EventType; size?: 'md' | 'lg' }) {
     const c = EVENT_TYPE_COLORS[type]
-    const box = size === 'lg' ? 'h-12 w-12 rounded-2xl text-lg' : 'h-9 w-9 rounded-xl text-sm'
+    const box = size === 'lg' ? 'h-12 w-12 rounded-xl text-lg' : 'h-9 w-9 rounded-xl text-sm'
     return (
         <span className={`grid shrink-0 place-items-center ${box} ${c.light} ${c.text}`} aria-hidden="true">
             <i className={EVENT_TYPE_ICON[type]} />
@@ -121,7 +121,7 @@ export function Segment({
 
 /** A bordered list of setting rows. */
 export function SettingList({ children }: { children: ReactNode }) {
-    return <div className="divide-y divide-neutral-200 rounded-2xl border border-neutral-200">{children}</div>
+    return <div className="divide-y divide-neutral-200 rounded-xl border border-neutral-200">{children}</div>
 }
 
 /** One setting: icon, label and hint, a control on the right, and anything it reveals underneath. */

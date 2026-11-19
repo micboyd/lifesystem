@@ -94,8 +94,8 @@ export default function Profile() {
         <Container as="main" className="py-10">
             <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
                 <div>
-                    <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">Profile</h1>
-                    <p className="mt-1 text-sm text-neutral-500">Manage your account details</p>
+                    <h1 className="text-[34px] font-medium leading-[1.1] tracking-[-0.045em] text-neutral-950 sm:text-[44px]">Profile</h1>
+                    <p className="mt-2 max-w-2xl text-[18px] leading-[26px] tracking-[-0.01em] text-neutral-600">Manage your account details</p>
                 </div>
                 <Button
                     variant="secondary"

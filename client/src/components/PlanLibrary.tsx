@@ -464,7 +464,7 @@ function PlanCard({
                 type="button"
                 aria-label={`View ${plan.name}`}
                 onClick={onOpen}
-                className="absolute inset-0 z-10 rounded-3xl focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500"
+                className="absolute inset-0 z-10 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500"
             />
 
             <div className="flex items-start justify-between gap-2">
@@ -685,7 +685,7 @@ function OverloadRow({
     }
 
     return (
-        <li className="rounded-2xl border border-violet-200 bg-violet-50/50 p-3">
+        <li className="rounded-xl border border-violet-200 bg-violet-50/50 p-3">
             <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-neutral-800">
                     {formatDateLong(overload.date)}
@@ -934,7 +934,7 @@ function Section({
 /** Label / value pairs on a soft panel, one per line, divided by hairlines. */
 function ProseList({ rows }: { rows: { label: string; value: string }[] }) {
     return (
-        <dl className="divide-y divide-neutral-100 rounded-2xl bg-neutral-50 px-4">
+        <dl className="divide-y divide-neutral-100 rounded-xl bg-neutral-50 px-4">
             {rows.map((r) => (
                 <div key={r.label} className="flex flex-col gap-0.5 py-3 sm:flex-row sm:gap-4">
                     <dt className="text-[13px] text-neutral-500 sm:w-40 sm:shrink-0">{r.label}</dt>
@@ -1030,7 +1030,7 @@ function OverviewTab({ plan }: { plan: TrainingPlan }) {
                         {plan.phases.map((p, i) => (
                             <li
                                 key={i}
-                                className="flex gap-3 rounded-2xl border border-neutral-200 bg-white p-4"
+                                className="flex gap-3 rounded-xl border border-neutral-200 bg-white p-4"
                             >
                                 <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-coral-50 text-xs font-semibold text-coral-600">
                                     {i + 1}
@@ -1127,7 +1127,7 @@ function OverviewTab({ plan }: { plan: TrainingPlan }) {
 /** A quiet dashed note for a tab with nothing to show. */
 function EmptyNote({ children }: { children: ReactNode }) {
     return (
-        <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-8 text-center text-sm text-neutral-500">
+        <p className="rounded-xl border border-dashed border-neutral-200 px-4 py-8 text-center text-sm text-neutral-500">
             {children}
         </p>
     )

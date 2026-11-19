@@ -81,8 +81,8 @@ export default function DashboardHeader() {
                     {pill.label}
                 </span>
             </div>
-            <h1 className="mt-2 text-[34px] font-semibold leading-[1.1] tracking-[-0.035em] text-neutral-950 sm:text-5xl sm:leading-[1.05]">
-                {greeting(now)}, {firstName}
+            <h1 className="mt-2 text-[34px] font-medium leading-[1.1] tracking-[-0.045em] text-neutral-950 sm:text-[48px]">
+                {greeting(now)}, {firstName}.
             </h1>
         </header>
     )

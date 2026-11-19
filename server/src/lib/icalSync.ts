@@ -208,6 +208,36 @@ export async function syncUserFeed(
     }
 }
 
+/** How often the server re-reads every feed on its own. */
+export const BACKGROUND_SYNC_MS = 30 * 60_000
+
+/**
+ * Keeps every feed fresh without anyone opening Timebox: shortly after boot and
+ * then every 30 minutes, each stale feed is synced in turn. Uses the same
+ * 15-minute claim as the page, so the two never run the same feed twice.
+ */
+export function startFeedSyncLoop(): void {
+    let running = false
+    const tick = async () => {
+        if (running) return
+        running = true
+        try {
+            const users = await IcalFeed.distinct('user')
+            for (const user of users) {
+                await syncUserFeed(String(user), { onlyIfStale: true }).catch((err) =>
+                    console.error('Background iCal sync failed:', err)
+                )
+            }
+        } catch (err) {
+            console.error('Background iCal sync failed:', err)
+        } finally {
+            running = false
+        }
+    }
+    setTimeout(tick, 30_000).unref()
+    setInterval(tick, BACKGROUND_SYNC_MS).unref()
+}
+
 /** Removes the feed and every meeting it imported. */
 export async function removeUserFeed(userId: string): Promise<{ removedMeetings: number }> {
     const feed = await IcalFeed.findOne({ user: userId })

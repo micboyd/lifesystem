@@ -109,7 +109,7 @@ export default function WeatherWidget() {
                             return (
                                 <div
                                     key={`${h.date}-${h.hour}`}
-                                    className={`flex flex-col items-center gap-1.5 rounded-xl py-3 ${i === 0 ? 'bg-sky-50' : 'bg-neutral-50'}`}
+                                    className={`flex flex-col items-center gap-1.5 py-2 ${i === 0 ? 'text-sky-700' : ''}`}
                                     title={info.label}
                                 >
                                     <span className={DASH.note}>{hourLabel(h.hour)}</span>

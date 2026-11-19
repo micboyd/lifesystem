@@ -20,7 +20,7 @@ export default function EmptyState({
         <div
             className={`flex flex-col items-center justify-center px-6 py-12 text-center ${className}`}
         >
-            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-neutral-100 text-lg text-neutral-600">
+            <div className="grid h-12 w-12 place-items-center rounded-xl bg-neutral-100 text-lg text-neutral-600">
                 <i className={icon} aria-hidden="true" />
             </div>
             <h3 className="mt-4 text-base font-semibold tracking-[-0.015em] text-neutral-900">{title}</h3>

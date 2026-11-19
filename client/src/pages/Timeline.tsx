@@ -101,10 +101,10 @@ export default function Timeline() {
         <Container as="main" className="py-8 sm:py-10">
             <header className="mb-6 flex flex-wrap items-end justify-between gap-3 sm:mb-8">
                 <div className="min-w-0">
-                    <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">
+                    <h1 className="text-[34px] font-medium leading-[1.1] tracking-[-0.045em] text-neutral-950 sm:text-[44px]">
                         Timeline
                     </h1>
-                    <p className="mt-1 text-sm text-neutral-500">
+                    <p className="mt-2 max-w-2xl text-[18px] leading-[26px] tracking-[-0.01em] text-neutral-600">
                         {timeline
                             ? `Where your plans could take you, to ${fmtDate(timeline.end, true)}.`
                             : 'Where your plans could take you, week by week.'}
@@ -443,7 +443,7 @@ function GoalProgress({ timeline }: { timeline: TimelineData }) {
         )
 
     return (
-        <div className="mt-7 rounded-2xl bg-neutral-50 p-4 sm:p-5">
+        <div className="mt-7 rounded-xl bg-neutral-50 p-4 sm:p-5">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="nums text-[14px] font-medium text-neutral-900">Goal · {goalText}</p>
                 <p className="nums text-[13px] text-neutral-500">

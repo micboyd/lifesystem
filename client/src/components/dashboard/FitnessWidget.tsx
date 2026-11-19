@@ -117,7 +117,7 @@ function TodayFitness({ date }: { date: string }) {
                 </div>
             ) : (
                 // The one coloured surface on the page: what training today looks like.
-                <div className="rounded-3xl bg-brand-700 p-6 sm:p-8">
+                <div className="rounded-xl bg-brand-700 p-6 sm:p-8">
                     <ul className="divide-y divide-white/10">
                         {entries.map((e) => (
                             <PlanRow key={e._id} entry={e} />

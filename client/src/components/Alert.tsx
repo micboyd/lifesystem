@@ -42,7 +42,7 @@ export default function Alert({
     return (
         <div
             role="alert"
-            className={`flex items-start gap-3 rounded-2xl px-4 py-3.5 ${variantClasses[variant]} ${className}`}
+            className={`flex items-start gap-3 rounded-xl px-4 py-3.5 ${variantClasses[variant]} ${className}`}
         >
             {iconClass && <i className={`${iconClass} mt-0.5 text-sm`} aria-hidden="true" />}
             <div className="min-w-0 flex-1">

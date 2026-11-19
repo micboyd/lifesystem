@@ -801,7 +801,7 @@ function RateVerdict({
     const actual = rate === null ? '' : `${signed(rate)} kg/wk`
     if (tooEarly) {
         return (
-            <p className="rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
+            <p className="rounded-xl bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
                 {actual} over this window, but your Plan is under two weeks old: that rate is early
                 water and the weeks before it. It can be judged from {longDate(tooEarly)}.
             </p>
@@ -829,7 +829,7 @@ function RateVerdict({
                 ? 'bg-red-50 text-red-700'
                 : 'bg-neutral-50 text-neutral-600'
 
-    return <p className={`rounded-2xl px-4 py-3 text-sm ${box}`}>{copy[status]}</p>
+    return <p className={`rounded-xl px-4 py-3 text-sm ${box}`}>{copy[status]}</p>
 }
 
 // ─── Recent log ─────────────────────────────────────────────────────────────────

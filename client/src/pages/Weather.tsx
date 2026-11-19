@@ -111,11 +111,11 @@ export default function Weather() {
         <Container as="main" className="py-8 sm:py-10">
             <header className="mb-6 flex flex-wrap items-end justify-between gap-3 sm:mb-8">
                 <div className="min-w-0">
-                    <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">
+                    <h1 className="text-[34px] font-medium leading-[1.1] tracking-[-0.045em] text-neutral-950 sm:text-[44px]">
                         Weather
                     </h1>
                     {fetchedAt && (
-                        <p className="mt-1 text-sm text-neutral-500">
+                        <p className="mt-2 max-w-2xl text-[18px] leading-[26px] tracking-[-0.01em] text-neutral-600">
                             Updated {fetchedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                         </p>
                     )}
@@ -281,7 +281,7 @@ export function ForecastView({
             {warnings.length > 0 && (
                 <div className="flex flex-col gap-2">
                     {warnings.map((w) => (
-                        <div key={w.id} className={`flex items-start gap-3 rounded-2xl border px-4 py-3 ${SEVERITY_STYLES[w.severity]}`}>
+                        <div key={w.id} className={`flex items-start gap-3 rounded-xl border px-4 py-3 ${SEVERITY_STYLES[w.severity]}`}>
                             <i className={`${w.icon} mt-0.5 ${SEVERITY_ICON_STYLES[w.severity]}`} aria-hidden="true" />
                             <p className="text-sm">
                                 <span className="font-semibold">{w.title}</span> — {w.detail}

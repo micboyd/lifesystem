@@ -44,10 +44,10 @@ export default function Login() {
         <main className="flex min-h-screen items-center justify-center bg-neutral-50 px-6">
             <div className="w-full max-w-sm rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm">
                 <div className="mb-6 text-center">
-                    <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">
+                    <h1 className="text-[34px] font-medium leading-[1.1] tracking-[-0.045em] text-neutral-950 sm:text-[44px]">
                         Welcome back
                     </h1>
-                    <p className="mt-1 text-sm text-neutral-500">Sign in to your account</p>
+                    <p className="mt-2 max-w-2xl text-[18px] leading-[26px] tracking-[-0.01em] text-neutral-600">Sign in to your account</p>
                 </div>
 
                 {error && (

@@ -553,7 +553,7 @@ export function WorkoutLogSummary({
             {l.notes && (
                 <div className="flex flex-col gap-1.5">
                     <p className="text-[13px] font-medium text-neutral-700">Notes</p>
-                    <p className="whitespace-pre-wrap rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-700">
+                    <p className="whitespace-pre-wrap rounded-xl bg-neutral-50 px-4 py-3 text-sm text-neutral-700">
                         {l.notes}
                     </p>
                 </div>

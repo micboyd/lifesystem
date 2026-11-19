@@ -382,7 +382,7 @@ function MealCard({
                 type="button"
                 aria-label={`View ${meal.name}`}
                 onClick={onOpen}
-                className="absolute inset-0 z-10 rounded-3xl focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500"
+                className="absolute inset-0 z-10 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500"
             />
 
             <div className="flex items-start gap-1">
@@ -541,7 +541,7 @@ function MealDetail({ meal }: { meal: Pick<Meal, 'types' | 'macros' | 'ingredien
                             />
                         )}
                     </div>
-                    <ul className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200">
+                    <ul className="divide-y divide-neutral-100 rounded-xl border border-neutral-200">
                         {ingredients.map((i, n) => (
                             <li key={n} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
                                 <span className="min-w-0 truncate text-neutral-800">{i.name}</span>
@@ -821,7 +821,7 @@ function MealFormDrawer({
                             Macros add up to {kcal(implied)} kcal — use that
                         </button>
                     )}
-                    <div className="flex flex-col gap-2 rounded-2xl bg-neutral-50 px-3.5 py-3">
+                    <div className="flex flex-col gap-2 rounded-xl bg-neutral-50 px-3.5 py-3">
                         <MacroBar macros={macros} thick />
                         <MacroLegend macros={macros} compact />
                     </div>
