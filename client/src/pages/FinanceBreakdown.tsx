@@ -82,9 +82,9 @@ function SubItemRow({ item, onSave, onDelete, onTogglePaid }: SubItemRowProps) {
                         if (e.key === 'Escape') setEditing(false)
                     }}
                 />
-                <div className="flex items-center rounded-xl border border-neutral-200 bg-white px-3 py-1.5 focus-within:border-neutral-950 w-32">
-                    <span className="text-sm text-neutral-500">£</span>
-                    <input
+                <Input
+                    prefix="£"
+                    wrapperClassName="w-32"
                         type="number"
                         step="0.01"
                         min="0"
@@ -94,9 +94,7 @@ function SubItemRow({ item, onSave, onDelete, onTogglePaid }: SubItemRowProps) {
                             if (e.key === 'Enter') handleSave()
                             if (e.key === 'Escape') setEditing(false)
                         }}
-                        className="ml-1 w-full bg-transparent text-sm outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
-                </div>
                 <Button size="sm" onClick={handleSave} disabled={saving || !name.trim()}>
                     {saving ? '…' : 'Save'}
                 </Button>
@@ -192,9 +190,9 @@ function AddItemForm({ onSave, onCancel }: AddItemFormProps) {
                     if (e.key === 'Escape') onCancel()
                 }}
             />
-            <div className="flex items-center rounded-xl border border-neutral-200 bg-white px-3 py-1.5 focus-within:border-neutral-950 w-36">
-                <span className="text-sm text-neutral-500">£</span>
-                <input
+            <Input
+                    prefix="£"
+                    wrapperClassName="w-36"
                     type="number"
                     step="0.01"
                     min="0"
@@ -205,9 +203,7 @@ function AddItemForm({ onSave, onCancel }: AddItemFormProps) {
                         if (e.key === 'Enter') handleSave()
                         if (e.key === 'Escape') onCancel()
                     }}
-                    className="ml-1 w-full bg-transparent text-sm outline-none placeholder:text-neutral-300 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 />
-            </div>
             <Button
                 size="sm"
                 onClick={handleSave}

@@ -1152,7 +1152,7 @@ function ExercisePicker({
                                 <span className="min-w-0 flex-1 basis-40 truncate text-sm font-medium text-neutral-800">
                                     {ex.name}
                                 </span>
-                                <input
+                                <Input
                                     type="number"
                                     min={0}
                                     inputMode="numeric"
@@ -1160,9 +1160,9 @@ function ExercisePicker({
                                     aria-label={`Sets for ${ex.name}`}
                                     value={row.sets ?? ''}
                                     onChange={(e) => onSets(row.exercise, e.target.value)}
-                                    className="w-16 rounded-[10px] border border-neutral-200 hover:border-neutral-300 bg-white px-2 h-10.5 text-sm outline-none placeholder:text-neutral-500 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
+                                    wrapperClassName="w-16"
                                 />
-                                <input
+                                <Input
                                     type="text"
                                     placeholder="Reps"
                                     aria-label={`Reps for ${ex.name}`}
@@ -1170,7 +1170,7 @@ function ExercisePicker({
                                     onChange={(e) =>
                                         update(row.exercise, { reps: e.target.value || undefined })
                                     }
-                                    className="w-24 rounded-[10px] border border-neutral-200 hover:border-neutral-300 bg-white px-2 h-10.5 text-sm outline-none placeholder:text-neutral-500 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
+                                    wrapperClassName="w-24"
                                 />
                                 <button
                                     type="button"

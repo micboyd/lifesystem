@@ -62,12 +62,12 @@ export default function Select({
     }
 
     const triggerClasses = [
-        'flex h-11 w-full items-center gap-3 rounded-xl border bg-white pl-3.5 pr-3 text-[15px] outline-none focus-visible:outline-none transition-[border-color,box-shadow] duration-150',
+        'flex h-11 w-full items-center gap-3 rounded-xl border bg-white pl-3.5 pr-3 text-[15px] lg:h-10 outline-none focus-visible:outline-none transition-[border-color,box-shadow] duration-150',
         open
-            ? 'border-neutral-900 ring-4 ring-neutral-100'
+            ? 'border-neutral-900 shadow-[inset_0_0_0_1px_#111111]'
             : error
               ? 'border-red-600'
-              : 'border-neutral-200 hover:border-neutral-300 focus-visible:border-neutral-900 focus-visible:ring-4 focus-visible:ring-neutral-100',
+              : 'border-neutral-400 hover:border-neutral-900 focus-visible:border-neutral-900 focus-visible:shadow-[inset_0_0_0_1px_#111111]',
         disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
     ].join(' ')
 
@@ -103,7 +103,7 @@ export default function Select({
                 </button>
 
                 {open && (
-                    <div className="absolute left-0 top-full z-50 mt-2 max-h-60 w-full overflow-y-auto rounded-2xl bg-white p-1.5 shadow-xl ring-1 ring-neutral-900/[0.06]">
+                    <div className="absolute left-0 top-full z-50 mt-1 max-h-60 w-full overflow-y-auto border border-neutral-900 bg-white">
                         {options.map((option) => {
                             const isSelected = option.value === current
                             return (
@@ -113,9 +113,9 @@ export default function Select({
                                     disabled={option.disabled}
                                     onClick={() => choose(option)}
                                     className={[
-                                        'flex min-h-10 w-full items-center justify-between gap-2 rounded-[10px] px-3 py-2 text-left text-sm transition-colors duration-100 disabled:cursor-not-allowed disabled:opacity-40',
+                                        'flex min-h-11 w-full items-center justify-between gap-2 border-b border-hairline px-4 py-2 text-left text-[15px] transition-colors duration-100 last:border-b-0 disabled:cursor-not-allowed disabled:opacity-40 lg:min-h-10',
                                         isSelected
-                                            ? 'bg-neutral-100 font-medium text-neutral-900'
+                                            ? 'font-medium text-neutral-900'
                                             : 'text-neutral-700 hover:bg-neutral-50',
                                     ].join(' ')}
                                 >

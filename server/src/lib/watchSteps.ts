@@ -13,6 +13,7 @@ import { createHash } from 'crypto'
 import type { ISessionPart } from '../models/ConditioningSession'
 import { SESSION_PHASES, type Phased, type SessionPhase } from './phases'
 import { PACE_RULES, paceBand, parsePace, type PaceTarget } from './paceRules'
+import { effortLine, type IRepEffort, type ISessionRep } from './sessionReps'
 
 export const WATCH_STEP_TYPES = ['warmup', 'run', 'walk', 'recovery', 'cooldown', 'other'] as const
 export type WatchStepType = (typeof WATCH_STEP_TYPES)[number]
@@ -243,7 +244,13 @@ const NON_RUNNING = /\b(raises?|squats?|lunges?|planks?|press|curls?|bridges?|pu
 
 function isNonRunning(part: ISessionPart): boolean {
     if (/\b(jog|run|sprint|walk|stride)/i.test(part.name)) return false
-    return NON_RUNNING.test(part.name) || (!!part.steps?.length && !part.rounds)
+    if (NON_RUNNING.test(part.name)) return true
+    if (part.steps?.length && !part.rounds) return true
+    // Reps carried over from a drill list: nothing measured, nothing that runs.
+    return (
+        !!part.reps?.length &&
+        part.reps.every((r) => !r.seconds && !r.metres && !RUNNING.test(r.do) && !WALKING.test(r.do))
+    )
 }
 
 /** Seconds in the part's planned slot, or undefined when it has none. */
@@ -257,9 +264,59 @@ function capitalise(s: string): string {
     return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
+const RUNNING = /\b(run|jog|sprint|stride)/i
+const WALKING = /\bwalk/i
+
+/** One effort as a watch step: ends on its distance, else its time, else the lap button. */
+function effortStep(e: IRepEffort, phase: SessionPhase, isRest: boolean): WatchStep {
+    const end: WatchStepEnd = e.metres
+        ? { kind: 'distance', metres: e.metres }
+        : e.seconds
+          ? { kind: 'time', seconds: e.seconds }
+          : { kind: 'lapButton' }
+    const running = RUNNING.test(e.do)
+    const type: WatchStepType = isRest
+        ? WALKING.test(e.do)
+            ? typeFor(phase, 'walk')
+            : typeFor(phase, 'recovery')
+        : typeFor(phase, running ? 'run' : WALKING.test(e.do) ? 'walk' : 'other')
+    const stated = running && e.pace ? parsePace(e.pace.replace(/\s*\/\s*km.*$/i, '')) : undefined
+    return {
+        type,
+        label: effortLine(e),
+        end,
+        ...(stated && phase === 'main' ? { paceTarget: paceBand(stated, PACE_RULES.runWalk.bandSecPerKm) } : {}),
+    }
+}
+
+/**
+ * A part's reps as watch steps, each rep its work then its rest, with runs of
+ * identical reps folded into a repeat. Undefined when the reps carry no time or
+ * distance at all (reps carried over from prose), so the older reading applies.
+ */
+function repSteps(reps: ISessionRep[], phase: SessionPhase): WatchStep[] | undefined {
+    const measured = reps.some((r) => r.seconds || r.metres || r.rest?.seconds || r.rest?.metres)
+    if (!measured) return undefined
+    const steps: WatchStep[] = []
+    let i = 0
+    while (i < reps.length) {
+        const key = JSON.stringify(reps[i])
+        let n = 1
+        while (i + n < reps.length && JSON.stringify(reps[i + n]) === key) n++
+        const rep = reps[i]
+        const one = [effortStep(rep, phase, false), ...(rep.rest ? [effortStep(rep.rest, phase, true)] : [])]
+        if (n > 1) steps.push({ type: 'repeat', times: n, steps: one })
+        else steps.push(...one)
+        i += n
+    }
+    return steps
+}
+
 /** One part's steps, and whether they are a best guess. */
 function partSteps(part: ISessionPart, phase: SessionPhase): { steps: WatchStep[]; approximate: boolean } {
     const label = part.name
+    const fromReps = part.reps?.length ? repSteps(part.reps, phase) : undefined
+    if (fromReps) return { steps: fromReps, approximate: false }
     const parsed = part.detail ? parseDetail(part.detail, phase) : undefined
     if (parsed) return { steps: parsed, approximate: false }
 

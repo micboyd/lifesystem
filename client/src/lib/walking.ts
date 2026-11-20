@@ -163,7 +163,10 @@ export function finishTime(time: string, minutes: number): string {
     return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
 }
 
-const PART_NAME: Record<DayPart, string> = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' }
+export const PART_NAME: Record<DayPart, string> = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' }
+
+/** The window a walk in each part can happen in — walks have a length, not a start time. */
+export const PART_HOURS: Record<DayPart, string> = { morning: 'Until 12:00', afternoon: '12:00 – 17:00', evening: 'From 17:00' }
 
 /** What the walk is called: its name, or the part of the day it's in. */
 export function walkTitle(walk: { name: string; time: string }): string {
@@ -188,10 +191,10 @@ export function walkEstimate(walk: Pick<WalkLike, 'pace' | 'goal' | 'route'>, we
     return distanceM ? estimateWalk(distanceM, walk.pace, weightKg) : null
 }
 
-/** "14:30 · 45 min · 4,900 steps". */
+/** "45 min · 4,900 steps". Walks sit in a part of the day, so there's no start time. */
 export function walkFacts(walk: WalkLike, weightKg: number | null): string {
     const e = walkEstimate(walk, weightKg)
-    return [walk.time, e ? formatMinutes(e.minutes) : null, e ? `${n(e.steps)} steps` : null].filter(Boolean).join(' · ')
+    return [e ? formatMinutes(e.minutes) : null, e ? `${n(e.steps)} steps` : null].filter(Boolean).join(' · ')
 }
 
 export const sortWalks = <T extends WalkLike>(walks: T[]): T[] => [...walks].sort((a, b) => a.time.localeCompare(b.time))
@@ -303,7 +306,10 @@ export function doubledBackShare(coords: number[][]): number {
     return total > 0 ? repeated / total : 0
 }
 
-/** Where a walk lands when it's put in a part of the day, until you say otherwise. */
+/**
+ * The stored time for a walk in each part of the day. Walks have no start
+ * time of their own — this only files them under their part.
+ */
 export const SLOT_TIMES: Record<DayPart, string> = { morning: '08:00', afternoon: '13:00', evening: '18:00' }
 
 /** What a library walk is called: its name, or where it starts. */

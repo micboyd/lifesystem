@@ -14,6 +14,7 @@
  * it as a whole and put it back.
  */
 
+import { repsForExport, repSeconds } from './sessionReps'
 import { Types } from 'mongoose'
 import { IPlanItem, ITrainingPlan } from '../models/TrainingPlan'
 import { FitnessPlanKind } from '../models/FitnessPlanEntry'
@@ -222,14 +223,28 @@ export async function buildPlanExport(plan: ITrainingPlan): Promise<PlanExport> 
                     compact({
                         name: p.name,
                         detail: p.detail,
-                        rounds: p.rounds,
-                        roundLabel: p.roundLabel,
-                        roundDetails: p.roundDetails,
-                        roundSeconds: p.roundSeconds,
-                        startAtSec: p.startAtSec,
                         startMin: p.startMin,
                         endMin: p.endMin,
-                        steps: p.steps?.length ? p.steps : undefined,
+                        // Reps are the section's structure; the counter fields are
+                        // worked out from them on import, so only written out
+                        // for a section without reps.
+                        ...(p.reps?.length
+                            ? {
+                                  reps: repsForExport(p.reps),
+                                  // Kept only where the reps don't time themselves.
+                                  roundSeconds: p.reps.every((r) => repSeconds(r) !== undefined)
+                                      ? undefined
+                                      : p.roundSeconds,
+                                  startAtSec: p.startAtSec,
+                              }
+                            : {
+                                  rounds: p.rounds,
+                                  roundLabel: p.roundLabel,
+                                  roundDetails: p.roundDetails,
+                                  roundSeconds: p.roundSeconds,
+                                  startAtSec: p.startAtSec,
+                                  steps: p.steps?.length ? p.steps : undefined,
+                              }),
                     })
                 )
             ),

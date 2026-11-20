@@ -5,12 +5,15 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
     label?: string
     error?: string
     hint?: string
+    /** Layout classes for the field's outer box. */
+    wrapperClassName?: string
 }
 
 export default function Textarea({
     label,
     error,
     hint,
+    wrapperClassName = '',
     className = '',
     id,
     rows = 4,
@@ -19,7 +22,7 @@ export default function Textarea({
     const textareaId = id ?? label?.toLowerCase().replace(/\s+/g, '-')
 
     return (
-        <div className="flex flex-col gap-1.5">
+        <div className={`flex flex-col gap-1.5 ${wrapperClassName}`}>
             {label && (
                 <label htmlFor={textareaId} className={FIELD_LABEL}>
                     {label}

@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import Textarea from './Textarea'
 import { parseJsonc } from '../lib/jsonc'
 import { Card } from './Card'
 import Button from './Button'
@@ -350,13 +351,13 @@ export default function WorkoutImportPanel({
                             title="Paste JSON"
                             hint="Comments are fine — the template pastes straight back in."
                         />
-                        <textarea
+                        <Textarea
                             value={text}
                             onChange={(e) => setText(e.target.value)}
                             spellCheck={false}
                             rows={16}
                             placeholder="Paste your JSON here…"
-                            className="w-full resize-y rounded-xl border border-neutral-200 bg-white p-4 font-mono text-xs leading-relaxed text-neutral-800 outline-none placeholder:text-neutral-500 hover:border-neutral-300 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
+                            className="resize-y font-mono text-xs leading-relaxed" wrapperClassName="w-full"
                         />
                         <div className="mt-4 flex items-center justify-end gap-3">
                             <Button

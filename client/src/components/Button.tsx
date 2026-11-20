@@ -1,10 +1,9 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 
 /**
- * `primary` is coral and appears once per view. `secondary` is the white,
- * hairline-bordered default for everything else. `ghost` is for quiet toolbar
- * actions, `strong` is ink for a confident non-primary action (on dark cards,
- * for instance), and `danger` is the tinted destructive action.
+ * AdminLife 3: `primary` is solid black, one per region. `secondary` is the
+ * black outline, `ghost` the light outline for quiet actions, `strong` the
+ * white button used on a black band, and `danger` an outline in deep rose.
  */
 type Variant = 'primary' | 'secondary' | 'ghost' | 'strong' | 'danger'
 type Size = 'sm' | 'md' | 'lg'
@@ -20,19 +19,19 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<Variant, string> = {
-    primary: 'bg-coral-500 text-white hover:bg-coral-600 active:bg-coral-700',
-    secondary:
-        'bg-transparent text-neutral-900 border border-hairline hover:border-neutral-300 hover:bg-white active:bg-neutral-100',
-    ghost: 'bg-transparent text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900 active:bg-neutral-200',
-    strong: 'bg-neutral-900 text-neutral-50 hover:bg-neutral-800 active:bg-neutral-700',
-    danger: 'bg-red-50 text-red-600 hover:bg-red-100 active:bg-red-100',
+    primary: 'bg-neutral-900 text-white hover:bg-black active:bg-neutral-800',
+    secondary: 'bg-transparent text-neutral-900 border border-neutral-900 hover:bg-neutral-100 active:bg-neutral-200',
+    ghost: 'bg-transparent text-neutral-900 border border-neutral-300 hover:border-neutral-900 active:bg-neutral-100',
+    strong: 'bg-white text-neutral-900 hover:bg-neutral-100 active:bg-neutral-200',
+    danger: 'bg-transparent text-[#8e3b47] border border-neutral-300 hover:border-[#8e3b47] active:bg-red-50',
 }
 
-// 44px is the default so every primary control meets the touch-target size.
+// Small capital labels, square corners. 44px default so every primary control
+// meets the touch-target size; 40px in bars, 36px in rows.
 const sizeClasses: Record<Size, string> = {
-    sm: 'h-9 rounded-lg px-3 text-[13px] lg:h-8',
-    md: 'h-11 rounded-lg px-4 text-sm lg:h-9',
-    lg: 'h-12 rounded-lg px-5 text-[15px] lg:h-11',
+    sm: 'h-9 px-3 text-[11px] tracking-[0.12em] uppercase',
+    md: 'h-11 px-5 text-[11px] tracking-[0.12em] uppercase lg:h-10',
+    lg: 'h-12 px-6 text-[11px] tracking-[0.12em] uppercase',
 }
 
 export default function Button({
@@ -46,7 +45,7 @@ export default function Button({
     disabled,
     ...props
 }: ButtonProps) {
-    const iconEl = icon ? <i className={`${icon} text-[0.9em]`} aria-hidden="true" /> : null
+    const iconEl = icon ? <i className={`${icon} text-[12px]`} aria-hidden="true" /> : null
 
     return (
         <button

@@ -1,4 +1,5 @@
 import { useCallback, useState, type ReactNode } from 'react'
+import Textarea from '../Textarea'
 import PhaseHeading from '../PhaseHeading'
 import type { SessionPhase } from '../../types'
 
@@ -287,7 +288,7 @@ export function StepsInput({
             <span className="text-[13px] font-medium text-neutral-700">
                 Sub-list <span className="font-normal text-neutral-500">· one step per line, ticked off in the gym</span>
             </span>
-            <textarea
+            <Textarea
                 aria-label={`Sub-list for ${label}`}
                 rows={Math.min(8, Math.max(2, (steps?.length ?? 0) + 1))}
                 placeholder={'Leg swings ×10 each side\nHip circles ×10\nBodyweight squats ×15'}
@@ -296,7 +297,7 @@ export function StepsInput({
                     const v = e.target.value
                     onChange(v === '' ? undefined : v.split('\n'))
                 }}
-                className="w-full resize-y rounded-[10px] border border-neutral-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-neutral-500 hover:border-neutral-300 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
+                className="resize-y" wrapperClassName="w-full"
             />
         </label>
     )

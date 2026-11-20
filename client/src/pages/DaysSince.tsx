@@ -359,14 +359,14 @@ export default function DaysSince() {
                                             />
                                         </div>
                                         {todayCheckIn && (
-                                            <input
+                                            <Input
                                                 type="text"
                                                 defaultValue={todayCheckIn.note ?? ''}
                                                 placeholder="Add a note (optional)"
                                                 onBlur={(e) =>
                                                     handleCheckIn(item, todayCheckIn.intensity, e.target.value)
                                                 }
-                                                className="mt-2 w-full rounded-[10px] border border-neutral-200 hover:border-neutral-300 bg-white px-3 h-10.5 text-xs text-neutral-700 outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
+                                                className="text-xs" wrapperClassName="mt-2 w-full"
                                             />
                                         )}
                                         <div className="mt-3 flex gap-1">

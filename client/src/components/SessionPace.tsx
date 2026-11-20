@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Input from './Input'
 import {
     driftLabel,
     driftTone,
@@ -208,37 +209,40 @@ export function SlotInputs({
 }) {
     const bad =
         slot.startMin !== undefined && slot.endMin !== undefined && slot.endMin <= slot.startMin
-    const cls = `h-10 w-16 rounded-[10px] border bg-white px-2 text-base tabular-nums outline-none focus-visible:outline-none placeholder:text-neutral-500 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 sm:text-sm ${
-        bad ? 'border-red-600' : 'border-neutral-200 hover:border-neutral-300'
-    }`
     return (
         <div
             className="flex items-center gap-1.5"
             title={bad ? 'The end has to be after the start' : 'Minutes into the session'}
         >
             <i className="fa-regular fa-clock text-xs text-neutral-500" aria-hidden="true" />
-            <input
+            <Input
                 type="number"
                 min={0}
                 step="any"
                 inputMode="decimal"
                 placeholder="From"
                 aria-label={`Start minute for ${label}`}
+                aria-invalid={bad || undefined}
+                wrapperClassName="w-20"
+                className={`!px-2 text-center ${bad ? '!border-red-600' : ''}`}
                 value={slot.startMin ?? ''}
                 onChange={(e) => onChange({ ...slot, startMin: toMark(e.target.value) })}
-                className={cls}
+               
             />
             <span className="text-xs text-neutral-500">–</span>
-            <input
+            <Input
                 type="number"
                 min={0}
                 step="any"
                 inputMode="decimal"
                 placeholder="To"
                 aria-label={`End minute for ${label}`}
+                aria-invalid={bad || undefined}
+                wrapperClassName="w-20"
+                className={`!px-2 text-center ${bad ? '!border-red-600' : ''}`}
                 value={slot.endMin ?? ''}
                 onChange={(e) => onChange({ ...slot, endMin: toMark(e.target.value) })}
-                className={cls}
+               
             />
             <span className="text-xs text-neutral-500">min</span>
         </div>

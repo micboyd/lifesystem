@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Textarea from './Textarea'
 import { Card } from './Card'
 import Button from './Button'
 import Alert from './Alert'
@@ -31,11 +32,36 @@ function errorMessage(err: unknown): string {
 const TEMPLATE = `{
   // ── What every plan needs ────────────────────────────────────────────────
   // 1. "planName", "planStart" and "planEnd".
-  // 2. On every conditioning part: "startMin" and "endMin" — its slot in
+  // 2. Every conditioning session written as phases → sections → reps (below).
+  // 3. On every conditioning section: "startMin" and "endMin" — its slot in
   //    minutes from the start of the session (run 7 → 28). Strength lines don't
   //    need them.
   //
-  // How the times are used (conditioning only): in the session each part has a
+  // ── THE RULE for conditioning: phases → sections → reps ─────────────────
+  // Runs, walks, bike, rower, swims, drills and stretches are all written the
+  // same way, so every session reads the same in the app:
+  //   • three phases, in order: "warmUp", "main", "coolDown"
+  //   • each phase is a list of sections ({ "name", "startMin", "endMin", "reps" })
+  //   • each section is a list of "reps" — always, even a single steady block
+  //     (that's one rep). The numbers live on the rep, never in prose.
+  //
+  // A rep — use the fields that apply, leave the rest out:
+  //   "do"        what it is: "Run", "Walk", "Bike", "Row", "Calf raises"  (required)
+  //   "time"      how long: "90s", "2 min", "1:30"
+  //   "distance"  how far: "400 m", "1.5 km"
+  //   "count"     how many, for a movement: 15
+  //   "speed"     "7.0 km/h"      "pace"     "8:30/km"      "incline"  "1%"
+  //   "effort"    how hard: "Easy", "Zone 2", "RPE 7", "200 W"
+  //   "note"      anything else: "each side"
+  //   "rest"      the recovery after it — a rep of its own ({ "do": "Walk", "distance": "150 m" })
+  //               or just a time for standing rest ("60s")
+  //   "times"     repeat this rep: 5 identical intervals are ONE entry with "times": 5
+  //
+  // Don't: describe reps in "detail", use "steps", "rounds", "roundDetails" or
+  // "roundSeconds" on conditioning, or split one interval set into a section
+  // per rep. "detail" is only a short coaching cue for the section.
+  //
+  // How the times are used (conditioning only): in the session each section has a
   // Completed button that records the time you press it. Each press is
   // compared with the previous one against the planned gap between the two
   // parts' "endMin"s, so you see "on time", "4 min behind" or "3 min ahead",
@@ -45,10 +71,10 @@ const TEMPLATE = `{
   // missing a time, or with one out of order, is rejected with the part named.
   // Strength is a plain list of sets and reps — no times.
   //
-  // ── Worth adding: sub-lists ──────────────────────────────────────────────
-  // Put "steps" on any strength line or conditioning part — a list of short
-  // strings — to give it a sub-list ticked off one by one, e.g. a warm-up line
-  // "General warm-up" with ["5 min easy bike", "Arm circles ×10", …].
+  // ── Worth adding: sub-lists (strength only) ──────────────────────────────
+  // Put "steps" on a strength line — a list of short strings — to give it a
+  // sub-list ticked off one by one, e.g. a warm-up line "General warm-up" with
+  // ["5 min easy bike", "Arm circles ×10", …]. Conditioning uses "reps" instead.
   //
   // ── Worth adding: exercise demo videos ───────────────────────────────────
   // Put "videoUrl" (or "youtubeLink") on any strength line — or on the exercise
@@ -66,12 +92,11 @@ const TEMPLATE = `{
   //
   // ── Worth adding: watch steps ────────────────────────────────────────────
   // Every conditioning session can be sent to a Garmin watch as a structured
-  // workout. Steps are worked out from the parts on their own — run-walk lines
-  // like "5 x 400 m run at 8:30/km, then 150 m walk.", "5 km continuous at
-  // 8:00/km.", walks like "Walk 250 m easy, then 200 m brisk.", and timed reps
-  // from "rounds" + "roundSeconds". Anything else becomes a timed step from its
-  // "startMin"/"endMin". To say exactly what the watch should do instead, put
-  // "watchSteps" on the session — see the first session below.
+  // workout. Steps come straight from the reps: each rep ends on its
+  // "distance" (or else its "time"), a run's "pace" becomes a pace alert, its
+  // "rest" is the recovery step, and "times" becomes a repeat. A rep with
+  // neither waits for the lap button. To say exactly what the watch should do
+  // instead, put "watchSteps" on the session — see the first session below.
   //
   // Everything else below is optional. Comments like these are fine to leave
   // in — the importer ignores them.
@@ -248,41 +273,67 @@ const TEMPLATE = `{
           },
           { "type": "cooldown", "label": "Walk and stretch", "end": { "kind": "lapButton" } }
         ],
-        // Same three phases. Every part needs "startMin" and "endMin", in order, as above.
+        // Phases → sections → reps, as at the top. Every section needs
+        // "startMin" and "endMin", in order.
         "warmUp": [
           {
+            // A list of drills: one rep each.
             "name": "Mobility drills",
             "startMin": 0,
             "endMin": 3,
-            "steps": ["Leg swings ×10 each side", "Walking lunges ×10", "Ankle circles ×10 each way"]
+            "reps": [
+              { "do": "Leg swings", "count": 10, "note": "each side" },
+              { "do": "Walking lunges", "count": 10 },
+              { "do": "Ankle circles", "count": 10, "note": "each way" }
+            ]
           },
-          { "name": "Walk", "detail": "2 min at 4.2 km/h, then 2 min at 5.2 km/h.", "startMin": 3, "endMin": 7 }
+          {
+            // A steady block in two stages: two reps.
+            "name": "Walk",
+            "startMin": 3,
+            "endMin": 7,
+            "reps": [
+              { "do": "Walk", "time": "2 min", "speed": "4.2 km/h" },
+              { "do": "Walk", "time": "2 min", "speed": "5.2 km/h" }
+            ]
+          }
         ],
         "main": [
           {
+            // An interval set: ONE entry, repeated with "times".
             "name": "Run-walk intervals",
-            "detail": "6 x 90s jog at 7.0 km/h, then 2 min walk at 5.0 km/h.",
+            "detail": "Relaxed shoulders, short quick steps.",  // optional cue, never the reps
             "startMin": 7,
             "endMin": 28,
-            // Optional: "rounds" adds a counter you tap once per round, inside the part.
-            // The part still has one Completed button for the whole block.
-            "rounds": 6,
-            "roundLabel": "jog/walk",    // what one round is called
-            "roundDetails": ["Rep 1", "Rep 2", "Rep 3", "Rep 4", "Rep 5", "Rep 6"], // a line under each rep
-            // Each rep's length in seconds, covering the rep and its recovery —
-            // shows each rep's window in session minutes (7:00–10:30, …).
-            "roundSeconds": [210, 210, 210, 210, 210, 210],
-            // Seconds into the session when rep 1 starts. Defaults to startMin.
-            "startAtSec": 420
+            "reps": [
+              {
+                "times": 6,
+                "do": "Jog",
+                "time": "90s",
+                "speed": "7.0 km/h",
+                "effort": "Conversational",
+                "rest": { "do": "Walk", "time": "2 min", "speed": "5.0 km/h" }
+              }
+            ]
           }
         ],
         "coolDown": [
-          { "name": "Walk", "detail": "2 min at 5.0 km/h, then 3 min at 4.0 km/h.", "startMin": 28, "endMin": 33 },
           {
-            "name": "Stretch",
+            "name": "Walk",
+            "startMin": 28,
+            "endMin": 33,
+            "reps": [
+              { "do": "Walk", "time": "2 min", "speed": "5.0 km/h" },
+              { "do": "Walk", "time": "3 min", "speed": "4.0 km/h" }
+            ]
+          },
+          {
+            // Strength-type work inside a conditioning session: "count" per rep.
+            "name": "Calf raises",
+            "detail": "On a step. 1 sec pause at the top, 3 sec down.",
             "startMin": 33,
             "endMin": 36,
-            "steps": ["Calf stretch 30s each side", "Hamstring stretch 30s each side"]
+            "reps": [{ "times": 3, "do": "Calf raises", "count": 15, "effort": "Bodyweight", "rest": "45s" }]
           }
         ]
       }
@@ -294,18 +345,22 @@ const TEMPLATE = `{
         "name": "Bike Intervals",
         "duration": 25,
         "category": "HIIT",
-        "warmUp": [{ "name": "Easy spin", "detail": "5 min", "startMin": 0, "endMin": 5 }],
+        "warmUp": [
+          { "name": "Easy spin", "startMin": 0, "endMin": 5, "reps": [{ "do": "Bike", "time": "5 min", "effort": "Easy" }] }
+        ],
         "main": [
           {
             "name": "Main set",
-            "detail": "8 x 30s hard, 90s easy",
             "startMin": 5,
             "endMin": 21,
-            "rounds": 8,
-            "roundSeconds": [120, 120, 120, 120, 120, 120, 120, 120]
+            "reps": [
+              { "times": 8, "do": "Bike", "time": "30s", "effort": "Hard", "rest": { "do": "Bike", "time": "90s", "effort": "Easy" } }
+            ]
           }
         ],
-        "coolDown": [{ "name": "Easy spin", "detail": "4 min", "startMin": 21, "endMin": 25 }]
+        "coolDown": [
+          { "name": "Easy spin", "startMin": 21, "endMin": 25, "reps": [{ "do": "Bike", "time": "4 min", "effort": "Easy" }] }
+        ]
       }
     ],
 
@@ -533,11 +588,29 @@ export default function PlanImportPanel({
                         required, and so are{' '}
                         <span className="font-semibold text-neutral-700">startMin</span> and{' '}
                         <span className="font-semibold text-neutral-700">endMin</span> on every
-                        conditioning part — the minutes into the session each
-                        item should start and finish, in session order. In the gym your Completed
-                        press on each item is timed against the gap from the one before, which is
+                        conditioning section — the minutes into the session each
+                        section should start and finish, in session order. In the gym your Completed
+                        press on each section is timed against the gap from the one before, which is
                         how you see whether you&apos;re on time. Every other section is optional,
                         and the template&apos;s comments can be left in.
+                    </p>
+                    <p>
+                        <span className="font-semibold text-neutral-700">
+                            Conditioning is always phases → sections → reps.
+                        </span>{' '}
+                        Each section carries a{' '}
+                        <span className="font-semibold text-neutral-700">reps</span> list, and
+                        each rep says what to do in fields —{' '}
+                        <span className="font-semibold text-neutral-700">do</span>,{' '}
+                        <span className="font-semibold text-neutral-700">time</span>,{' '}
+                        <span className="font-semibold text-neutral-700">distance</span>,{' '}
+                        <span className="font-semibold text-neutral-700">speed</span>,{' '}
+                        <span className="font-semibold text-neutral-700">pace</span>,{' '}
+                        <span className="font-semibold text-neutral-700">incline</span>,{' '}
+                        <span className="font-semibold text-neutral-700">effort</span>, a{' '}
+                        <span className="font-semibold text-neutral-700">rest</span> after it, and{' '}
+                        <span className="font-semibold text-neutral-700">times</span> to repeat it.
+                        Older plans with rounds or steps still import and are turned into reps.
                     </p>
                     <p>
                         Add a{' '}
@@ -627,13 +700,13 @@ export default function PlanImportPanel({
                     Paste plan JSON
                 </h3>
 
-                <textarea
+                <Textarea
                     value={text}
                     onChange={(e) => onText(e.target.value)}
                     spellCheck={false}
                     rows={12}
                     placeholder="Paste your plan here…"
-                    className="w-full resize-y rounded-xl border border-neutral-200 bg-white p-4 font-mono text-[11px] leading-relaxed text-neutral-800 outline-none placeholder:text-neutral-500 hover:border-neutral-300 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
+                    className="resize-y font-mono text-[11px] leading-relaxed" wrapperClassName="w-full"
                 />
 
                 <div className="mt-4 flex flex-col gap-3 rounded-xl border border-neutral-200 p-3">

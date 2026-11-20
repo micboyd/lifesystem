@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { ModuleAside } from './ModuleLayout'
+import { ArrowButton, Bar, BarButton, DoneTick, FigureStrip } from './Blok'
 import Spinner from './Spinner'
 import Button from './Button'
 import Input from './Input'
@@ -101,9 +102,6 @@ import {
 } from '../lib/calendar'
 import { findOverloads, findFreeSlot, type Overload } from '../lib/overload'
 import {
-    HeroShell,
-    HeroIconButton,
-    HeroButton,
     DayStrip,
     DayPill,
     DayCardShell,
@@ -131,6 +129,8 @@ import {
     Segmented,
     PickRow,
     PICK_LABEL,
+    GridCellAdd,
+    GridDropHere,
 } from './planner/PlannerParts'
 import { estimateWorkoutMinutes } from '../lib/phases'
 
@@ -155,22 +155,22 @@ const KIND_TONE: Record<
     { label: string; icon: string; row: string; chip: string; tile: string; dot: string; block: string }
 > = {
     workout: {
-        block: 'bg-violet-50',
+        block: 'bg-tint-fitness',
         label: 'text-violet-600',
         icon: 'text-violet-600',
         row: 'bg-violet-50/60',
         chip: 'bg-violet-50 text-violet-700',
         tile: 'bg-violet-50 text-violet-600',
-        dot: 'bg-violet-600',
+        dot: 'bg-shade-fitness',
     },
     conditioning: {
-        block: 'bg-sky-50',
+        block: 'bg-tint-health',
         label: 'text-sky-600',
         icon: 'text-sky-600',
         row: 'bg-sky-50/60',
         chip: 'bg-sky-50 text-sky-700',
         tile: 'bg-sky-50 text-sky-600',
-        dot: 'bg-sky-600',
+        dot: 'bg-shade-health',
     },
 }
 
@@ -1131,25 +1131,25 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     const libraryEntries: LibraryEntry<FitnessPlanKind>[] = useMemo(() => {
         const ago = (key: string) => {
             const date = lastDone.get(key)
-            if (!date) return 'never'
+            if (!date) return 'not done yet'
             const d = daysBetween(date, today)
-            return d === 0 ? 'today' : d === 1 ? '1 day' : `${d} days`
+            return d === 0 ? 'done today' : d === 1 ? '1 day ago' : `${d} days ago`
         }
         return [
             ...workouts.map((w) => ({
                 kind: 'workout' as const,
                 id: w._id,
                 name: w.name,
-                meta: `Strength · ${w.main.length} ${w.main.length === 1 ? 'exercise' : 'exercises'}`,
-                dot: KIND_TONE.workout.dot,
+                meta: `${w.main.length} ${w.main.length === 1 ? 'exercise' : 'exercises'}`,
+                dot: KIND_TONE.workout.block,
                 aside: ago(`workout:${w._id}`),
             })),
             ...sessions.map((c) => ({
                 kind: 'conditioning' as const,
                 id: c._id,
                 name: c.name,
-                meta: [c.category, c.duration ? `${c.duration} min` : null].filter(Boolean).join(' · '),
-                dot: KIND_TONE.conditioning.dot,
+                meta: [c.duration ? `${c.duration} min` : null, c.category].filter(Boolean).join(' · '),
+                dot: KIND_TONE.conditioning.block,
                 aside: ago(`conditioning:${c._id}`),
             })),
         ]
@@ -1255,6 +1255,15 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 board={board}
             />
 
+            {!(libLoading || loading) && board && (
+                <ToSort
+                    clashesByDate={clashesByDate}
+                    overloadsByDate={overloadsByDate}
+                    onShowClashes={setClashDate}
+                    onShowOverloads={setOverloadDate}
+                />
+            )}
+
             {!(libLoading || loading) && (
                 <WeekTotals
                     entries={entries}
@@ -1298,6 +1307,30 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 <GarminStatesContext.Provider value={garminStates}>
                 <div className="flex items-start gap-8">
                 <div className="min-w-0 flex-1">
+                {board ? (
+                    <>
+                        <PartsGrid
+                            weekStart={range.start}
+                            today={today}
+                            entries={entries}
+                            isDone={(e) => isDone(e) || ticking.has(e._id)}
+                            clashesByDate={clashesByDate}
+                            overloadsByDate={overloadsByDate}
+                            libraryDrag={libDrag}
+                            onDropLibrary={(date, part, item) => {
+                                setLibDrag(null)
+                                void handleAdd(date, item.kind, item.id, part)
+                            }}
+                            onAdd={(date, part) => setPicker({ date, part })}
+                            onOpen={setDetail}
+                            onTick={handleTick}
+                            onRowMenu={openRowMenu}
+                            onSlotMenu={openSlotMenu}
+                            onReorder={handleReorder}
+                        />
+                        <MinutesByDay weekStart={range.start} entries={entries} isDone={(e) => isDone(e) || ticking.has(e._id)} />
+                    </>
+                ) : (
                 <WeekView
                     libraryDrag={libDrag}
                     onDropLibrary={(date, part, item) => {
@@ -1328,11 +1361,12 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                     calendarByDate={calendarByDate}
                     onShowEvents={setEventsDate}
                 />
+                )}
                 </div>
                 {board && (
                     <ModuleAside>
                     <PlannerLibrary<FitnessPlanKind, FitnessPlanPart>
-                        title="Library"
+                        title="Workouts and sessions"
                         className="min-h-0 flex-1"
                         items={libraryEntries}
                         filters={[
@@ -2175,58 +2209,31 @@ function FitnessWeekHero({
         ready && total === 0 && 'nothing planned yet',
     ].filter(Boolean)
 
-    const arrows = (
-        <div className="flex shrink-0 items-center gap-2 sm:gap-1">
-            <HeroIconButton
-                label="Previous week"
-                icon="fa-solid fa-chevron-left"
-                onClick={() => onStep(-1)}
-            />
-            <HeroIconButton
-                label="Next week"
-                icon="fa-solid fa-chevron-right"
-                onClick={() => onStep(1)}
-            />
-        </div>
-    )
 
-    // Phones: the week's title gets a row to itself, the controls a row under
-    // it. From `sm` up it all sits on one line — the same as the Nutrition planner.
+    void facts
     return (
-        <HeroShell tone="soft">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-3">
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <div className="hidden sm:block">{arrows}</div>
-                    <div className="min-w-0 flex-1">
-                        <div className="flex min-w-0 items-center gap-2">
-                            <h2 className="truncate text-xl font-semibold tracking-tight sm:text-lg">
-                                {relativeWeekLabel(weekStart, mondayOf(today))}
-                            </h2>
-                            {weekNote && flag && (
-                                <button
-                                    type="button"
-                                    onClick={onEditFlag}
-                                    aria-label="Edit week flag"
-                                    className="inline-flex max-w-full shrink-0 items-center gap-1.5 rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-neutral-900 ring-1 ring-inset ring-neutral-900/[0.06] transition-opacity hover:opacity-80"
-                                >
-                                    <span className={`h-1.5 w-1.5 rounded-full ${flag.dot}`} aria-hidden="true" />
-                                    <span className="truncate">{weekNote.label || 'Flagged week'}</span>
-                                </button>
-                            )}
-                        </div>
-                        <p className="mt-0.5 text-[13px] leading-snug text-neutral-500 sm:mt-0 sm:truncate">
-                            {facts.join(' · ')}
-                        </p>
-                    </div>
+        <div className="flex flex-col gap-5">
+            <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+                <div className="min-w-0">
+                    <p className="flex flex-wrap items-center gap-x-3 text-[11px] font-medium uppercase tracking-[0.12em] text-neutral-600">
+                        {weekNote && flag ? (
+                            <button type="button" onClick={onEditFlag} className="inline-flex items-center gap-2 hover:text-neutral-900">
+                                <span className={`h-2.5 w-2.5 ${flag.dot}`} aria-hidden="true" />
+                                {weekNote.label || 'Flagged week'}
+                            </button>
+                        ) : null}
+                        <span>{relativeWeekLabel(weekStart, mondayOf(today))}</span>
+                    </p>
+                    <h1 className="mt-3 text-[36px] font-normal leading-[1.1] tracking-[-0.03em] sm:text-[48px]">{rangeLabel}</h1>
                 </div>
-
-                <div className="flex shrink-0 items-center gap-3 sm:ml-auto sm:gap-2">
-                    <div className="sm:hidden">{arrows}</div>
+                <div className="flex flex-wrap items-center gap-2">
                     {!isThisWeek && (
-                        <HeroButton icon="fa-solid fa-calendar-day" onClick={() => onPick(today)} iconOnlyOnPhone>
-                            Today
-                        </HeroButton>
+                        <BarButton onClick={() => onPick(today)} className="!border-neutral-300">
+                            This week
+                        </BarButton>
                     )}
+                    <ArrowButton dir="prev" label="Previous week" onClick={() => onStep(-1)} />
+                    <ArrowButton dir="next" label="Next week" onClick={() => onStep(1)} />
                     <HeroMenu items={menu} />
                 </div>
             </div>
@@ -2254,7 +2261,7 @@ function FitnessWeekHero({
                     })}
                 </DayStrip>
             )}
-        </HeroShell>
+        </div>
     )
 }
 
@@ -2443,20 +2450,6 @@ function WeekView({
     )
 }
 
-/** One headline figure for the week: label, the number in mono, a line of context. */
-function WeekFigure({ label, value, unit, sub }: { label: string; value: string; unit?: string; sub: string }) {
-    return (
-        <div className="min-w-0">
-            <p className="text-[12px] text-neutral-600">{label}</p>
-            <p className="mt-1 truncate text-[26px] leading-tight tracking-[-0.045em] text-neutral-950 sm:text-[28px]">
-                <span className="tabular-nums">{value}</span>
-                {unit && <span className="text-[13px] tracking-normal text-neutral-500">{unit}</span>}
-            </p>
-            <p className="mt-0.5 truncate text-[12px] text-neutral-500">{sub}</p>
-        </div>
-    )
-}
-
 /**
  * The week in four numbers: sessions done against planned, strength volume
  * (from logged sets) against last week, conditioning minutes logged against
@@ -2487,7 +2480,7 @@ function WeekTotals({
     const vsLast = logs.lastWeekVolume
     const volumeSub =
         vsLast > 0
-            ? `${volume >= vsLast ? '+' : '−'}${Math.round((Math.abs(volume - vsLast) / vsLast) * 100)}% on last week`
+            ? `${Math.round((Math.abs(volume - vsLast) / vsLast) * 100)}% ${volume >= vsLast ? 'more' : 'less'} than last week`
             : volume > 0
               ? 'Nothing logged last week'
               : 'Logged sets count here'
@@ -2511,27 +2504,49 @@ function WeekTotals({
     const prevAvg = avg(7, 13)
     const weightSub =
         thisAvg !== null && prevAvg !== null
-            ? `${thisAvg <= prevAvg ? '−' : '+'}${Math.abs(thisAvg - prevAvg).toFixed(1)} kg on the 7 days before`
+            ? `${Math.abs(thisAvg - prevAvg).toFixed(1)} kg ${thisAvg <= prevAvg ? 'down' : 'up'} on the previous 7 days`
             : thisAvg !== null
               ? '7-day average'
               : 'No weigh-ins this week'
 
     return (
-        <section aria-label="This week" className="grid grid-cols-2 gap-x-8 gap-y-5 border-y border-hairline py-5 lg:grid-cols-4">
-            <WeekFigure
-                label="Sessions"
-                value={String(done)}
-                unit={` / ${live.length}`}
-                sub={[toCome > 0 ? `${toCome} to come` : null, skipped > 0 ? `${skipped} skipped` : null].filter(Boolean).join(' · ') || (live.length ? 'All done' : 'Nothing planned')}
+        <section aria-label="This week">
+            <FigureStrip
+                figures={[
+                    {
+                        label: 'Sessions',
+                        value: String(done),
+                        unit: `of ${live.length}`,
+                        pct: live.length ? (done / live.length) * 100 : 0,
+                        color: '#6f57a0',
+                        note:
+                            [skipped > 0 ? `${skipped} skipped` : null, toCome > 0 ? `${toCome} to go` : null].filter(Boolean).join(' · ') ||
+                            (live.length ? 'All done' : 'Nothing planned'),
+                    },
+                    {
+                        label: 'Strength volume',
+                        value: fmt(volume),
+                        unit: 'kg',
+                        pct: vsLast > 0 ? (volume / vsLast) * 100 : volume > 0 ? 100 : 0,
+                        color: '#9a86c4',
+                        note: volumeSub,
+                    },
+                    {
+                        label: 'Conditioning',
+                        value: fmt(condDone),
+                        unit: `of ${fmt(condPlanned)} min`,
+                        pct: condPlanned > 0 ? (condDone / condPlanned) * 100 : 0,
+                        color: '#56698c',
+                        note: condPlanned > 0 ? `${Math.max(0, condPlanned - condDone)} min still planned` : 'None planned',
+                    },
+                    {
+                        label: 'Body weight',
+                        value: thisAvg !== null ? thisAvg.toFixed(1) : '—',
+                        unit: thisAvg !== null ? 'kg' : undefined,
+                        note: weightSub,
+                    },
+                ]}
             />
-            <WeekFigure label="Strength volume" value={fmt(volume)} unit=" kg" sub={volumeSub} />
-            <WeekFigure
-                label="Conditioning"
-                value={fmt(condDone)}
-                unit={` / ${fmt(condPlanned)} min`}
-                sub={condPlanned > 0 ? `${Math.max(0, condPlanned - condDone)} min planned still` : 'None planned'}
-            />
-            <WeekFigure label="Body weight" value={thisAvg !== null ? thisAvg.toFixed(1) : '—'} unit={thisAvg !== null ? ' kg' : undefined} sub={weightSub} />
         </section>
     )
 }
@@ -3849,5 +3864,389 @@ function FlagEditorDrawer({
                 </div>
             </div>
         </Drawer>
+    )
+}
+
+// ─── AdminLife 3: the week as a grid ──────────────────────────────────────────
+
+/** Minutes a planned item takes, for the day headers and the chart. */
+function entryMinutes(entry: FitnessPlanEntry): number {
+    if (entry.kind === 'workout' && entry.workout) return entry.workout.duration || estimateWorkoutMinutes(entry.workout) || 0
+    if (entry.kind === 'conditioning' && entry.session) return entry.session.duration || 0
+    return 0
+}
+
+/** The tile's one line of detail: minutes, then what it is. */
+function tileMeta(entry: FitnessPlanEntry): string {
+    const mins = entryMinutes(entry)
+    const what =
+        entry.kind === 'workout' && entry.workout
+            ? `${entry.workout.main.length} exercises`
+            : entry.kind === 'conditioning' && entry.session
+              ? entry.session.category
+              : ''
+    return [mins > 0 ? `${mins} min` : null, what || null].filter(Boolean).join(' · ')
+}
+
+/** Problems with the week, each with a way to sort it, above the grid. */
+function ToSort({
+    clashesByDate,
+    overloadsByDate,
+    onShowClashes,
+    onShowOverloads,
+}: {
+    clashesByDate: Map<string, Clash[]>
+    overloadsByDate: Map<string, SlotOverload[]>
+    onShowClashes: (date: string) => void
+    onShowOverloads: (date: string) => void
+}) {
+    const items: { key: string; text: string; onSort: () => void }[] = []
+    for (const [date, list] of [...clashesByDate].sort(([a], [b]) => a.localeCompare(b)))
+        for (const c of list.filter((c) => !c.acknowledged))
+            items.push({
+                key: `c-${c.entry._id}`,
+                text: `${planItemName(c.entry) ?? KIND_META[c.entry.kind].noun} on ${shortDayLabel(date)} ${PART_META[partOf(c.entry)].label.toLowerCase()} clashes with ${c.events.map((e) => e.title).join(', ')}.`,
+                onSort: () => onShowClashes(date),
+            })
+    for (const [date, list] of [...overloadsByDate].sort(([a], [b]) => a.localeCompare(b)))
+        for (const o of list.filter((o) => !o.acknowledged))
+            items.push({
+                key: `o-${date}-${o.part}`,
+                text: `${o.entries.length} hard sessions share ${shortDayLabel(date)} ${PART_META[o.part].label.toLowerCase()}: ${o.entries.map((e) => planItemName(e) ?? KIND_META[e.kind].noun).join(' and ')}.`,
+                onSort: () => onShowOverloads(date),
+            })
+    if (items.length === 0) return null
+    return (
+        <section aria-label="To sort" className="border-b border-hairline border-t border-t-neutral-900">
+            {items.map((it, i) => (
+                <div
+                    key={it.key}
+                    className={`grid grid-cols-1 items-center gap-x-4 gap-y-2 py-3 sm:min-h-[52px] sm:grid-cols-[120px_minmax(0,1fr)_auto] ${
+                        i > 0 ? 'border-t border-hairline' : ''
+                    }`}
+                >
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em]">
+                        {i === 0 ? `${items.length} to sort` : ''}
+                    </span>
+                    <span>{it.text}</span>
+                    <span className="flex gap-2 whitespace-nowrap">
+                        <BarButton solid onClick={it.onSort} className="!h-9 !px-3">
+                            Sort it
+                        </BarButton>
+                    </span>
+                </div>
+            ))}
+        </section>
+    )
+}
+
+/** One planned item on the grid: its kind's tint, name, a line of detail and a done mark. */
+function PlanTile({
+    entry,
+    done,
+    flag,
+    flagNote,
+    dragging,
+    onOpen,
+    onTick,
+    onContextMenu,
+    onDragStart,
+    onDragEnd,
+}: {
+    entry: FitnessPlanEntry
+    done: boolean
+    flag: string | null
+    /** What the flag is about, for the tooltip — the clashing event's name. */
+    flagNote?: string
+    dragging: boolean
+    onOpen: () => void
+    onTick: () => void
+    onContextMenu: (ev: MouseEvent) => void
+    onDragStart: () => void
+    onDragEnd: () => void
+}) {
+    const name = planItemName(entry) ?? KIND_META[entry.kind].noun
+    const skipped = !done && entry.skipped === true
+    return (
+        <div
+            draggable
+            onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = 'move'
+                e.dataTransfer.setData('text/plain', entry._id)
+                onDragStart()
+            }}
+            onDragEnd={onDragEnd}
+            onContextMenu={onContextMenu}
+            className={`relative ${skipped ? 'bg-tint-skipped text-neutral-600' : `${KIND_TONE[entry.kind].block} text-neutral-900`} ${
+                dragging ? 'opacity-40' : ''
+            }`}
+        >
+            <button
+                type="button"
+                onClick={onOpen}
+                title={skipped && entry.skipReason ? `Skipped — ${entry.skipReason}` : flagNote ? `${name} — ${flagNote}` : name}
+                className="flex w-full flex-col gap-1 px-2 pb-2.5 pt-2 text-left text-[14px] leading-[1.25]"
+            >
+                <span className={`line-clamp-2 font-medium ${skipped ? 'line-through' : ''}`}>{name}</span>
+                <span className="block truncate pr-5 text-[12px]">{tileMeta(entry)}</span>
+                {skipped && <span className="text-[11px] font-semibold uppercase tracking-[0.1em]">Skipped</span>}
+                {flag && (
+                    <span className="mt-1 self-start whitespace-nowrap bg-neutral-900 px-1.5 py-[3px] text-[10px] font-semibold uppercase tracking-[0.1em] text-white">
+                        {flag}
+                    </span>
+                )}
+            </button>
+            {!skipped && (
+                <button
+                    type="button"
+                    onClick={onTick}
+                    aria-label={done ? `Mark ${name} as not done` : `Mark ${name} as done`}
+                    title={done ? 'Done' : 'Mark as done'}
+                    className="absolute bottom-2 right-2 grid h-4 w-4 place-items-center"
+                >
+                    {done ? <DoneTick /> : <span className="block h-3.5 w-3.5 border border-neutral-900/40 hover:border-neutral-900" />}
+                </button>
+            )}
+        </div>
+    )
+}
+
+/** The week as one grid: parts of the day down the side, the seven days across. */
+function PartsGrid({
+    weekStart,
+    today,
+    entries,
+    isDone,
+    clashesByDate,
+    overloadsByDate,
+    libraryDrag,
+    onDropLibrary,
+    onAdd,
+    onOpen,
+    onTick,
+    onRowMenu,
+    onSlotMenu,
+    onReorder,
+}: {
+    weekStart: string
+    today: string
+    entries: FitnessPlanEntry[]
+    isDone: (entry: FitnessPlanEntry) => boolean
+    clashesByDate: Map<string, Clash[]>
+    overloadsByDate: Map<string, SlotOverload[]>
+    libraryDrag: LibraryDrag<FitnessPlanKind> | null
+    onDropLibrary: (date: string, part: FitnessPlanPart, item: LibraryDrag<FitnessPlanKind>) => void
+    onAdd: (date: string, part: FitnessPlanPart) => void
+    onOpen: (entry: FitnessPlanEntry) => void
+    onTick: (entry: FitnessPlanEntry) => void
+    onRowMenu: (ev: { clientX: number; clientY: number }, entry: FitnessPlanEntry) => void
+    onSlotMenu: (ev: { clientX: number; clientY: number }, date: string, part: FitnessPlanPart) => void
+    onReorder: (date: string, part: FitnessPlanPart, ids: string[]) => void
+}) {
+    const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+    const [dragId, setDragId] = useState<string | null>(null)
+    const [dropAt, setDropAt] = useState<{ date: string; part: FitnessPlanPart } | null>(null)
+    const dragging = dragId !== null || libraryDrag !== null
+
+    const slotItems = (date: string, part: FitnessPlanPart) =>
+        entries.filter((e) => e.date === date && partOf(e) === part).sort((a, b) => a.order - b.order)
+
+    const dayMinutes = days.map((d) =>
+        entries.filter((e) => e.date === d && !(e.skipped && !isDone(e))).reduce((sum, e) => sum + entryMinutes(e), 0)
+    )
+    const maxMinutes = Math.max(90, ...dayMinutes)
+
+    const clashNote = (entry: FitnessPlanEntry): string | undefined => {
+        const clash = (clashesByDate.get(entry.date) ?? []).find((c) => c.entry._id === entry._id && !c.acknowledged)
+        return clash ? `clashes with ${clash.events.map((e) => e.title).join(', ')}` : undefined
+    }
+    const flagFor = (entry: FitnessPlanEntry): string | null => {
+        const clash = (clashesByDate.get(entry.date) ?? []).find((c) => c.entry._id === entry._id && !c.acknowledged)
+        if (clash) return 'Clash'
+        const over = (overloadsByDate.get(entry.date) ?? []).find(
+            (o) => !o.acknowledged && o.entries.some((e) => e._id === entry._id)
+        )
+        return over ? 'Two hard sessions' : null
+    }
+
+    function drop() {
+        const target = dropAt
+        const dragged = dragId ? entries.find((e) => e._id === dragId) : null
+        setDragId(null)
+        setDropAt(null)
+        if (!target) return
+        if (!dragged && libraryDrag) return onDropLibrary(target.date, target.part, libraryDrag)
+        if (!dragged) return
+        if (dragged.date === target.date && partOf(dragged) === target.part) return
+        const ids = slotItems(target.date, target.part).map((e) => e._id).filter((id) => id !== dragged._id)
+        onReorder(target.date, target.part, [...ids, dragged._id])
+    }
+
+    return (
+        <div className="overflow-x-auto">
+            <div role="table" aria-label="Training plan" className="min-w-[860px]">
+                <div role="row" className="grid grid-cols-[96px_repeat(7,minmax(0,1fr))] border-b border-neutral-900">
+                    <span role="columnheader" className="self-end py-3 text-[11px] font-medium uppercase tracking-[0.12em] text-neutral-600">
+                        Part
+                    </span>
+                    {days.map((date, i) => {
+                        const isToday = date === today
+                        const dayEntries = entries.filter((e) => e.date === date)
+                        const live = dayEntries.filter((e) => !(e.skipped && !isDone(e)))
+                        const doneN = dayEntries.filter(isDone).length
+                        const skippedN = dayEntries.length - live.length
+                        const summary =
+                            dayEntries.length === 0
+                                ? 'Rest'
+                                : live.length === 0
+                                  ? `${skippedN} skipped`
+                                  : doneN === live.length
+                                    ? 'Done'
+                                    : `${doneN} of ${live.length}${skippedN ? ` · ${skippedN} skipped` : ''}`
+                        const d = new Date(`${date}T00:00:00`)
+                        return (
+                            <span
+                                role="columnheader"
+                                key={date}
+                                className={`px-2.5 py-3 font-normal ${isToday ? 'bg-neutral-900 text-white' : ''}`}
+                            >
+                                <span className="flex items-baseline justify-between">
+                                    <span className="text-[11px] font-medium uppercase tracking-[0.12em]">
+                                        {d.toLocaleDateString('en-GB', { weekday: 'short' })}
+                                    </span>
+                                    <span className={`text-[12px] ${isToday ? 'text-neutral-300' : 'text-neutral-600'}`}>
+                                        {dayMinutes[i] > 0 ? `${dayMinutes[i]} min` : ''}
+                                    </span>
+                                </span>
+                                <span className="mt-0.5 block text-[26px] leading-none tracking-[-0.03em]">{d.getDate()}</span>
+                                <Bar
+                                    pct={(dayMinutes[i] / maxMinutes) * 100}
+                                    color={isToday ? '#ffffff' : '#6f57a0'}
+                                    track={isToday ? 'bg-neutral-700' : 'bg-[#ededed]'}
+                                    className="mt-2.5"
+                                />
+                                <span className={`mt-1.5 block text-[12px] ${isToday ? 'text-neutral-300' : 'text-neutral-600'}`}>{summary}</span>
+                            </span>
+                        )
+                    })}
+                </div>
+                {FITNESS_PLAN_PARTS.map((part) => (
+                    <div role="row" key={part} className="grid min-h-[100px] grid-cols-[96px_repeat(7,minmax(0,1fr))] border-b border-hairline">
+                        <span role="rowheader" className="py-3.5 text-[11px] font-medium uppercase tracking-[0.12em] text-neutral-600">
+                            {PART_META[part].label}
+                        </span>
+                        {days.map((date) => {
+                            const items = slotItems(date, part)
+                            const isTarget = dropAt?.date === date && dropAt.part === part
+                            return (
+                                <div
+                                    role="cell"
+                                    key={date}
+                                    onDragOver={(e) => {
+                                        if (!dragging) return
+                                        e.preventDefault()
+                                        if (!isTarget) setDropAt({ date, part })
+                                    }}
+                                    onDrop={(e) => {
+                                        e.preventDefault()
+                                        drop()
+                                    }}
+                                    onContextMenu={(e) => {
+                                        e.preventDefault()
+                                        onSlotMenu(e, date, part)
+                                    }}
+                                    className={`group/cell flex min-w-0 flex-col gap-1.5 border-l border-[#eeeeee] p-1.5 ${
+                                        date === today ? 'bg-neutral-50' : ''
+                                    }`}
+                                >
+                                    {items.map((entry) => (
+                                        <PlanTile
+                                            key={entry._id}
+                                            entry={entry}
+                                            done={isDone(entry)}
+                                            flag={flagFor(entry)}
+                                            flagNote={clashNote(entry)}
+                                            dragging={dragId === entry._id}
+                                            onOpen={() => onOpen(entry)}
+                                            onTick={() => onTick(entry)}
+                                            onContextMenu={(ev) => {
+                                                ev.preventDefault()
+                                                ev.stopPropagation()
+                                                onRowMenu(ev, entry)
+                                            }}
+                                            onDragStart={() => setDragId(entry._id)}
+                                            onDragEnd={() => {
+                                                setDragId(null)
+                                                setDropAt(null)
+                                            }}
+                                        />
+                                    ))}
+                                    {isTarget ? (
+                                        <GridDropHere />
+                                    ) : (
+                                        <GridCellAdd
+                                            label={`Add to ${shortDayLabel(date)} ${PART_META[part].label.toLowerCase()}`}
+                                            onClick={() => onAdd(date, part)}
+                                        />
+                                    )}
+                                </div>
+                            )
+                        })}
+                    </div>
+                ))}
+            </div>
+        </div>
+    )
+}
+
+/** Planned minutes by day, stacked by kind: strength purple, conditioning slate. */
+function MinutesByDay({
+    weekStart,
+    entries,
+    isDone,
+}: {
+    weekStart: string
+    entries: FitnessPlanEntry[]
+    isDone: (entry: FitnessPlanEntry) => boolean
+}) {
+    const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+    const SHADE: Record<FitnessPlanKind, string> = { workout: '#6f57a0', conditioning: '#56698c' }
+    const perDay = days.map((d) =>
+        entries
+            .filter((e) => e.date === d)
+            .sort((a, b) => a.order - b.order)
+            .map((e) => ({ id: e._id, mins: entryMinutes(e), color: SHADE[e.kind], skipped: !!e.skipped && !isDone(e) }))
+            .filter((x) => x.mins > 0)
+    )
+    const totals = perDay.map((list) => list.reduce((s, x) => s + x.mins, 0))
+    const max = Math.max(90, ...totals)
+    if (totals.every((t) => t === 0)) return null
+    const label = days
+        .map((d, i) => `${new Date(`${d}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short' })} ${totals[i]} min`)
+        .join(', ')
+    return (
+        <section aria-labelledby="minutes-by-day" className="mt-14">
+            <h2 id="minutes-by-day" className="text-[26px] font-normal leading-[1.15] tracking-[-0.02em]">
+                Minutes by day
+            </h2>
+            <div
+                role="img"
+                aria-label={`Planned minutes by day: ${label}.`}
+                className="mt-5 grid h-[140px] grid-cols-[96px_repeat(7,minmax(0,1fr))] items-end border-b border-neutral-900"
+            >
+                <span className="self-start text-[12px] text-neutral-600">{max} min</span>
+                {perDay.map((list, i) => (
+                    <div key={days[i]} className="flex h-full flex-col-reverse px-[18px]">
+                        {list.map((x) => (
+                            <span
+                                key={x.id}
+                                className="block"
+                                style={{ height: `${(x.mins / max) * 100}%`, background: x.color, opacity: x.skipped ? 0.35 : 1 }}
+                            />
+                        ))}
+                    </div>
+                ))}
+            </div>
+        </section>
     )
 }

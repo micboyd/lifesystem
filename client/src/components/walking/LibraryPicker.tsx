@@ -2,9 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Drawer from '../Drawer'
 import Button from '../Button'
-import TimePicker from '../TimePicker'
-import { FIELD_HINT, FIELD_LABEL } from '../fieldStyles'
-import { formatGoal, formatWalkKm, libraryTitle, SLOT_TIMES, walkEstimate, walkPart } from '../../lib/walking'
+import { FIELD_LABEL } from '../fieldStyles'
+import { formatGoal, formatWalkKm, libraryTitle, PART_HOURS, SLOT_TIMES, walkEstimate } from '../../lib/walking'
 import { formatDateShort } from '../../lib/calendar'
 import type { DayPart } from '../../lib/yourDay'
 import { assignLibraryItem, type Walk, type WalkLibraryItem } from '../../services/walks'
@@ -30,23 +29,20 @@ export default function LibraryPicker({
     onAssigned: (walk: Walk) => void
 }) {
     const navigate = useNavigate()
-    const [time, setTime] = useState<string | null>(SLOT_TIMES[part])
+    // Walks have no start time: the part's anchor just files it in that part.
+    const time = SLOT_TIMES[part]
     const [busyId, setBusyId] = useState<string | null>(null)
     const [error, setError] = useState('')
 
-    // Back to the slot's own time each time it opens on a slot.
+    // Clear any old error each time it opens on a slot.
     const [openFor, setOpenFor] = useState<DayPart | null>(null)
     const key = open ? part : null
     if (key !== openFor) {
         setOpenFor(key)
-        if (key) {
-            setTime(SLOT_TIMES[key])
-            setError('')
-        }
+        if (key) setError('')
     }
 
     async function assign(item: WalkLibraryItem) {
-        if (!time) return
         setBusyId(item._id)
         setError('')
         try {
@@ -59,16 +55,10 @@ export default function LibraryPicker({
         }
     }
 
-    const elsewhere = time ? walkPart(time) !== part : false
-
     return (
         <Drawer open={open} onClose={onClose} size="lg" title={`Add to ${PART_LABEL[part].toLowerCase()} · ${formatDateShort(date)}`}>
             <div className="flex flex-col gap-5">
-                <div className="flex flex-col gap-1.5">
-                    <span className={FIELD_LABEL}>Time</span>
-                    <TimePicker value={time} onChange={setTime} />
-                    {elsewhere && time && <p className={FIELD_HINT}>That time is in the {walkPart(time)}, so it’ll show there.</p>}
-                </div>
+                <p className="text-sm text-neutral-600">Any time {PART_HOURS[part].toLowerCase()}.</p>
 
                 {error && (
                     <p role="alert" className="rounded-xl bg-red-50/70 p-4 text-sm text-neutral-800">
@@ -88,7 +78,7 @@ export default function LibraryPicker({
                                     <li key={item._id}>
                                         <button
                                             type="button"
-                                            disabled={!time || busyId !== null}
+                                            disabled={busyId !== null}
                                             onClick={() => void assign(item)}
                                             className="flex min-h-14 w-full items-center gap-3 px-3.5 py-2.5 text-left hover:bg-neutral-50 disabled:opacity-50"
                                         >
@@ -111,7 +101,7 @@ export default function LibraryPicker({
                     variant="secondary"
                     fullWidth
                     icon="fa-solid fa-map-location-dot"
-                    onClick={() => navigate(`/walking/new?date=${date}${time ? `&time=${time}` : ''}`)}
+                    onClick={() => navigate(`/walking/new?date=${date}&time=${time}`)}
                 >
                     Create a new walk
                 </Button>

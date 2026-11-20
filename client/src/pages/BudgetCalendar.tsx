@@ -891,10 +891,9 @@ function WeekModal({
                         {/* Exclude toggle */}
                         <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-neutral-200 px-4 py-3 transition-colors hover:bg-neutral-50">
                             <input
-                                type="checkbox"
+                                type="checkbox" className="checkbox"
                                 checked={excluded}
                                 onChange={(e) => onSetExcluded(activeDate, e.target.checked)}
-                                className="h-4 w-4 rounded accent-neutral-950"
                             />
                             <div>
                                 <p className="text-sm font-semibold text-neutral-800">Exclude from budget</p>
@@ -1222,10 +1221,9 @@ function DayModal({
                 <div className="flex flex-col gap-4">
                     <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-neutral-200 px-4 py-3 transition-colors hover:bg-neutral-50">
                         <input
-                            type="checkbox"
+                            type="checkbox" className="checkbox"
                             checked={excluded}
                             onChange={(e) => onSetExcluded(e.target.checked)}
-                            className="h-4 w-4 rounded accent-neutral-950"
                         />
                         <div>
                             <p className="text-sm font-medium text-neutral-800">Exclude from budget</p>
@@ -1335,10 +1333,9 @@ function DayModal({
                     {/* Exclude toggle */}
                     <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-neutral-200 px-4 py-3 transition-colors hover:bg-neutral-50">
                         <input
-                            type="checkbox"
+                            type="checkbox" className="checkbox"
                             checked={excluded}
                             onChange={(e) => onSetExcluded(e.target.checked)}
-                            className="h-4 w-4 rounded accent-neutral-950"
                         />
                         <div>
                             <p className="text-sm font-medium text-neutral-800">Exclude from budget</p>

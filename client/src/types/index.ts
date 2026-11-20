@@ -365,7 +365,27 @@ export const CONDITIONING_CATEGORIES = [
 ] as const
 export type ConditioningCategory = (typeof CONDITIONING_CATEGORIES)[number]
 
-/** One step within a session phase, e.g. "Walk 5 min" or "6 x 90s jog". */
+/** One thing done for a stretch of time or distance — see server/src/lib/sessionReps.ts. */
+export interface RepEffort {
+    /** What it is: "Run", "Walk", "Bike", "Calf raises". */
+    do: string
+    seconds?: number
+    metres?: number
+    /** How many, for a movement done for a count. */
+    count?: number
+    speed?: string
+    pace?: string
+    incline?: string
+    effort?: string
+    note?: string
+}
+
+/** One rep in a section: the work, then an optional recovery. */
+export interface SessionRep extends RepEffort {
+    rest?: RepEffort
+}
+
+/** One section within a session phase, e.g. "Warm-up walk" or "Run-walk intervals". */
 export interface SessionPart {
     name: string
     detail?: string
@@ -384,6 +404,8 @@ export interface SessionPart {
     endMin?: number
     /** A sub-list of things to do within the part, e.g. the drills of a warm-up. */
     steps?: string[]
+    /** The section's reps, one entry each. When present, rounds / roundDetails / roundSeconds come from them. */
+    reps?: SessionRep[]
 }
 
 /** Parts sit in three ordered phases: warmUp, main, coolDown. */
@@ -715,46 +737,11 @@ export const EVENT_TYPE_COLORS: Record<
     EventType,
     { bg: string; hover: string; text: string; light: string }
 > = {
-    trip: {
-        bg: 'bg-blue-100',
-        hover: 'hover:bg-blue-200',
-        text: 'text-blue-700',
-        light: 'bg-blue-50',
-    },
-    // A work trip is a trip, but not one of *your* trips. Fuchsia is unused
-    // elsewhere and sits well clear of trip blue and of the greens in the
-    // Year-view Leave row (annual leave, bank holidays); the briefcase icon
-    // below settles it at a glance in a dense week.
-    worktrip: {
-        bg: 'bg-fuchsia-100',
-        hover: 'hover:bg-fuchsia-200',
-        text: 'text-fuchsia-700',
-        light: 'bg-fuchsia-50',
-    },
-    social: {
-        bg: 'bg-amber-100',
-        hover: 'hover:bg-amber-200',
-        text: 'text-amber-700',
-        light: 'bg-amber-50',
-    },
-    // Indigo is close to trip's blue by hue; the icon below is what actually
-    // tells hobby chips apart, which lets the tint stay as quiet as the rest.
-    hobby: {
-        bg: 'bg-indigo-100',
-        hover: 'hover:bg-indigo-200',
-        text: 'text-indigo-700',
-        light: 'bg-indigo-50',
-    },
-    // A plain event uses a calm teal — distinct from the grey weekend/past
-    // backgrounds and from the other category hues (trip blue, social amber,
-    // hobby indigo, work-trip fuchsia, Other purple), while staying quiet
-    // enough for the common catch-all type.
-    general: {
-        bg: 'bg-teal-200',
-        hover: 'hover:bg-teal-300',
-        text: 'text-teal-800',
-        light: 'bg-teal-50',
-    },
+    trip: { bg: 'bg-[#8c9bb5]', hover: 'hover:brightness-95', text: 'text-neutral-900', light: 'bg-[#8c9bb5]/40' },
+    worktrip: { bg: 'bg-[#b5b5b5]', hover: 'hover:brightness-95', text: 'text-neutral-900', light: 'bg-[#b5b5b5]/40' },
+    social: { bg: 'bg-[#b58c93]', hover: 'hover:brightness-95', text: 'text-neutral-900', light: 'bg-[#b58c93]/40' },
+    hobby: { bg: 'bg-[#a08cb5]', hover: 'hover:brightness-95', text: 'text-neutral-900', light: 'bg-[#a08cb5]/40' },
+    general: { bg: 'bg-[#b5a08c]', hover: 'hover:brightness-95', text: 'text-neutral-900', light: 'bg-[#b5a08c]/40' },
 }
 
 /**
@@ -762,11 +749,11 @@ export const EVENT_TYPE_COLORS: Record<
  * above are too pale to read at a few pixels. Same hues, one step darker.
  */
 export const EVENT_TYPE_DOTS: Record<EventType, string> = {
-    trip: 'bg-blue-400',
-    worktrip: 'bg-fuchsia-400',
-    social: 'bg-amber-400',
-    hobby: 'bg-indigo-400',
-    general: 'bg-teal-400',
+    trip: 'bg-[#8c9bb5]',
+    worktrip: 'bg-[#b5b5b5]',
+    social: 'bg-[#b58c93]',
+    hobby: 'bg-[#a08cb5]',
+    general: 'bg-[#b5a08c]',
 }
 
 /** Font Awesome glyph for each event type — on chips, rows and type tiles (Year view keeps only hobby + work trip). */
@@ -815,70 +802,22 @@ export const CALENDAR_COLOR_CLASSES: Record<
     CalendarColor,
     { bg: string; hover: string; text: string; light: string; dot: string }
 > = {
-    neutral: {
-        bg: 'bg-neutral-100',
-        hover: 'hover:bg-neutral-200',
-        text: 'text-neutral-600',
-        light: 'bg-neutral-50',
-        dot: 'bg-neutral-400',
-    },
-    blue: {
-        bg: 'bg-blue-100',
-        hover: 'hover:bg-blue-200',
-        text: 'text-blue-700',
-        light: 'bg-blue-50',
-        dot: 'bg-blue-400',
-    },
-    amber: {
-        bg: 'bg-amber-100',
-        hover: 'hover:bg-amber-200',
-        text: 'text-amber-700',
-        light: 'bg-amber-50',
-        dot: 'bg-amber-400',
-    },
-    indigo: {
-        bg: 'bg-indigo-100',
-        hover: 'hover:bg-indigo-200',
-        text: 'text-indigo-700',
-        light: 'bg-indigo-50',
-        dot: 'bg-indigo-400',
-    },
-    emerald: {
-        bg: 'bg-emerald-100',
-        hover: 'hover:bg-emerald-200',
-        text: 'text-emerald-700',
-        light: 'bg-emerald-50',
-        dot: 'bg-emerald-400',
-    },
-    rose: {
-        bg: 'bg-rose-100',
-        hover: 'hover:bg-rose-200',
-        text: 'text-rose-700',
-        light: 'bg-rose-50',
-        dot: 'bg-rose-400',
-    },
-    purple: {
-        bg: 'bg-purple-100',
-        hover: 'hover:bg-purple-200',
-        text: 'text-purple-700',
-        light: 'bg-purple-50',
-        dot: 'bg-purple-400',
-    },
-    teal: {
-        bg: 'bg-teal-100',
-        hover: 'hover:bg-teal-200',
-        text: 'text-teal-700',
-        light: 'bg-teal-50',
-        dot: 'bg-teal-400',
-    },
+    neutral: { bg: 'bg-[#b5b5b5]', hover: 'hover:brightness-95', text: 'text-neutral-900', light: 'bg-[#b5b5b5]/40', dot: 'bg-[#b5b5b5]' },
+    blue: { bg: 'bg-[#8c9bb5]', hover: 'hover:brightness-95', text: 'text-neutral-900', light: 'bg-[#8c9bb5]/40', dot: 'bg-[#8c9bb5]' },
+    amber: { bg: 'bg-[#cdb57a]', hover: 'hover:brightness-95', text: 'text-neutral-900', light: 'bg-[#cdb57a]/40', dot: 'bg-[#cdb57a]' },
+    indigo: { bg: 'bg-[#a08cb5]', hover: 'hover:brightness-95', text: 'text-neutral-900', light: 'bg-[#a08cb5]/40', dot: 'bg-[#a08cb5]' },
+    emerald: { bg: 'bg-[#8fa79a]', hover: 'hover:brightness-95', text: 'text-neutral-900', light: 'bg-[#8fa79a]/40', dot: 'bg-[#8fa79a]' },
+    rose: { bg: 'bg-[#b58c93]', hover: 'hover:brightness-95', text: 'text-neutral-900', light: 'bg-[#b58c93]/40', dot: 'bg-[#b58c93]' },
+    purple: { bg: 'bg-[#a48bb0]', hover: 'hover:brightness-95', text: 'text-neutral-900', light: 'bg-[#a48bb0]/40', dot: 'bg-[#a48bb0]' },
+    teal: { bg: 'bg-[#8cb0ae]', hover: 'hover:brightness-95', text: 'text-neutral-900', light: 'bg-[#8cb0ae]/40', dot: 'bg-[#8cb0ae]' },
 }
 
 /** Default pastel colour for N/A (Other) events. */
 export const NA_EVENT_COLORS = {
-    bg: 'bg-purple-100',
-    hover: 'hover:bg-purple-200',
-    text: 'text-purple-700',
-    light: 'bg-purple-50',
+    bg: 'bg-[#b5a08c]',
+    hover: 'hover:brightness-95',
+    text: 'text-neutral-900',
+    light: 'bg-[#b5a08c]/40',
 }
 
 export const RECURRENCE_FREQUENCIES = [
@@ -960,6 +899,8 @@ export interface SavingsTarget {
     order?: number
     /** User-set flag marking the plan as a priority. */
     priority?: boolean
+    /** Counted in the combined totals. Absent means yes. */
+    included?: boolean
     targetAmount: number
     startingBalance: number
     annualInterestRate: number
@@ -1206,30 +1147,30 @@ export const DAY_STATUS_OPTIONS: DayStatusOption[] = [
     {
         value: 'annual_leave_pending',
         label: 'Annual Leave (Pending)',
-        bg: 'bg-orange-100',
-        text: 'text-orange-700',
-        hover: 'hover:bg-orange-200',
+        bg: 'bg-white border border-dashed border-[#4f7a63]',
+        text: 'text-neutral-900',
+        hover: 'hover:bg-[#eef3f0]',
     },
     {
         value: 'annual_leave_approved',
         label: 'Annual Leave (Approved)',
-        bg: 'bg-green-100',
-        text: 'text-green-700',
-        hover: 'hover:bg-green-200',
+        bg: 'bg-[#8fa79a]',
+        text: 'text-neutral-900',
+        hover: 'hover:brightness-95',
     },
     {
         value: 'bank_holiday',
         label: 'Bank Holiday',
-        bg: 'bg-green-100',
-        text: 'text-green-700',
-        hover: 'hover:bg-green-200',
+        bg: 'bg-[#8fa79a]',
+        text: 'text-neutral-900',
+        hover: 'hover:brightness-95',
     },
     {
         value: 'christmas_new_year',
         label: 'Christmas & New Year',
-        bg: 'bg-green-100',
-        text: 'text-green-700',
-        hover: 'hover:bg-green-200',
+        bg: 'bg-[#8fa79a]',
+        text: 'text-neutral-900',
+        hover: 'hover:brightness-95',
     },
 ]
 
@@ -1790,4 +1731,43 @@ export interface ProgressPhoto {
     url: string
     createdAt: string
     updatedAt: string
+}
+
+// ---------------------------------------------------------------- cleaning
+
+export type CleaningFreq =
+    | 'daily'
+    | '3x-week'
+    | '2x-week'
+    | 'weekly'
+    | 'fortnightly'
+    | 'monthly'
+    | 'quarterly'
+    | '6-monthly'
+    | 'yearly'
+
+export interface CleaningTask {
+    key: string
+    name: string
+    minutes: number
+    freq: CleaningFreq
+}
+
+export interface CleaningRoom {
+    key: string
+    name: string
+    /** Preset kind ('kitchen', 'bedroom', …) or 'custom' — picks the icon. */
+    kind: string
+    tasks: CleaningTask[]
+}
+
+export interface CleaningHome {
+    rooms: CleaningRoom[]
+    minutesPerDay: number
+    /** 0 = Sun … 6 = Sat */
+    days: number[]
+    startTime: string
+    /** Monday the 4-week rotation counts from. */
+    cycleStart: string
+    updatedAt?: string
 }

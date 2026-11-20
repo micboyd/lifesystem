@@ -41,6 +41,7 @@ import walkRoutes from './routes/walkRoutes'
 import savingsTargetRoutes from './routes/savingsTargetRoutes'
 import taskRoutes from './routes/taskRoutes'
 import timeboxRoutes from './routes/timeboxRoutes'
+import cleaningRoutes from './routes/cleaningRoutes'
 import totalsRoutes from './routes/totalsRoutes'
 import trainingPlanRoutes from './routes/trainingPlanRoutes'
 import userRoutes from './routes/userRoutes'
@@ -114,6 +115,7 @@ app.use('/api/nutrition-phases', nutritionPhaseRoutes)
 app.use('/api/routes', routeRoutes)
 app.use('/api/walks', walkRoutes)
 app.use('/api/timeboxes', timeboxRoutes)
+app.use('/api/cleaning', cleaningRoutes)
 
 app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' })

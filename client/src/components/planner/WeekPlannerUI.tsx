@@ -219,6 +219,7 @@ export function HeroIconButton({
     disabled?: boolean
 }) {
     const soft = useSoftHero()
+    void soft
     return (
         <button
             type="button"
@@ -226,14 +227,8 @@ export function HeroIconButton({
             title={label}
             onClick={onClick}
             disabled={disabled}
-            className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl transition-colors sm:h-9 sm:w-9 disabled:opacity-60 ${
-                primary
-                    ? soft
-                        ? 'bg-neutral-900 text-white hover:bg-neutral-800'
-                        : 'bg-white text-neutral-900 hover:bg-neutral-100'
-                    : soft
-                      ? 'bg-white text-neutral-600 ring-1 ring-neutral-900/[0.06] hover:text-neutral-900'
-                      : 'bg-white/10 text-white/80 hover:bg-white/20 hover:text-white active:bg-white/25'
+            className={`grid h-11 w-11 shrink-0 place-items-center transition-colors lg:h-10 lg:w-10 disabled:opacity-60 ${
+                primary ? 'bg-neutral-900 text-white hover:bg-black' : 'border border-neutral-300 bg-white text-neutral-900 hover:border-neutral-900'
             }`}
         >
             <i className={`${icon} text-xs`} aria-hidden="true" />
@@ -259,22 +254,15 @@ export function HeroButton({
     iconOnlyOnPhone?: boolean
 }) {
     const soft = useSoftHero()
-    const look = soft
-        ? primary
-            ? 'rounded-xl bg-neutral-900 text-white hover:bg-neutral-800'
-            : 'rounded-xl bg-white text-neutral-700 ring-1 ring-inset ring-neutral-900/[0.06] hover:text-neutral-900'
-        : primary
-          ? 'rounded-full bg-white text-neutral-900 hover:bg-neutral-100'
-          : 'rounded-full bg-white/10 text-white ring-1 ring-inset ring-white/15 hover:bg-white/20'
+    void soft
+    const look = primary ? 'bg-neutral-900 text-white hover:bg-black' : 'border border-neutral-300 bg-white text-neutral-900 hover:border-neutral-900'
     return (
         <button
             type="button"
             onClick={onClick}
             disabled={disabled}
             aria-label={iconOnlyOnPhone && typeof children === 'string' ? children : undefined}
-            className={`inline-flex items-center gap-2 text-sm font-semibold transition-all disabled:opacity-60 ${
-                soft ? 'h-10 px-4 sm:h-9 sm:px-3.5' : 'px-4 py-2'
-            } ${look}`}
+            className={`inline-flex h-11 items-center gap-2 whitespace-nowrap px-4 text-[11px] font-medium uppercase tracking-[0.12em] transition-colors disabled:opacity-60 lg:h-10 ${look}`}
         >
             <i className={`${icon} text-xs`} aria-hidden="true" />
             {iconOnlyOnPhone ? <span className="hidden sm:inline">{children}</span> : children}

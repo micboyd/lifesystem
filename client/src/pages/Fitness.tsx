@@ -1,8 +1,9 @@
+import { RepList } from '../components/session/RepList'
 import { useEffect, useMemo, useState } from 'react'
 import ModuleLayout from '../components/ModuleLayout'
+import { BarButton, ModuleBar } from '../components/Blok'
 import { useSearchParams } from 'react-router-dom'
 import PhaseHeading, { phaseSpan } from '../components/PhaseHeading'
-import Container from '../components/Container'
 import { Card } from '../components/Card'
 import Spinner from '../components/Spinner'
 import Button from '../components/Button'
@@ -56,61 +57,98 @@ import { allInPhases, emptyPhases, mapPhases } from '../lib/phases'
  * ignores them, so the template pastes straight back in as it is.
  */
 const SESSION_TEMPLATE = `[
+  // ── THE RULE: phases → sections → reps ───────────────────────────────────
+  // Every session is written the same way, whatever the exercise:
+  //   • three phases, in order: "warmUp", "main", "coolDown"
+  //   • each phase is a list of sections ({ "name", "startMin", "endMin", "reps" })
+  //   • each section is a list of "reps" — always, even a single steady block
+  //     (that's one rep). The numbers live on the rep, never in prose.
+  //
+  // A rep — use the fields that apply, leave the rest out:
+  //   "do"        what it is: "Run", "Walk", "Bike", "Row", "Calf raises"  (required)
+  //   "time"      how long: "90s", "2 min", "1:30"
+  //   "distance"  how far: "400 m", "1.5 km"
+  //   "count"     how many, for a movement: 15
+  //   "speed"     "7.0 km/h"      "pace"     "8:30/km"      "incline"  "1%"
+  //   "effort"    how hard: "Easy", "Zone 2", "RPE 7", "200 W"
+  //   "note"      anything else: "each side"
+  //   "rest"      the recovery after it — a rep of its own ({ "do": "Walk", "time": "2 min" })
+  //               or just a time for standing rest ("60s")
+  //   "times"     repeat this rep: 6 identical reps are ONE entry with "times": 6
+  //
+  // Don't: describe reps in "detail", use "steps", "rounds", "roundDetails" or
+  // "roundSeconds", or split one interval set into a section per rep.
+  // "detail" is only a short coaching cue for the section.
+  //
+  // Sections need "startMin" and "endMin" — minutes from the start of the
+  // session, in order. Your Completed press on each section is timed against
+  // them so you see if you're on time. Decimals are fine (1.5 = 1:30).
   {
     "name": "Treadmill Run-Walk Intervals",   // required
     "duration": 36,                            // minutes
     "category": "Endurance",                   // HIIT | Cardio | Endurance | Mobility | Recovery
     "purpose": "Rebuild tolerance to running impact through controlled run-walk intervals.",
-    // Three phases, in order: warmUp, main, coolDown.
-    // Every part needs "startMin" and "endMin" — its slot in minutes from the start
-    // of the session, running in order (each ends at or after the one before).
-    // In the gym, your Completed press on each part is timed against the gap
-    // from the part before, so you see if you're on time. "endMin" is when it
-    // should be finished. Decimals are fine (1.5 = 1:30).
     "warmUp": [
       {
-        // A part can be a block of drills: "steps" is a sub-list you tick off one by one.
+        // A list of drills: one rep each.
         "name": "Mobility drills",
         "startMin": 0,
         "endMin": 3,
-        "steps": ["Leg swings ×10 each side", "Walking lunges ×10", "Ankle circles ×10 each way"]
+        "reps": [
+          { "do": "Leg swings", "count": 10, "note": "each side" },
+          { "do": "Walking lunges", "count": 10 },
+          { "do": "Ankle circles", "count": 10, "note": "each way" }
+        ]
       },
       {
+        // A steady block in two stages: two reps.
         "name": "Walk",
-        "detail": "0.5% incline. Walk 2 min @ 4.2 km/h, then 2 min @ 5.2 km/h.",
         "startMin": 3,
-        "endMin": 7
+        "endMin": 7,
+        "reps": [
+          { "do": "Walk", "time": "2 min", "speed": "4.2 km/h", "incline": "0.5%" },
+          { "do": "Walk", "time": "2 min", "speed": "5.2 km/h", "incline": "0.5%" }
+        ]
       }
     ],
     "main": [
       {
+        // An interval set: one entry, repeated with "times".
         "name": "Run-walk intervals",
-        "detail": "90 sec jog @ 7.0 km/h, then 2 min walk @ 5.0 km/h.",
+        "detail": "Relaxed shoulders, short quick steps.",  // optional cue
         "startMin": 7,
         "endMin": 28,
-        // Optional: "rounds" adds a counter you tap once per round, inside the part.
-        // The part still has one Completed button for the whole block.
-        "rounds": 6,
-        "roundLabel": "jog/walk",               // what one round is called
-        "roundDetails": ["90s jog · 2min walk", "90s jog · 2min walk", "90s jog · 2min walk",
-                         "90s jog · 2min walk", "90s jog · 2min walk", "90s jog · 2min walk"],
-        // Each rep's length in seconds (rep + recovery) — shows each rep's window.
-        "roundSeconds": [210, 210, 210, 210, 210, 210],
-        "startAtSec": 420                       // seconds in when rep 1 starts; defaults to startMin
+        "reps": [
+          {
+            "times": 6,
+            "do": "Jog",
+            "time": "90s",
+            "speed": "7.0 km/h",
+            "effort": "Conversational",
+            "rest": { "do": "Walk", "time": "2 min", "speed": "5.0 km/h" }
+          }
+        ]
       }
     ],
     "coolDown": [
       {
         "name": "Walk",
-        "detail": "Walk 2 min @ 5.0 km/h, then 3 min @ 4.0 km/h.",
         "startMin": 28,
-        "endMin": 33
+        "endMin": 33,
+        "reps": [
+          { "do": "Walk", "time": "2 min", "speed": "5.0 km/h" },
+          { "do": "Walk", "time": "3 min", "speed": "4.0 km/h" }
+        ]
       },
       {
         "name": "Stretch",
         "startMin": 33,
         "endMin": 36,
-        "steps": ["Calf stretch 30s each side", "Hamstring stretch 30s each side", "Quad stretch 30s each side"]
+        "reps": [
+          { "do": "Calf stretch", "time": "30s", "note": "each side" },
+          { "do": "Hamstring stretch", "time": "30s", "note": "each side" },
+          { "do": "Quad stretch", "time": "30s", "note": "each side" }
+        ]
       }
     ],
     "howToUse": "Leave at least one non-running day before the next run.",
@@ -124,14 +162,15 @@ const SESSION_TEMPLATE = `[
 const TABS = ['Planner', 'Strength', 'Conditioning', 'Plans', 'Stats', 'Body'] as const
 type Tab = (typeof TABS)[number]
 
-const SUBTITLE: Record<Tab, string> = {
-    Planner: 'Plan your training — drop strength and conditioning into each day.',
-    Plans: 'Whole training blocks — import a plan, then apply it to fill the planner day by day.',
-    Stats: 'What the logs already know — progression per exercise, how often you train, records, where the volume goes — and the long view from your watch.',
-    Body: 'Weigh in and watch the trend, not the scale — the smoothed line is what tracks fat.',
-    Strength: 'Track your training programmes, sessions and progress.',
-    Conditioning: 'Track your training programmes, sessions and progress.',
+const TAB_ICONS: Record<Tab, string> = {
+    Planner: 'fa-solid fa-table-cells',
+    Strength: 'fa-solid fa-dumbbell',
+    Conditioning: 'fa-solid fa-heart-pulse',
+    Plans: 'fa-solid fa-file-lines',
+    Stats: 'fa-solid fa-chart-column',
+    Body: 'fa-solid fa-weight-scale',
 }
+
 
 export default function Fitness() {
     // `?tab=plans` / `?tab=body` lets another page (the Timeline's setup list)
@@ -150,44 +189,32 @@ export default function Fitness() {
     // user picks a tab themselves, so the planner goes back to opening on today.
     const [plannerStart, setPlannerStart] = useState<string | null>(null)
     const isLarge = useMediaQuery(LARGE_QUERY)
-    // The week board spans the screen below the tabs; the header and tabs, and
-    // every other tab, sit in the usual column.
-    const fluid = tab === 'Planner' && isLarge
+    void isLarge
 
     return (
-        <ModuleLayout asideLabel="Library">
-        <main className="py-10">
-            <Container>
-                <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                        <h1 className="text-[34px] font-medium leading-[1.1] tracking-[-0.045em] text-neutral-950 sm:text-[44px]">
-                            Fitness
-                        </h1>
-                        <p className="mt-2 max-w-2xl text-[18px] leading-[26px] tracking-[-0.01em] text-neutral-600">{SUBTITLE[tab]}</p>
-                    </div>
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        icon="fa-solid fa-file-export"
-                        onClick={() => setExportOpen(true)}
-                        className="shrink-0"
-                    >
-                        Export
-                    </Button>
-                </header>
+        <>
+        <ModuleBar
+            title="Fitness"
+            actions={
+                <BarButton onClick={() => setExportOpen(true)}>Export</BarButton>
+            }
+        />
+        <ModuleLayout
+            asideLabel="Library"
+            sectionsLabel="Fitness sections"
+            sections={TABS.map((t) => ({
+                label: t,
+                icon: TAB_ICONS[t],
+                active: t === tab,
+                onClick: () => {
+                    setTab(t)
+                    setPlannerStart(null)
+                },
+            }))}
+        >
+        <main className="px-5 pb-24 pt-10 sm:px-10">
+            <div>
 
-                <Tabs
-                    tabs={[...TABS]}
-                    value={tab}
-                    onChange={(t) => {
-                        setTab(t as Tab)
-                        setPlannerStart(null)
-                    }}
-                    className="self-start"
-                />
-            </Container>
-
-            <Container fluid={fluid} className="mt-6">
                 {tab === 'Planner' ? (
                     // Keyed so a fresh week request remounts the planner on it.
                     <FitnessWeeklyPlanner
@@ -210,11 +237,12 @@ export default function Fitness() {
                 ) : (
                     <ConditioningSection />
                 )}
-            </Container>
+            </div>
 
             <FitnessExportCenter open={exportOpen} onClose={() => setExportOpen(false)} />
         </main>
         </ModuleLayout>
+        </>
     )
 }
 
@@ -385,37 +413,41 @@ function ConditioningLibrary() {
                             schedule it on several days. Leave it out to just add to the library.
                         </p>
                         <p>
-                            Every session has three phases —{' '}
+                            <span className="font-semibold text-neutral-700">
+                                One structure, always: phases → sections → reps.
+                            </span>{' '}
+                            Every session has{' '}
                             <span className="font-semibold text-neutral-700">warmUp</span>,{' '}
                             <span className="font-semibold text-neutral-700">main</span> and{' '}
-                            <span className="font-semibold text-neutral-700">coolDown</span> — each
-                            a list of parts. A flat{' '}
-                            <span className="font-semibold text-neutral-700">parts</span> list is
-                            still accepted and goes into main unless a part names its own{' '}
-                            <span className="font-semibold text-neutral-700">phase</span>.
+                            <span className="font-semibold text-neutral-700">coolDown</span>. Each
+                            is a list of sections with a{' '}
+                            <span className="font-semibold text-neutral-700">name</span>, a slot (
+                            <span className="font-semibold text-neutral-700">startMin</span> /{' '}
+                            <span className="font-semibold text-neutral-700">endMin</span>) and a{' '}
+                            <span className="font-semibold text-neutral-700">reps</span> list — even
+                            a steady block is one rep.
                         </p>
                         <p>
-                            Parts each take a{' '}
-                            <span className="font-semibold text-neutral-700">name</span>, an
-                            optional <span className="font-semibold text-neutral-700">detail</span>{' '}
-                            and — required — their slot in the session:{' '}
-                            <span className="font-semibold text-neutral-700">startMin</span> and{' '}
-                            <span className="font-semibold text-neutral-700">endMin</span>, minutes
-                            from the start (e.g. 15 and 30), running in order. Your Completed press
-                            on each part is timed against it, so you can see if you&apos;re on time.
-                            An optional{' '}
-                            <span className="font-semibold text-neutral-700">steps</span> list (one
-                            string per step) gives a part a sub-list to tick off. Add{' '}
-                            <span className="font-semibold text-neutral-700">rounds</span> (a
-                            number) to a part to get a tap-to-count counter, plus an optional{' '}
-                            <span className="font-semibold text-neutral-700">roundLabel</span>,{' '}
-                            <span className="font-semibold text-neutral-700">roundDetails</span>{' '}
-                            (one line of info per rep) and, for timed reps,{' '}
-                            <span className="font-semibold text-neutral-700">roundSeconds</span>{' '}
-                            (each rep's length in seconds) with{' '}
-                            <span className="font-semibold text-neutral-700">startAtSec</span>{' '}
-                            (seconds into the session when rep 1 starts; defaults to the part’s
-                            startMin) to show a time window on each rep.
+                            A rep says what you do in fields, not prose:{' '}
+                            <span className="font-semibold text-neutral-700">do</span>,{' '}
+                            <span className="font-semibold text-neutral-700">time</span>,{' '}
+                            <span className="font-semibold text-neutral-700">distance</span>,{' '}
+                            <span className="font-semibold text-neutral-700">count</span>,{' '}
+                            <span className="font-semibold text-neutral-700">speed</span>,{' '}
+                            <span className="font-semibold text-neutral-700">pace</span>,{' '}
+                            <span className="font-semibold text-neutral-700">incline</span>,{' '}
+                            <span className="font-semibold text-neutral-700">effort</span>,{' '}
+                            <span className="font-semibold text-neutral-700">note</span>, plus a{' '}
+                            <span className="font-semibold text-neutral-700">rest</span> after it.{' '}
+                            <span className="font-semibold text-neutral-700">times</span> repeats a
+                            rep, so six identical intervals are one entry.
+                        </p>
+                        <p>
+                            Older files using <span className="font-semibold text-neutral-700">rounds</span>,{' '}
+                            <span className="font-semibold text-neutral-700">roundDetails</span> or{' '}
+                            <span className="font-semibold text-neutral-700">steps</span> still
+                            import — they&apos;re turned into reps — but new files should use{' '}
+                            <span className="font-semibold text-neutral-700">reps</span> only.
                         </p>
                     </>
                 }
@@ -730,6 +762,8 @@ function SessionFormDrawer({
                             startMin: p.startMin,
                             endMin: p.endMin,
                             steps: cleanSteps(p.steps),
+                            // Reps come from an import; the form keeps them as they are.
+                            reps: p.reps?.length ? p.reps : undefined,
                         }
                     })
                     .filter((p) => p.name !== '')
@@ -898,8 +932,8 @@ function PartsEditor({
                                 <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500">
                                     {i + 1}
                                 </span>
-                                <input
-                                    className="min-w-0 flex-1 rounded-[10px] border border-neutral-200 hover:border-neutral-300 bg-white px-3 h-10 text-sm outline-none placeholder:text-neutral-500 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
+                                <Input
+                                    wrapperClassName="min-w-0 flex-1"
                                     placeholder={
                                         phase === 'main'
                                             ? 'Part name (e.g. Intervals)'
@@ -917,19 +951,28 @@ function PartsEditor({
                                     <i className="fa-solid fa-xmark" />
                                 </button>
                             </div>
-                            <textarea
-                                className="w-full resize-y rounded-[10px] border border-neutral-200 hover:border-neutral-300 bg-white px-3 py-2 text-sm outline-none placeholder:text-neutral-500 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
+                            <Textarea
+                                className="resize-y" wrapperClassName="w-full"
                                 rows={2}
                                 placeholder="Details (sets, reps, distance, pace…)"
                                 value={r.detail ?? ''}
                                 onChange={(e) => update(r.key, { detail: e.target.value })}
                             />
 
-                            <StepsInput
-                                steps={r.steps}
-                                label={r.name || `part ${i + 1}`}
-                                onChange={(steps) => update(r.key, { steps })}
-                            />
+                            {r.reps?.length ? (
+                                <div className="flex flex-col gap-1.5 pl-8">
+                                    <RepList part={r} />
+                                    <p className="text-xs text-neutral-500">
+                                        Reps come from the import — re-import the session to change them.
+                                    </p>
+                                </div>
+                            ) : (
+                                <StepsInput
+                                    steps={r.steps}
+                                    label={r.name || `part ${i + 1}`}
+                                    onChange={(steps) => update(r.key, { steps })}
+                                />
+                            )}
 
                             <div className="pl-8">
                                 <SlotInputs
@@ -942,13 +985,14 @@ function PartsEditor({
                             </div>
 
                             {/* Optional interval counter — leave rounds blank for plain parts. */}
+                            {!r.reps?.length && (
                             <div className="flex flex-wrap items-center gap-2 pl-8 text-xs text-neutral-500">
                                 <span className="font-medium">Tap-to-count</span>
-                                <input
+                                <Input
                                     type="number"
                                     min={1}
                                     step={1}
-                                    className="w-16 rounded-[10px] border border-neutral-200 hover:border-neutral-300 bg-white px-2 h-10.5 text-sm outline-none placeholder:text-neutral-500 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
+                                    wrapperClassName="w-16"
                                     placeholder="6"
                                     value={r.rounds ?? ''}
                                     onChange={(e) =>
@@ -960,14 +1004,15 @@ function PartsEditor({
                                     }
                                 />
                                 <span>rounds of</span>
-                                <input
-                                    className="w-28 rounded-[10px] border border-neutral-200 hover:border-neutral-300 bg-white px-2 h-10.5 text-sm outline-none placeholder:text-neutral-500 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 disabled:bg-white disabled:text-neutral-500 focus-visible:outline-none"
+                                <Input
+                                    wrapperClassName="w-28"
                                     placeholder="round"
                                     disabled={!r.rounds}
                                     value={r.roundLabel ?? ''}
                                     onChange={(e) => update(r.key, { roundLabel: e.target.value })}
                                 />
                             </div>
+                            )}
                         </div>
                     ))}
                 </div>

@@ -9,6 +9,8 @@ interface Props {
     notes: MonthNote[]
     onEdit: (note: MonthNote) => void
     onAdd: (month: string) => void
+    /** Hide the trailing "Add note" link when the caller shows its own. */
+    hideAdd?: boolean
     className?: string
 }
 
@@ -17,11 +19,11 @@ interface Props {
  * several months appears on each of them with arrows marking the overflow, so
  * you can see at a glance that "Cutting" runs past the month you're looking at.
  */
-export default function MonthFlags({ month, notes, onEdit, onAdd, className = '' }: Props) {
+export default function MonthFlags({ month, notes, onEdit, onAdd, hideAdd = false, className = '' }: Props) {
     const covering = notes.filter((n) => n.startMonth <= month && n.endMonth >= month)
 
     return (
-        <div className={`flex flex-wrap items-center gap-1.5 ${className}`}>
+        <div className={`flex flex-wrap items-center gap-3 ${className}`}>
             {covering.map((note) => {
                 const colors = CALENDAR_COLOR_CLASSES[note.color]
                 const continuesBefore = note.startMonth < month
@@ -34,7 +36,7 @@ export default function MonthFlags({ month, notes, onEdit, onAdd, className = ''
                         onClick={() => onEdit(note)}
                         title={note.note ? `${range} — ${note.note}` : range}
                         className={[
-                            'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors',
+                            'inline-flex h-7 items-center gap-1.5 px-2.5 text-[11px] font-medium uppercase tracking-[0.1em] transition',
                             colors.bg,
                             colors.hover,
                             colors.text,
@@ -53,15 +55,16 @@ export default function MonthFlags({ month, notes, onEdit, onAdd, className = ''
                     </button>
                 )
             })}
+            {!hideAdd && (
             <button
                 type="button"
                 onClick={() => onAdd(month)}
-                aria-label={`Flag ${month}`}
-                title="Flag this month"
-                className="grid h-6 w-6 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                aria-label={`Add a note to ${month}`}
+                className={`inline-flex h-7 items-center whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.12em] text-neutral-600 underline underline-offset-4 hover:text-neutral-900 ${covering.length > 0 ? 'ml-4' : ''}`}
             >
-                <i className="fa-solid fa-plus text-[11px]" aria-hidden="true" />
+                Add note
             </button>
+            )}
         </div>
     )
 }

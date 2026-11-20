@@ -569,10 +569,10 @@ export default function DatePicker({
 
     const triggerClasses = [
         // Same height, radius and focus as every other field (fieldStyles).
-        'group flex h-11 w-full items-center gap-3 rounded-xl border bg-white pl-3.5 pr-3 text-[15px] outline-none focus-visible:outline-none transition-[border-color,box-shadow] duration-150',
+        'group flex h-11 w-full items-center gap-3 rounded-xl border bg-white pl-3.5 pr-3 text-[15px] lg:h-10 outline-none focus-visible:outline-none transition-[border-color,box-shadow] duration-150',
         open
-            ? 'border-neutral-900 ring-4 ring-neutral-100'
-            : 'border-neutral-200 hover:border-neutral-300 focus-visible:border-neutral-900 focus-visible:ring-4 focus-visible:ring-neutral-100',
+            ? 'border-neutral-900 shadow-[inset_0_0_0_1px_#111111]'
+            : 'border-neutral-400 hover:border-neutral-900 focus-visible:border-neutral-900 focus-visible:shadow-[inset_0_0_0_1px_#111111]',
         disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
     ].join(' ')
 
@@ -620,7 +620,7 @@ export default function DatePicker({
                 <div
                     ref={menuRef}
                     style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
-                    className={`z-[100] max-h-[calc(100dvh-1rem)] max-w-[calc(100vw-1rem)] overflow-y-auto rounded-2xl ring-1 ring-neutral-900/[0.06] bg-white p-4 shadow-xl ${isRange ? 'w-80' : 'w-72'}`}
+                    className={`z-[100] max-h-[calc(100dvh-1rem)] max-w-[calc(100vw-1rem)] overflow-y-auto border border-neutral-900 bg-white p-4 ${isRange ? 'w-80' : 'w-72'}`}
                 >
                     {/* Header nav */}
                     <div className="mb-3 flex items-center justify-between gap-2">

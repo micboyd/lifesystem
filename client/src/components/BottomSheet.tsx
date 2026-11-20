@@ -36,7 +36,7 @@ export default function BottomSheet({
                 role="dialog"
                 aria-modal="true"
                 aria-hidden={!open}
-                className={`absolute inset-x-0 bottom-0 flex max-h-[92dvh] flex-col overflow-hidden rounded-t-[20px] bg-white shadow-xl transition-transform duration-200 ease-out sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-h-[85vh] sm:w-full sm:max-w-lg sm:rounded-[20px] sm:ring-1 sm:ring-neutral-900/[0.06] ${
+                className={`absolute inset-x-0 bottom-0 flex max-h-[92dvh] flex-col overflow-hidden border-t border-neutral-900 bg-white transition-transform duration-200 ease-out sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-h-[85vh] sm:w-full sm:max-w-lg sm:border sm:border-neutral-900 ${
                     open
                         ? 'translate-y-0 sm:-translate-x-1/2 sm:-translate-y-1/2'
                         : 'translate-y-full sm:-translate-x-1/2 sm:-translate-y-1/2 sm:opacity-0'

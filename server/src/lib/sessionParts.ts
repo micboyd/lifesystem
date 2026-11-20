@@ -1,6 +1,7 @@
 import { ISessionPart } from '../models/ConditioningSession'
 import { readWindow } from './timeWindow'
 import { readSteps } from './steps'
+import { legacyReps, readReps, repLine, repSeconds } from './sessionReps'
 
 /**
  * Normalise the `parts` array of an imported conditioning session, dropping
@@ -13,6 +14,13 @@ import { readSteps } from './steps'
  * `endMin` are the part's planned slot in the session, and `steps` is its
  * tick-off sub-list. Anything that
  * normalises parts must carry all of them, so there is only one copy of this.
+ *
+ * `reps` is the one structure the templates now ask for (lib/sessionReps.ts).
+ * When a part has reps, the counter fields are worked out from them — `rounds`
+ * is how many, `roundDetails` one line each, `roundSeconds` when every rep is
+ * timed — so the counter, logs, exports and watch keep reading what they did.
+ * A part written the older way (`rounds` + `roundDetails`, or a `steps` list)
+ * gets its reps from those, so every section reads the same.
  */
 export function toSessionParts(raw: unknown): ISessionPart[] {
     if (!Array.isArray(raw)) return []
@@ -44,16 +52,51 @@ export function toSessionParts(raw: unknown): ISessionPart[] {
         const startRaw = typeof item.startAtSec === 'number' ? item.startAtSec : NaN
         const startAtSec =
             rounds && Number.isFinite(startRaw) && startRaw >= 0 ? Math.round(startRaw) : undefined
+        const window = readWindow(item)
+        const written = readReps(item.reps)
+        if (written) {
+            // Reps were written: the counter is worked out from them.
+            const times = written.map(repSeconds)
+            const allTimed = times.every((t): t is number => t !== undefined)
+            const sameDo = written.every((r) => r.do === written[0].do)
+            const label =
+                (typeof item.roundLabel === 'string' && item.roundLabel.trim()) ||
+                (sameDo && written.length > 1 ? written[0].do.toLowerCase() : 'rep')
+            const repStart =
+                Number.isFinite(startRaw) && startRaw >= 0 ? Math.round(startRaw) : undefined
+            out.push({
+                name,
+                detail,
+                reps: written,
+                rounds: written.length,
+                roundLabel: label,
+                roundDetails: written.map(repLine),
+                roundSeconds: allTimed ? times : roundSeconds?.length ? roundSeconds : undefined,
+                startAtSec: repStart,
+                ...window,
+                ...readSteps(item),
+            })
+            continue
+        }
+        const steps = readSteps(item)
+        const legacy = legacyReps({ rounds, roundLabel, roundDetails, steps: steps.steps })
+        // A steps list becomes reps ticked on the counter, one per step.
+        const fromSteps = !!legacy && !rounds
         out.push({
             name,
             detail,
-            rounds,
-            roundLabel,
-            roundDetails: roundDetails && roundDetails.length ? roundDetails : undefined,
+            ...(legacy ? { reps: legacy } : {}),
+            rounds: fromSteps ? legacy!.length : rounds,
+            roundLabel: fromSteps ? 'step' : roundLabel,
+            roundDetails: fromSteps
+                ? legacy!.map((r) => r.do)
+                : roundDetails && roundDetails.length
+                  ? roundDetails
+                  : undefined,
             roundSeconds: roundSeconds && roundSeconds.length ? roundSeconds : undefined,
             startAtSec,
-            ...readWindow(item),
-            ...readSteps(item),
+            ...window,
+            ...(fromSteps ? {} : steps),
         })
     }
     return out

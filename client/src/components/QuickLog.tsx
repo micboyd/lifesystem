@@ -33,7 +33,7 @@ import type { FinanceGroup, FinanceRow } from '../types'
  * Safe to spend today, and the quickest way to log a spend: a quiet line in the
  * top bar that opens the spend drawer.
  */
-export default function QuickLog() {
+export default function QuickLog({ variant = 'bar' }: { variant?: 'bar' | 'phone' } = {}) {
     useMoneyHidden() // re-render when money is hidden/shown
     const toast = useToast()
     const invalidate = useInvalidate()
@@ -139,18 +139,26 @@ export default function QuickLog() {
 
     return (
         <>
-            <button
-                type="button"
-                onClick={() => setOpen(true)}
-                title="Log a spend"
-                className="inline-flex h-10 items-center gap-1.5 whitespace-nowrap text-[13px] text-neutral-600 transition-colors hover:text-neutral-900"
-            >
-                <span className="hidden sm:inline">{overShort ? 'Over today' : 'Safe today'}</span>
-                <i className="fa-solid fa-wallet text-[11px] sm:hidden" aria-hidden="true" />
-                <span className={`font-medium tabular-nums ${safeToday >= 0 ? 'text-success' : 'text-danger'}`}>
-                    {formatMoney(safeToday)}
-                </span>
-            </button>
+            {variant === 'bar' ? (
+                <button
+                    type="button"
+                    onClick={() => setOpen(true)}
+                    title={`${overShort ? 'Over today' : 'Safe today'}: ${formatMoney(safeToday)}`}
+                    className="inline-flex h-11 items-center gap-2.5 whitespace-nowrap bg-neutral-900 lg:h-10 px-[18px] text-[11px] font-medium uppercase tracking-[0.12em] text-white transition-colors hover:bg-black"
+                >
+                    Log spend
+                    <i className="fa-solid fa-arrow-right text-[11px]" aria-hidden="true" />
+                </button>
+            ) : (
+                <button
+                    type="button"
+                    onClick={() => setOpen(true)}
+                    title="Log a spend"
+                    className="inline-flex h-9 items-center whitespace-nowrap bg-neutral-900 px-3 text-[10px] font-medium uppercase tracking-[0.12em] text-white"
+                >
+                    {overShort ? `${formatMoney(-safeToday)} over` : `${formatMoney(safeToday)} safe`}
+                </button>
+            )}
 
             {open && (
                 <Drawer

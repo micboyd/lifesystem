@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import Input from '../components/Input'
 import Spinner from '../components/Spinner'
 import EmptyState from '../components/EmptyState'
 import Modal from '../components/Modal'
@@ -244,34 +245,33 @@ function AdjustForm({ variant, suggestedAmount, onAdd, onCancel }: AdjustFormPro
                 </button>
             </div>
             <div className="flex gap-2">
-                <div className="relative min-w-0 flex-1">
-                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-neutral-500">£</span>
-                    <input
-                        autoFocus
-                        type="number"
-                        step="0.01"
-                        min="0.01"
-                        placeholder="0.00"
-                        value={draft}
-                        onChange={(e) => setDraft(e.target.value)}
-                        className="w-full rounded-xl border border-neutral-200 hover:border-neutral-300 bg-white h-10.5 pl-7 pr-3 text-sm tabular-nums placeholder:font-sans placeholder:text-neutral-500 transition-colors focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 outline-none focus:ring-4 focus:ring-neutral-950/5 focus-visible:outline-none"
-                    />
-                </div>
+                <Input
+                    autoFocus
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    placeholder="0.00"
+                    prefix="£"
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    className="tabular-nums"
+                    wrapperClassName="min-w-0 flex-1"
+                />
                 <button
                     type="submit"
                     disabled={saving || draft.trim() === ''}
-                    className="h-11 shrink-0 rounded-xl bg-neutral-900 px-5 text-sm font-medium text-neutral-50 transition-colors duration-150 hover:bg-neutral-800 disabled:opacity-40 disabled:active:scale-100"
+                    className="h-11 shrink-0 bg-neutral-900 px-5 text-[11px] font-medium uppercase tracking-[0.12em] text-white transition-colors duration-150 hover:bg-black disabled:opacity-40 lg:h-10"
                 >
                     {saving ? '…' : 'Add'}
                 </button>
             </div>
-            <input
+            <Input
                 type="text"
                 placeholder={copy.notePlaceholder}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 maxLength={200}
-                className="w-full rounded-xl border border-neutral-200 hover:border-neutral-300 bg-white px-3.5 h-10.5 text-sm placeholder:text-neutral-500 transition-colors focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 outline-none focus:ring-4 focus:ring-neutral-950/5 focus-visible:outline-none"
+                wrapperClassName="w-full"
             />
             <p className="text-[11px] text-neutral-500">{copy.hint}</p>
         </form>
@@ -1893,7 +1893,7 @@ export default function Budgets() {
                             onClick={() => setExclusionsOpen(true)}
                             aria-label="Removed transactions"
                             title="Removed transactions"
-                            className="relative grid h-9 w-9 place-items-center rounded-xl border border-neutral-200 bg-white text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                            className="relative grid h-11 w-11 place-items-center border border-neutral-300 bg-white text-neutral-900 transition-colors hover:border-neutral-900 lg:h-10 lg:w-10"
                         >
                             <i className="fa-solid fa-clock-rotate-left text-xs" aria-hidden="true" />
                             {liveExclusionCount > 0 && (
@@ -1907,7 +1907,7 @@ export default function Budgets() {
                     <button
                         type="button"
                         onClick={goToPrevWeek}
-                        className="grid h-9 w-9 place-items-center rounded-xl border border-neutral-200 bg-white text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                        className="grid h-11 w-11 place-items-center border border-neutral-300 bg-white text-neutral-900 transition-colors hover:border-neutral-900 lg:h-10 lg:w-10"
                     >
                         <i className="fa-solid fa-chevron-left text-xs" aria-hidden="true" />
                     </button>
@@ -1922,7 +1922,7 @@ export default function Budgets() {
                     <button
                         type="button"
                         onClick={goToNextWeek}
-                        className="grid h-9 w-9 place-items-center rounded-xl border border-neutral-200 bg-white text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                        className="grid h-11 w-11 place-items-center border border-neutral-300 bg-white text-neutral-900 transition-colors hover:border-neutral-900 lg:h-10 lg:w-10"
                     >
                         <i className="fa-solid fa-chevron-right text-xs" aria-hidden="true" />
                     </button>

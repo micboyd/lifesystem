@@ -1,6 +1,5 @@
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import Container from '../components/Container'
-import Tabs from '../components/Tabs'
+import { Outlet, useLocation } from 'react-router-dom'
+import { ModuleBar } from '../components/Blok'
 import ModuleLayout from '../components/ModuleLayout'
 import RecentSpends from '../components/finance/RecentSpends'
 
@@ -16,12 +15,19 @@ const PATHS: Record<FinanceTab, string> = {
     Spaces: '/finances/spaces',
 }
 
-const FULL_WIDTH_TABS: FinanceTab[] = ['Logs']
 
-/** Shared shell for the finance section: section tabs above the active screen. */
+const TAB_ICONS: Record<FinanceTab, string> = {
+    Monthly: 'fa-solid fa-calendar',
+    Statement: 'fa-solid fa-receipt',
+    Budgets: 'fa-solid fa-chart-pie',
+    Logs: 'fa-solid fa-table-cells',
+    Forecast: 'fa-solid fa-chart-line',
+    Spaces: 'fa-solid fa-piggy-bank',
+}
+
+/** Shared shell for the finance section: its sections down the left (tabs on narrow screens), the active screen beside them. */
 export default function FinanceLayout() {
     const { pathname } = useLocation()
-    const navigate = useNavigate()
 
     const active: FinanceTab = pathname.startsWith('/finances/daily-log')
         ? 'Logs'
@@ -35,37 +41,26 @@ export default function FinanceLayout() {
                 ? 'Statement'
                 : 'Monthly'
 
-    if (FULL_WIDTH_TABS.includes(active)) {
-        return (
-            <ModuleLayout aside={<RecentSpends />} asideLabel="Recent spending">
-            <main className="min-h-screen">
-                <Container className="pt-10">
-                    <Tabs
-                        tabs={[...TABS]}
-                        value={active}
-                        onChange={(tab) => navigate(PATHS[tab as FinanceTab])}
-                        className="mb-8"
-                    />
-                </Container>
-                <Container fluid className="pb-10">
-                    <Outlet />
-                </Container>
-            </main>
-            </ModuleLayout>
-        )
-    }
+    const sections = TABS.map((t) => ({
+        label: t === 'Logs' ? 'Daily log' : t,
+        icon: TAB_ICONS[t],
+        active: t === active,
+        to: PATHS[t],
+    }))
 
     return (
-        <ModuleLayout aside={<RecentSpends />} asideLabel="Recent spending">
-            <Container as="main" className="py-10">
-                <Tabs
-                    tabs={[...TABS]}
-                    value={active}
-                    onChange={(tab) => navigate(PATHS[tab as FinanceTab])}
-                    className="mb-8"
-                />
-                <Outlet />
-            </Container>
-        </ModuleLayout>
+        <>
+            <ModuleBar title="Money" />
+            <ModuleLayout
+                aside={<RecentSpends />}
+                asideLabel="Recent spending"
+                sections={sections}
+                sectionsLabel="Money sections"
+            >
+                <main className="px-5 pb-24 pt-10 sm:px-10">
+                    <Outlet />
+                </main>
+            </ModuleLayout>
+        </>
     )
 }

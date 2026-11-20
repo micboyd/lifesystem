@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import Input from '../Input'
 import Spinner from '../Spinner'
 import RecurrencePicker from '../calendar/RecurrencePicker'
 import DeleteRecurringEventDialog, {
@@ -280,7 +281,7 @@ export default function RemindersDaySection({
             <div className="mt-1 flex flex-col gap-3 rounded-xl border border-neutral-200 p-3 focus-within:border-neutral-400">
                 <div className="flex items-center gap-2">
                     <i className="fa-solid fa-plus text-xs text-neutral-300" aria-hidden="true" />
-                    <input
+                    <Input
                         ref={inputRef}
                         type="text"
                         value={newText}
@@ -289,7 +290,7 @@ export default function RemindersDaySection({
                             if (e.key === 'Enter') handleAdd()
                         }}
                         placeholder="Add a reminder…"
-                        className="flex-1 bg-transparent text-sm text-neutral-900 placeholder:text-neutral-500 outline-none"
+                        wrapperClassName="flex-1"
                     />
                     {newText.trim() && (
                         <button

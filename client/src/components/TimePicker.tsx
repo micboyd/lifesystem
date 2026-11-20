@@ -338,10 +338,10 @@ export default function TimePicker({
 
     const triggerClasses = [
         // Same height, radius and focus as every other field (fieldStyles).
-        'group flex h-11 w-full items-center gap-3 rounded-xl border bg-white pl-3.5 pr-3 text-[15px] outline-none focus-visible:outline-none transition-[border-color,box-shadow] duration-150',
+        'group flex h-11 w-full items-center gap-3 rounded-xl border bg-white pl-3.5 pr-3 text-[15px] lg:h-10 outline-none focus-visible:outline-none transition-[border-color,box-shadow] duration-150',
         open
-            ? 'border-neutral-900 ring-4 ring-neutral-100'
-            : 'border-neutral-200 hover:border-neutral-300 focus-visible:border-neutral-900 focus-visible:ring-4 focus-visible:ring-neutral-100',
+            ? 'border-neutral-900 shadow-[inset_0_0_0_1px_#111111]'
+            : 'border-neutral-400 hover:border-neutral-900 focus-visible:border-neutral-900 focus-visible:shadow-[inset_0_0_0_1px_#111111]',
         disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
     ].join(' ')
 
@@ -349,9 +349,9 @@ export default function TimePicker({
         'grid h-7 w-7 place-items-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700 active:bg-neutral-200'
 
     const digitDisplay =
-        'h-12 w-14 rounded-xl border border-neutral-200 text-center text-2xl font-medium nums text-neutral-900 transition-colors hover:border-neutral-300 hover:bg-neutral-50'
+        'h-12 w-14 border border-neutral-400 text-center text-2xl font-medium nums text-neutral-900 transition-colors hover:border-neutral-900'
     const digitInput =
-        'h-12 w-14 rounded-xl border border-neutral-900 bg-white text-center text-2xl font-medium nums text-neutral-900 ring-4 ring-neutral-100 focus:outline-none'
+        'h-12 w-14 border border-neutral-900 bg-white text-center text-2xl font-medium nums text-neutral-900 shadow-[inset_0_0_0_1px_#111111] focus:outline-none'
 
     return (
         <div ref={containerRef} className={`relative ${className}`}>

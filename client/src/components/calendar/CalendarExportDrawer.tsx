@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import Input from '../Input'
 import Drawer from '../Drawer'
 import Button from '../Button'
 import Checkbox from '../Checkbox'
@@ -215,7 +216,7 @@ export default function CalendarExportDrawer({
                                 {n}
                             </button>
                         ))}
-                        <input
+                        <Input
                             type="number"
                             min={1}
                             max={MAX_MONTHS}
@@ -226,7 +227,7 @@ export default function CalendarExportDrawer({
                                     setMonths(Math.min(MAX_MONTHS, Math.max(1, n)))
                             }}
                             aria-label="Number of months"
-                            className="w-20 rounded-[10px] border border-neutral-200 hover:border-neutral-300 px-3 h-10.5 text-sm focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 outline-none focus-visible:outline-none"
+                            wrapperClassName="w-20"
                         />
                     </div>
                     <p className="text-xs text-neutral-500">

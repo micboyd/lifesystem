@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Routes, Route, Outlet, Navigate, useLocation, useParams } from 'react-router-dom'
 import { documentTitleForPath } from './lib/pageTitle'
-import AppNav, { SIDEBAR_PAD } from './components/AppNav'
+import AppNav from './components/AppNav'
 import { useMediaQuery } from './components/planner/WeekPlannerUI'
 import ProtectedRoute from './components/ProtectedRoute'
 import Home from './pages/Home'
@@ -22,9 +22,11 @@ import DaysUntil from './pages/DaysUntil'
 import Goals from './pages/Goals'
 import Timeline from './pages/Timeline'
 import Timebox from './pages/Timebox'
+import Cleaning from './pages/Cleaning'
 import Consistency from './pages/Consistency'
 import Walking from './pages/Walking'
 import WalkPlanner from './pages/WalkPlanner'
+import ThinkingAheadPage from './pages/ThinkingAheadPage'
 import PerfectDay from './pages/PerfectDay'
 import Notes from './pages/Notes'
 import Weather from './pages/Weather'
@@ -33,33 +35,13 @@ import Profile from './pages/Profile'
 import StyleGuide from './pages/StyleGuide'
 import NotFound from './pages/NotFound'
 
-/** The signed-in app shell: the sidebar (or phone bars) plus the matched page. */
+/** The signed-in app shell: the top bar (and its menu) above the matched page. */
 function AppLayout() {
     const wide = useMediaQuery('(min-width: 1024px)')
-    // The sidebar folds to an icon rail; remembered across reloads.
-    const [collapsed, setCollapsed] = useState(() => {
-        try {
-            return localStorage.getItem('sidebarCollapsed') === '1'
-        } catch {
-            return false
-        }
-    })
-    useEffect(() => {
-        try {
-            localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0')
-        } catch {
-            /* storage unavailable: the choice just isn't remembered */
-        }
-    }, [collapsed])
-
     return (
         <div className="min-h-screen bg-canvas">
-            <AppNav wide={wide} collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
-            <main
-                className={`transition-[padding] duration-200 ease-out ${
-                    wide ? (collapsed ? SIDEBAR_PAD.collapsed : SIDEBAR_PAD.open) : 'pb-24'
-                }`}
-            >
+            <AppNav wide={wide} />
+            <main>
                 <Outlet />
             </main>
         </div>
@@ -97,6 +79,16 @@ export default function App() {
                 }
             />
 
+            {/* Thinking ahead (Nutrition's batch-cook stepper) takes the whole screen too. */}
+            <Route
+                path="/nutrition/thinking-ahead"
+                element={
+                    <ProtectedRoute>
+                        <ThinkingAheadPage />
+                    </ProtectedRoute>
+                }
+            />
+
             {/* Everything else requires a session and renders inside the shell. */}
             <Route
                 element={
@@ -129,6 +121,7 @@ export default function App() {
                 <Route path="/goals" element={<Goals />} />
                 <Route path="/timeline" element={<Timeline />} />
                 <Route path="/timebox" element={<Timebox />} />
+                <Route path="/cleaning" element={<Cleaning />} />
                 <Route path="/consistency" element={<Consistency />} />
                 <Route path="/walking" element={<Walking />} />
                 <Route path="/notes" element={<Notes />} />

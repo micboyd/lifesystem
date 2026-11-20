@@ -1,3 +1,6 @@
+import type { SessionRep } from '../types'
+import { RepBody } from './session/RepList'
+
 /**
  * A tap-to-count control for interval parts (e.g. "6 x 90s jog / 2min walk").
  * The big primary button logs a round; an undo steps back. It's a controlled
@@ -34,6 +37,7 @@ export default function RoundCounter({
     target,
     label,
     details,
+    reps,
     seconds,
     startAtSec = 0,
     done,
@@ -44,6 +48,8 @@ export default function RoundCounter({
     label?: string
     /** Optional per-rep info; entry i is shown under rep i+1. */
     details?: string[]
+    /** The section's reps, when written as reps — each row then shows its numbers as pills. */
+    reps?: SessionRep[]
     /** Optional per-rep duration (seconds); enables a clock window on each rep. */
     seconds?: number[]
     /** Clock offset (seconds) when rep 1 begins, e.g. after a warm-up. */
@@ -56,7 +62,8 @@ export default function RoundCounter({
     const complete = done >= target
     const one = (label?.trim() || 'round').toLowerCase()
     const many = one.endsWith('s') ? one : `${one}s`
-    const hasDetails = !!details && details.length > 0
+    const hasReps = !!reps && reps.length === target
+    const hasDetails = hasReps || (!!details && details.length > 0)
     const hasTimes = !!seconds && seconds.length > 0
 
     const windows = hasTimes ? roundWindows(target, seconds!, startAtSec) : []
@@ -86,7 +93,7 @@ export default function RoundCounter({
                         return (
                             <li
                                 key={i}
-                                className={`flex items-center gap-2.5 rounded-xl border px-2.5 py-2 transition-colors ${
+                                className={`flex ${hasReps ? 'items-start' : 'items-center'} gap-2.5 rounded-xl border px-2.5 py-2 transition-colors ${
                                     isDone
                                         ? 'border-emerald-200 bg-emerald-50'
                                         : isNext
@@ -105,6 +112,11 @@ export default function RoundCounter({
                                 >
                                     {isDone ? <i className="fa-solid fa-check text-[11px]" /> : i + 1}
                                 </span>
+                                {hasReps ? (
+                                    <div className={`min-w-0 flex-1 pt-0.5 ${isDone ? 'opacity-70' : ''}`}>
+                                        <RepBody rep={reps![i]} />
+                                    </div>
+                                ) : (
                                 <span
                                     className={`min-w-0 flex-1 text-sm ${
                                         isDone ? 'text-emerald-800' : 'text-neutral-700'
@@ -114,6 +126,7 @@ export default function RoundCounter({
                                         ? (details![i] ?? `${label?.trim() || 'Round'} ${i + 1}`)
                                         : `${label?.trim() || 'Round'} ${i + 1}`}
                                 </span>
+                                )}
                                 {win && (
                                     <span
                                         className={`shrink-0 rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums ${

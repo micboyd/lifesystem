@@ -95,8 +95,8 @@ export default function DropdownMenu({
 
     const itemClass = (danger?: boolean) =>
         [
-            'flex min-h-10 w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-left text-sm transition-colors duration-100',
-            danger ? 'text-red-600 hover:bg-red-50' : 'text-neutral-700 hover:bg-neutral-100',
+            'flex min-h-11 w-full items-center gap-2.5 px-4 py-2 text-left text-[15px] transition-colors duration-100 lg:min-h-10',
+            danger ? 'text-[#8e3b47] hover:bg-neutral-50' : 'text-neutral-900 hover:bg-neutral-50',
         ].join(' ')
 
     return (
@@ -117,14 +117,14 @@ export default function DropdownMenu({
                             left: pos?.left ?? 0,
                             visibility: pos ? 'visible' : 'hidden',
                         }}
-                        className={`z-[100] ${SIZE_WIDTH[size]} max-w-[calc(100vw-1rem)] rounded-2xl bg-white p-1.5 shadow-xl ring-1 ring-neutral-900/[0.06]`}
+                        className={`z-[100] ${SIZE_WIDTH[size]} max-w-[calc(100vw-1rem)] border border-neutral-900 bg-white`}
                     >
                         {items.map((item, i) => {
                             if (item === 'divider') {
                                 return (
                                     <div
                                         key={`divider-${i}`}
-                                        className="my-1 h-px bg-neutral-100"
+                                        className="h-px bg-hairline"
                                     />
                                 )
                             }

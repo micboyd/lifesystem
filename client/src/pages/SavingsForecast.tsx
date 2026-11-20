@@ -1,18 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
+import Input from '../components/Input'
 import Spinner from '../components/Spinner'
 import EmptyState from '../components/EmptyState'
-import DatePicker from '../components/DatePicker'
 import Tabs from '../components/Tabs'
-import Checkbox from '../components/Checkbox'
+import PillToggle from '../components/PillToggle'
 import { listGroups, listRows, listEntries, updateGroup, deleteGroup } from '../services/finances'
-import {
-    listSavingsTargets, createSavingsTarget, updateSavingsTarget, deleteSavingsTarget,
-} from '../services/savingsTargets'
+import TargetPlanner from '../components/finance/TargetPlanner'
+import { BigFigure, Stat, Money, MonthField, OVERLINE } from '../components/finance/savingsFigures'
 import { groupVisibleInMonth, rowVisibleInMonth, addMonths, recurringAmountForMonth } from '../lib/finance'
 import { formatAmount, formatMoneyCompact } from '../lib/money'
 import { useMoneyHidden } from '../components/useMoneyHidden'
 import { useToast } from '../context/ToastContext'
-import type { FinanceGroup, FinanceRow, FinanceEntry, SavingsTarget } from '../types'
+import type { FinanceGroup, FinanceRow, FinanceEntry } from '../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -244,7 +243,7 @@ function SettingField({ label, value, prefix, suffix, onChange, onCommit }: Sett
             </label>
             <div className="flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 transition-all focus-within:border-neutral-950 focus-within:ring-4 focus-within:ring-neutral-950/5">
                 {prefix && <span className="text-sm font-semibold text-neutral-500">{prefix}</span>}
-                <input
+                <Input
                     ref={inputRef}
                     type="number"
                     min="0"
@@ -255,7 +254,7 @@ function SettingField({ label, value, prefix, suffix, onChange, onCommit }: Sett
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') inputRef.current?.blur()
                     }}
-                    className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-neutral-900 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    wrapperClassName="min-w-0 flex-1"
                 />
                 {suffix && <span className="text-sm font-semibold text-neutral-500">{suffix}</span>}
             </div>
@@ -263,24 +262,69 @@ function SettingField({ label, value, prefix, suffix, onChange, onCommit }: Sett
     )
 }
 
-// ── Milestone card ─────────────────────────────────────────────────────────
-
-function MilestoneCard({
-    year,
-    balance,
-    label,
+/**
+ * Year-end balances as stacked bars: what you put in (start balance + contributions)
+ * underneath, interest on top. Milestone years get their balance labelled.
+ */
+function GrowthChart({
+    startBalance,
+    rows,
+    milestones,
 }: {
-    year: number
-    balance: number
-    label?: string
+    startBalance: number
+    rows: YearRow[]
+    milestones: number[]
 }) {
+    const top = Math.max(1, ...rows.map((r) => r.endBalance))
+    const bars = rows.map((r, i) => {
+        const paidIn = startBalance + rows.slice(0, i + 1).reduce((sum, x) => sum + x.contributions, 0)
+        const principal = Math.min(r.endBalance, Math.max(0, paidIn))
+        return { year: r.year, principal, interest: Math.max(0, r.endBalance - principal), total: r.endBalance }
+    })
     return (
-        <div className="flex flex-col gap-1.5 rounded-xl bg-neutral-950 px-5 py-5 text-white transition-transform duration-200">
-            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                {label ?? `Year ${year}`}
-            </p>
-            <p className="text-2xl font-bold tabular-nums tracking-tight">{fmtCompact(balance)}</p>
-            <p className="text-xs text-neutral-500 tabular-nums">£{fmt(balance, 0)}</p>
+        <div>
+            <div
+                className="flex h-44 items-end gap-[3px] sm:h-52"
+                role="img"
+                aria-label="Projected balance at the end of each year, split into what you put in and interest"
+            >
+                {bars.map((b) => {
+                    const isMilestone = milestones.includes(b.year)
+                    return (
+                        <div key={b.year} className="relative flex h-full min-w-0 flex-1 flex-col justify-end">
+                            {isMilestone && (
+                                <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-medium tabular-nums text-neutral-700"
+                                    style={{ bottom: `calc(${(b.total / top) * 100}% + 4px)` }}
+                                >
+                                    {fmtCompact(b.total)}
+                                </span>
+                            )}
+                            <div
+                                className="w-full rounded-t-[3px] bg-emerald-400"
+                                style={{ height: `${(b.interest / top) * 100}%` }}
+                            />
+                            <div
+                                className={`w-full bg-neutral-300 ${b.interest > 0 ? '' : 'rounded-t-[3px]'}`}
+                                style={{ height: `${(b.principal / top) * 100}%` }}
+                            />
+                        </div>
+                    )
+                })}
+            </div>
+            <div className="mt-2 flex justify-between text-[11px] text-neutral-500">
+                <span>Year 1</span>
+                {rows.length > 1 && <span>Year {rows.length}</span>}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-neutral-500">
+                <span className="inline-flex items-center gap-2">
+                    <span className="h-2 w-3 rounded-sm bg-neutral-300" aria-hidden="true" />
+                    You put in
+                </span>
+                <span className="inline-flex items-center gap-2">
+                    <span className="h-2 w-3 rounded-sm bg-emerald-400" aria-hidden="true" />
+                    Interest
+                </span>
+            </div>
         </div>
     )
 }
@@ -336,9 +380,6 @@ function GroupSettingsCard({ group, monthlyContribution, activeDescription, onUp
                     <p className="mt-0.5 text-sm tabular-nums text-neutral-500">£{fmt(monthlyContribution)} / month</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-blue-700">
-                        savings
-                    </span>
                     <button
                         type="button"
                         onClick={() => setConfirming(true)}
@@ -412,39 +453,6 @@ function monthsBetween(from: string, to: string): string[] {
     return out
 }
 
-function MonthField({
-    label,
-    value,
-    minDate,
-    maxDate,
-    onChange,
-}: {
-    label: string
-    /** ISO date string (the 1st of the chosen month). */
-    value: string
-    minDate?: string
-    maxDate?: string
-    /** Called with the 1st of the picked month. */
-    onChange: (isoFirstOfMonth: string) => void
-}) {
-    return (
-        <div className="flex flex-col gap-1">
-            <label className="text-[13px] font-medium text-neutral-700">
-                {label}
-            </label>
-            <DatePicker
-                mode="single"
-                value={value}
-                minDate={minDate}
-                maxDate={maxDate}
-                onChange={(v) => {
-                    if (typeof v === 'string' && v) onChange(`${v.slice(0, 7)}-01`)
-                }}
-            />
-        </div>
-    )
-}
-
 /**
  * Backward-looking total: sums each month's planned savings contribution
  * (per-month entry override, else the row's recurring amount) across the
@@ -511,1574 +519,72 @@ function LiveSavingsSection({ groups, rows }: { groups: FinanceGroup[]; rows: Fi
 
     return (
         <section>
-            <h2 className="mb-3 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                Savings to date
-            </h2>
-            <div className="border-t border-hairline pt-5 sm:pt-6">
-                <div className="flex flex-wrap items-end gap-3">
-                    <MonthField
-                        label="From"
-                        value={fromDate}
-                        maxDate={toDate}
-                        onChange={setFromDate}
-                    />
-                    <MonthField label="To" value={toDate} minDate={fromDate} onChange={setToDate} />
-                    <p className="ml-auto max-w-xs text-xs text-neutral-500">
-                        Total you planned to put away, based on the monthly savings amounts on your
-                        finance sheet.
-                    </p>
-                </div>
-
-                {invalid ? (
-                    <p className="mt-5 text-sm text-neutral-500">
-                        The “From” month must be on or before the “To” month.
-                    </p>
-                ) : loading ? (
-                    <div className="grid place-items-center py-8">
-                        <Spinner />
-                    </div>
-                ) : (
-                    <div className="mt-5 flex flex-col gap-4">
-                        <div className="rounded-xl bg-neutral-950 px-5 py-5 text-white">
-                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                You should have saved
-                            </p>
-                            <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
-                                £{fmt(grandTotal)}
-                            </p>
-                            <p className="mt-1 text-xs text-neutral-500 tabular-nums">
-                                {monthCount} {monthCount === 1 ? 'month' : 'months'} · avg £
-                                {fmt(monthlyAvg)}/mo
-                            </p>
-                        </div>
-
-                        {perGroup.length > 0 && (
-                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                                {perGroup.map(({ group, total }) => (
-                                    <div
-                                        key={group._id}
-                                        className="flex items-center justify-between gap-3 rounded-xl bg-neutral-50 px-4 py-3.5"
-                                    >
-                                        <span className="truncate text-sm font-semibold text-neutral-700">
-                                            {group.name}
-                                        </span>
-                                        <span className="shrink-0 text-sm font-bold tabular-nums text-neutral-900">
-                                            £{fmt(total)}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {perMonth.length > 1 && (
-                            <div>
-                                <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                    Monthly breakdown
-                                </p>
-                                <div className="divide-y divide-neutral-100 rounded-xl border border-neutral-200 overflow-hidden">
-                                    {perMonth.map(({ month, total }) => (
-                                        <div
-                                            key={month}
-                                            className="flex items-center justify-between px-4 py-2.5"
-                                        >
-                                            <span className="text-sm text-neutral-600">
-                                                {new Date(month + '-02').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
-                                            </span>
-                                            <span className={`text-sm font-semibold tabular-nums ${total === 0 ? 'text-neutral-500' : 'text-neutral-900'}`}>
-                                                £{fmt(total)}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
-        </section>
-    )
-}
-
-// ── Target planner ──────────────────────────────────────────────────────────
-
-interface TargetPlan {
-    error?: string
-    onTrack: boolean
-    requiredMonthly: number
-    contributionMonths: number
-    firstContribMonth: string
-    growthOnly: number
-    totalContributions: number
-    interestEarned: number
-}
-
-/**
- * Solve for the flat monthly contribution needed to reach `target` by
- * `targetMonth`. Interest compounds monthly from now on the whole balance;
- * contributions land at month-end (same convention as the projection) from
- * `startMonth` through `targetMonth` inclusive. Uses the simulated growth
- * factors, so required = (target − balance·G) / F.
- */
-function computeTargetPlan(
-    balance: number,
-    target: number,
-    annualRate: number,
-    startMonth: string,
-    targetMonth: string,
-    nowMonth: string
-): TargetPlan {
-    const empty = {
-        onTrack: false,
-        requiredMonthly: 0,
-        contributionMonths: 0,
-        firstContribMonth: startMonth,
-        growthOnly: balance,
-        totalContributions: 0,
-        interestEarned: 0,
-    }
-    if (targetMonth < nowMonth) return { ...empty, error: 'The target date is in the past.' }
-    if (target <= 0) return { ...empty, error: 'Set a target amount to plan towards.' }
-
-    const r = monthlyRate(annualRate)
-    const firstContrib = startMonth < nowMonth ? nowMonth : startMonth
-
-    let growthOnly = balance // balance compounded with no further saving
-    let factor = 0 // what £1/month in the window grows to by the target
-    let contributionMonths = 0
-    let m = nowMonth
-    while (m <= targetMonth) {
-        growthOnly *= 1 + r
-        factor *= 1 + r
-        if (m >= firstContrib) {
-            factor += 1
-            contributionMonths++
-        }
-        m = addMonths(m, 1)
-    }
-
-    if (growthOnly >= target) {
-        return { ...empty, onTrack: true, growthOnly, firstContribMonth: firstContrib }
-    }
-    if (contributionMonths === 0) {
-        return {
-            ...empty,
-            growthOnly,
-            error: 'Your start date is after the target date, so there are no months to save in.',
-        }
-    }
-
-    const requiredMonthly = (target - growthOnly) / factor
-    const totalContributions = requiredMonthly * contributionMonths
-    return {
-        onTrack: false,
-        requiredMonthly,
-        contributionMonths,
-        firstContribMonth: firstContrib,
-        growthOnly,
-        totalContributions,
-        interestEarned: Math.max(0, target - balance - totalContributions),
-    }
-}
-
-interface ContributionPlan {
-    error?: string
-    finalBalance: number
-    contributionMonths: number
-    firstContribMonth: string
-    growthOnly: number
-    totalContributions: number
-    interestEarned: number
-}
-
-/**
- * The inverse of computeTargetPlan: fix the monthly contribution and project
- * the end balance instead. Same conventions — interest compounds monthly from
- * now on the whole balance; contributions land at month-end from `startMonth`
- * through `endMonth` inclusive.
- */
-function computeContributionPlan(
-    balance: number,
-    monthly: number,
-    annualRate: number,
-    startMonth: string,
-    endMonth: string,
-    nowMonth: string
-): ContributionPlan {
-    const empty = {
-        finalBalance: balance,
-        contributionMonths: 0,
-        firstContribMonth: startMonth,
-        growthOnly: balance,
-        totalContributions: 0,
-        interestEarned: 0,
-    }
-    if (endMonth < nowMonth) return { ...empty, error: 'The end date is in the past.' }
-    if (monthly <= 0) return { ...empty, error: 'Set a monthly amount to project with.' }
-
-    const r = monthlyRate(annualRate)
-    const firstContrib = startMonth < nowMonth ? nowMonth : startMonth
-
-    let bal = balance
-    let growthOnly = balance
-    let contributionMonths = 0
-    let m = nowMonth
-    while (m <= endMonth) {
-        bal *= 1 + r
-        growthOnly *= 1 + r
-        if (m >= firstContrib) {
-            bal += monthly
-            contributionMonths++
-        }
-        m = addMonths(m, 1)
-    }
-
-    if (contributionMonths === 0) {
-        return {
-            ...empty,
-            growthOnly,
-            error: 'Your start date is after the end date, so there are no months to save in.',
-        }
-    }
-
-    const totalContributions = monthly * contributionMonths
-    return {
-        finalBalance: bal,
-        contributionMonths,
-        firstContribMonth: firstContrib,
-        growthOnly,
-        totalContributions,
-        interestEarned: bal - balance - totalContributions,
-    }
-}
-
-function monthLabelLong(ym: string) {
-    const [y, m] = ym.split('-').map(Number)
-    return new Date(y, m - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' })
-}
-
-/** Whole months from `from` to `to` (both "YYYY-MM"); negative when `to` is in the past. */
-function monthsUntil(from: string, to: string): number {
-    const [fy, fm] = from.split('-').map(Number)
-    const [ty, tm] = to.split('-').map(Number)
-    return (ty - fy) * 12 + (tm - fm)
-}
-
-/** "month"/"months" for a count. */
-function mo(n: number): string {
-    return Math.abs(n) === 1 ? 'month' : 'months'
-}
-
-/** The plan's one number: the monthly ask for a target, the end balance for a fixed amount. */
-function PlanHeadline({ target }: { target: SavingsTarget }) {
-    const isContribution = target.mode === 'contribution'
-
-    const label = isContribution ? 'Projected balance' : 'Save each month'
-    const sub = isContribution
-        ? `£${fmt(target.requiredMonthly)} a month for ${target.contributionMonths} ${mo(target.contributionMonths)}`
-        : target.onTrack
-          ? `Interest alone reaches £${fmt(target.targetAmount, 0)}`
-          : `to reach £${fmt(target.targetAmount, 0)} over ${target.contributionMonths} ${mo(target.contributionMonths)}`
-
-    return (
-        <div className="mt-4 rounded-xl bg-neutral-50 px-4 py-3">
-            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                {label}
-            </p>
-            <p
-                className={`mt-0.5 text-2xl font-bold tabular-nums tracking-tight sm:text-3xl ${
-                    !isContribution && target.onTrack ? 'text-emerald-600' : 'text-neutral-900'
-                }`}
-            >
-                {isContribution ? (
-                    `£${fmt(target.targetAmount, 0)}`
-                ) : target.onTrack ? (
-                    'On track'
-                ) : (
-                    <>
-                        £{fmt(target.requiredMonthly)}
-                        <span className="ml-1 text-sm font-semibold text-neutral-500">/ mo</span>
-                    </>
-                )}
-            </p>
-            <p className="mt-0.5 text-xs tabular-nums text-neutral-500">{sub}</p>
-        </div>
-    )
-}
-
-/** Where the end amount comes from: what you have, what you add, what interest adds. */
-function PlanComposition({ target }: { target: SavingsTarget }) {
-    const interest =
-        target.mode !== 'contribution' && target.onTrack
-            ? Math.max(0, target.growthOnly - target.startingBalance)
-            : Math.max(0, target.interestEarned)
-    const parts = [
-        { label: 'Starting', value: Math.max(0, target.startingBalance), color: 'bg-neutral-300' },
-        { label: 'Saved', value: Math.max(0, target.totalContributions), color: 'bg-neutral-900' },
-        { label: `Interest ${fmt(target.annualInterestRate, 2)}%`, value: interest, color: 'bg-emerald-500' },
-    ]
-    const total = parts.reduce((s, p) => s + p.value, 0)
-
-    return (
-        <div className="mt-4">
-            <div className="flex h-2 gap-0.5 overflow-hidden rounded-full bg-neutral-100">
-                {total > 0 &&
-                    parts
-                        .filter((p) => p.value > 0)
-                        .map((p) => (
-                            <div
-                                key={p.label}
-                                className={p.color}
-                                style={{ width: `${(p.value / total) * 100}%` }}
-                            />
-                        ))}
-            </div>
-            <dl className="mt-2.5 grid grid-cols-3 gap-2">
-                {parts.map((p) => (
-                    <div key={p.label} className="min-w-0">
-                        <dt className="flex items-center gap-1.5 text-[11px] text-neutral-500">
-                            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${p.color}`} />
-                            <span className="truncate">{p.label}</span>
-                        </dt>
-                        <dd className="mt-0.5 truncate text-sm font-bold tabular-nums text-neutral-900">
-                            {fmtCompact(p.value)}
-                        </dd>
-                    </div>
-                ))}
-            </dl>
-        </div>
-    )
-}
-
-/** Start → finish with how far through the saving window we are. */
-function PlanTimeline({ target }: { target: SavingsTarget }) {
-    const now = currentMonth()
-    const untilStart = monthsUntil(now, target.startMonth)
-    const untilFinish = monthsUntil(now, target.targetMonth)
-    const span = Math.max(1, monthsUntil(target.startMonth, target.targetMonth) + 1)
-    const elapsed = Math.min(span, Math.max(0, -untilStart))
-    const pct = untilFinish < 0 ? 100 : (elapsed / span) * 100
-
-    const status =
-        untilStart > 0
-            ? `Starts in ${untilStart} ${mo(untilStart)}`
-            : untilFinish > 0
-              ? `${untilFinish} ${mo(untilFinish)} to go`
-              : untilFinish === 0
-                ? 'Due this month'
-                : `${-untilFinish} ${mo(untilFinish)} overdue`
-    const tone =
-        untilFinish < 0
-            ? 'text-red-500'
-            : untilStart <= 0 && untilFinish <= 3
-              ? 'text-amber-600'
-              : 'text-neutral-500'
-
-    return (
-        <div className="mt-4">
-            <div className="flex items-center justify-between gap-3 text-xs">
-                <span className="font-semibold text-neutral-900">
-                    {monthLabelShort(target.startMonth)}
-                </span>
-                <span className={`font-semibold ${tone}`}>{status}</span>
-                <span className="font-semibold text-neutral-900">
-                    {monthLabelShort(target.targetMonth)}
-                </span>
-            </div>
-            <div className="mt-2 h-1 overflow-hidden rounded-full bg-neutral-100">
-                <div
-                    className={`h-full rounded-full ${untilFinish < 0 ? 'bg-red-400' : 'bg-neutral-900'}`}
-                    style={{ width: `${pct}%` }}
-                />
-            </div>
-        </div>
-    )
-}
-
-function SavedTargetCard({
-    target,
-    isDragging,
-    isDragOver,
-    selected,
-    onToggleSelect,
-    onUpdate,
-    onDelete,
-    onDragStart,
-    onDragOver,
-    onDrop,
-    onDragEnd,
-}: {
-    target: SavingsTarget
-    isDragging: boolean
-    isDragOver: boolean
-    selected: boolean
-    onToggleSelect: () => void
-    onUpdate: (
-        id: string,
-        fields: { name?: string; notes?: string | null; priority?: boolean }
-    ) => Promise<void>
-    onDelete: (id: string) => Promise<void>
-    onDragStart: () => void
-    onDragOver: () => void
-    onDrop: () => void
-    onDragEnd: () => void
-}) {
-    const [editing, setEditing] = useState(false)
-    const [name, setName] = useState(target.name)
-    const [editingNotes, setEditingNotes] = useState(false)
-    const [notesDraft, setNotesDraft] = useState('')
-    const [confirming, setConfirming] = useState(false)
-    const [busy, setBusy] = useState(false)
-    // The card is only draggable once a drag is initiated from the grip handle,
-    // so clicks/selection elsewhere in the card behave normally.
-    const dragReady = useRef(false)
-
-    // Disarm the handle on any plain click release. A real drag ends with
-    // 'dragend' (no trailing 'mouseup'), so this only fires when no drag started.
-    useEffect(() => {
-        const disarm = () => (dragReady.current = false)
-        window.addEventListener('mouseup', disarm)
-        return () => window.removeEventListener('mouseup', disarm)
-    }, [])
-
-    async function commitRename() {
-        const trimmed = name.trim()
-        setEditing(false)
-        if (!trimmed || trimmed === target.name) {
-            setName(target.name)
-            return
-        }
-        await onUpdate(target._id, { name: trimmed })
-    }
-
-    async function commitNotes() {
-        const trimmed = notesDraft.trim()
-        setEditingNotes(false)
-        if (trimmed === (target.notes ?? '')) return
-        await onUpdate(target._id, { notes: trimmed || null })
-    }
-
-    function openNotesEditor() {
-        setNotesDraft(target.notes ?? '')
-        setEditingNotes(true)
-    }
-
-    async function handleDelete() {
-        setBusy(true)
-        try {
-            await onDelete(target._id)
-        } finally {
-            setBusy(false)
-            setConfirming(false)
-        }
-    }
-
-    const isContribution = target.mode === 'contribution'
-
-    return (
-        <div
-            draggable
-            onDragStart={(e) => {
-                if (!dragReady.current) {
-                    e.preventDefault()
-                    return
-                }
-                e.dataTransfer.effectAllowed = 'move'
-                onDragStart()
-            }}
-            onDragOver={(e) => {
-                e.preventDefault()
-                e.dataTransfer.dropEffect = 'move'
-                onDragOver()
-            }}
-            onDrop={(e) => {
-                e.preventDefault()
-                onDrop()
-            }}
-            onDragEnd={() => {
-                dragReady.current = false
-                onDragEnd()
-            }}
-            className={[
-                'flex min-w-0 flex-col rounded-xl border bg-white p-5 transition-colors duration-200',
-                target.priority
-                    ? 'border-amber-300 hover:border-amber-400'
-                    : 'border-neutral-200 hover:border-neutral-300',
-                isDragging ? 'opacity-40' : '',
-                isDragOver ? 'ring-2 ring-neutral-300' : '',
-            ]
-                .filter(Boolean)
-                .join(' ')}
-        >
-            {/* Meta row: what kind of plan it is, and the card's controls. */}
-            <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-semibold text-neutral-600">
-                    <i
-                        className={`fa-solid ${isContribution ? 'fa-arrow-trend-up' : 'fa-bullseye'} text-[11px]`}
-                        aria-hidden="true"
-                    />
-                    {isContribution ? 'Fixed monthly' : 'Target'}
-                </span>
-                {target.priority && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
-                        <i className="fa-solid fa-flag text-[11px]" aria-hidden="true" />
-                        Priority
-                    </span>
-                )}
-                <div className="ml-auto flex shrink-0 items-center">
-                    <button
-                        type="button"
-                        title={target.priority ? 'Remove priority' : 'Mark as priority'}
-                        onClick={() => onUpdate(target._id, { priority: !target.priority })}
-                        className={[
-                            'grid h-8 w-8 place-items-center rounded-full transition-colors',
-                            target.priority
-                                ? 'text-amber-500 hover:bg-amber-50 hover:text-amber-600'
-                                : 'text-neutral-300 hover:bg-neutral-100 hover:text-neutral-500',
-                        ].join(' ')}
-                    >
-                        <i
-                            className={`${target.priority ? 'fa-solid' : 'fa-regular'} fa-flag text-xs`}
-                            aria-hidden="true"
-                        />
-                    </button>
-                    <button
-                        type="button"
-                        title="Delete plan"
-                        onClick={() => setConfirming(true)}
-                        className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-400"
-                    >
-                        <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
-                    </button>
-                    <button
-                        type="button"
-                        aria-label="Drag to reorder"
-                        title="Drag to reorder"
-                        onMouseDown={() => (dragReady.current = true)}
-                        onTouchStart={() => (dragReady.current = true)}
-                        className="grid h-8 w-6 cursor-grab touch-none place-items-center rounded text-neutral-300 transition-colors hover:text-neutral-500 active:cursor-grabbing"
-                    >
-                        <i className="fa-solid fa-grip-vertical text-xs" aria-hidden="true" />
-                    </button>
-                </div>
+            <div className="flex flex-wrap items-end gap-3">
+                <MonthField label="From" value={fromDate} maxDate={toDate} onChange={setFromDate} />
+                <MonthField label="To" value={toDate} minDate={fromDate} onChange={setToDate} />
+                <p className="max-w-sm text-xs text-neutral-500 sm:ml-auto sm:text-right">
+                    What you planned to put away, from the monthly savings amounts on your
+                    finance sheet.
+                </p>
             </div>
 
-            {/* Title gets its own full-width line and wraps instead of colliding with controls. */}
-            <div className="mt-3">
-                {editing ? (
-                    <input
-                        autoFocus
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        onBlur={commitRename}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') e.currentTarget.blur()
-                            if (e.key === 'Escape') {
-                                setName(target.name)
-                                setEditing(false)
-                            }
-                        }}
-                        className="w-full rounded-[10px] border border-neutral-200 hover:border-neutral-300 px-2 h-10 text-lg font-bold tracking-tight text-neutral-900 outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
-                    />
-                ) : (
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setName(target.name)
-                            setEditing(true)
-                        }}
-                        title="Rename"
-                        className="group w-full text-left"
-                    >
-                        <span className="break-words text-lg font-bold leading-snug tracking-tight text-neutral-900">
-                            {target.name}
-                        </span>
-                        <i
-                            className="fa-solid fa-pen ml-2 align-middle text-[11px] text-neutral-300 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
-                            aria-hidden="true"
-                        />
-                    </button>
-                )}
-            </div>
-
-            {confirming ? (
-                <div className="mt-4 rounded-xl bg-red-50 p-4">
-                    <p className="text-sm font-semibold text-red-700">Delete {target.name}?</p>
-                    <div className="mt-3 flex gap-2">
-                        <button
-                            type="button"
-                            onClick={handleDelete}
-                            disabled={busy}
-                            className="inline-flex items-center justify-center rounded-[10px] bg-red-600 px-4 h-8 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
-                        >
-                            {busy ? 'Deleting…' : 'Yes, delete'}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setConfirming(false)}
-                            className="rounded-full border border-neutral-200 bg-white px-4 py-1.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-50"
-                        >
-                            Cancel
-                        </button>
-                    </div>
+            {invalid ? (
+                <p className="mt-6 text-sm text-neutral-500">
+                    The “From” month must be on or before the “To” month.
+                </p>
+            ) : loading ? (
+                <div className="grid place-items-center py-16">
+                    <Spinner />
                 </div>
             ) : (
-                <>
-                    <PlanHeadline target={target} />
-                    <PlanComposition target={target} />
-                    <PlanTimeline target={target} />
-
-                    <div className="mt-4 border-t border-neutral-100 pt-3">
-                        {editingNotes ? (
-                            <textarea
-                                autoFocus
-                                value={notesDraft}
-                                onChange={(e) => setNotesDraft(e.target.value)}
-                                onBlur={commitNotes}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Escape') setEditingNotes(false)
-                                }}
-                                rows={3}
-                                placeholder="Notes…"
-                                className="w-full resize-none rounded-xl border border-neutral-200 px-3 py-2 text-xs text-neutral-700 outline-none transition-all placeholder:text-neutral-500 focus:border-neutral-950 focus:ring-4 focus:ring-neutral-950/5"
-                            />
-                        ) : target.notes ? (
-                            <button
-                                type="button"
-                                onClick={openNotesEditor}
-                                title="Edit notes"
-                                className="group w-full text-left"
-                            >
-                                <p className="whitespace-pre-wrap break-words text-xs text-neutral-500">
-                                    {target.notes}
-                                    <i
-                                        className="fa-solid fa-pen ml-2 text-[9px] text-neutral-300 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
-                                        aria-hidden="true"
-                                    />
-                                </p>
-                            </button>
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={openNotesEditor}
-                                className="text-xs font-semibold text-neutral-300 transition-colors hover:text-neutral-500"
-                            >
-                                <i className="fa-solid fa-plus mr-1 text-[9px]" aria-hidden="true" />
-                                Add notes
-                            </button>
-                        )}
-                    </div>
-
-                    <div className="mt-auto pt-4">
-                        <Checkbox
-                            checked={selected}
-                            onChange={onToggleSelect}
-                            label="Include in long-term view"
+                <div className="mt-8 grid items-start gap-10 lg:grid-cols-[1fr_1.2fr]">
+                    <div className="flex flex-col gap-8">
+                        <BigFigure
+                            label="You should have saved"
+                            value={<Money v={grandTotal} />}
+                            sub={
+                                <>
+                                    {monthCount} {monthCount === 1 ? 'month' : 'months'} · about{' '}
+                                    <Money v={monthlyAvg} /> a month
+                                </>
+                            }
                         />
-                    </div>
-                </>
-            )}
-        </div>
-    )
-}
-
-// ── Long-term outlook (combined plans) ───────────────────────────────────────
-
-const OUTLOOK_HORIZONS = [1, 3, 5, 10] as const
-type OutlookHorizon = (typeof OUTLOOK_HORIZONS)[number]
-
-const PLAN_BAR_COLORS = [
-    'bg-blue-500',
-    'bg-emerald-500',
-    'bg-amber-500',
-    'bg-violet-500',
-    'bg-rose-500',
-    'bg-cyan-500',
-]
-
-/** What a plan asks you to put away in a given month — £0 outside its window. */
-function planMonthlyFor(plan: SavingsTarget, m: string): number {
-    if (plan.onTrack) return 0
-    return m >= plan.startMonth && m <= plan.targetMonth ? plan.requiredMonthly : 0
-}
-
-interface OutlookYearRow {
-    index: number
-    firstMonth: string
-    lastMonth: string
-    /** Contributions per plan id within this year. */
-    perPlan: Map<string, number>
-    contributions: number
-    cumulative: number
-    peakMonthly: number
-}
-
-/**
- * Bucket the selected plans' monthly commitments into Year 1..N from
- * `startMonth`. Overlapping plans stack; sequential plans hand over — the
- * per-year rows and the overall peak make both cases readable.
- */
-function buildOutlook(plans: SavingsTarget[], startMonth: string, years: number) {
-    const rows: OutlookYearRow[] = []
-    let m = startMonth
-    let cumulative = 0
-    let peakMonthly = 0
-    let peakMonth = startMonth
-    for (let y = 1; y <= years; y++) {
-        const firstMonth = m
-        let lastMonth = m
-        const perPlan = new Map<string, number>()
-        let yearPeak = 0
-        for (let i = 0; i < 12; i++) {
-            let monthTotal = 0
-            for (const p of plans) {
-                const c = planMonthlyFor(p, m)
-                if (c > 0) perPlan.set(p._id, (perPlan.get(p._id) ?? 0) + c)
-                monthTotal += c
-            }
-            yearPeak = Math.max(yearPeak, monthTotal)
-            if (monthTotal > peakMonthly) {
-                peakMonthly = monthTotal
-                peakMonth = m
-            }
-            lastMonth = m
-            m = addMonths(m, 1)
-        }
-        const contributions = [...perPlan.values()].reduce((s, v) => s + v, 0)
-        cumulative += contributions
-        rows.push({
-            index: y,
-            firstMonth,
-            lastMonth,
-            perPlan,
-            contributions,
-            cumulative,
-            peakMonthly: yearPeak,
-        })
-    }
-    return { rows, peakMonthly, peakMonth }
-}
-
-function monthLabelShort(ym: string) {
-    const [y, m] = ym.split('-').map(Number)
-    return new Date(y, m - 1, 1).toLocaleString('default', { month: 'short', year: 'numeric' })
-}
-
-/** A moment worth marking on the outlook: a plan starting or finishing. */
-interface OutlookEventBase {
-    plan: SavingsTarget
-    month: string
-    monthsAway: number
-    /** Combined monthly saving across all plans once this event happens. */
-    monthlyAfter: number
-}
-interface StartEvent extends OutlookEventBase {
-    kind: 'start'
-}
-interface FinishEvent extends OutlookEventBase {
-    kind: 'finish'
-    /** Everything put in across ALL selected plans from now through this month. */
-    contributedByThen: number
-    /** Combined monthly saving in this plan's final month. */
-    monthlyBefore: number
-}
-type OutlookEvent = StartEvent | FinishEvent
-
-function buildTimelineEvents(plans: SavingsTarget[], now: string): OutlookEvent[] {
-    const byFinish = [...plans].sort((a, b) => (a.targetMonth < b.targetMonth ? -1 : 1))
-    const combined = (m: string) => plans.reduce((s, q) => s + planMonthlyFor(q, m), 0)
-
-    const events: OutlookEvent[] = []
-    // Future starts only — plans already underway are covered by the Today node.
-    for (const p of plans) {
-        if (p.startMonth > now && !p.onTrack && p.requiredMonthly > 0) {
-            events.push({
-                kind: 'start',
-                plan: p,
-                month: p.startMonth,
-                monthsAway: monthsUntil(now, p.startMonth),
-                monthlyAfter: combined(p.startMonth),
-            })
-        }
-    }
-    for (const p of byFinish) {
-        let contributed = 0
-        for (let m = now; m <= p.targetMonth; m = addMonths(m, 1)) contributed += combined(m)
-        events.push({
-            kind: 'finish',
-            plan: p,
-            month: p.targetMonth,
-            monthsAway: monthsUntil(now, p.targetMonth),
-            contributedByThen: contributed,
-            monthlyBefore: combined(p.targetMonth),
-            monthlyAfter: combined(addMonths(p.targetMonth, 1)),
-        })
-    }
-    // Chronological; same-month ties read finish-then-start (the natural handover).
-    return events.sort((a, b) => {
-        if (a.month !== b.month) return a.month < b.month ? -1 : 1
-        if (a.kind === b.kind) return 0
-        return a.kind === 'finish' ? -1 : 1
-    })
-}
-
-function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
-    const now = currentMonth()
-    const [horizon, setHorizon] = useState<OutlookHorizon>(5)
-    const totalMonths = horizon * 12
-
-    const { rows, peakMonthly, peakMonth } = buildOutlook(plans, now, horizon)
-    const timelineEvents = buildTimelineEvents(plans, now)
-    const colorFor = new Map(
-        plans.map((p, i) => [p._id, PLAN_BAR_COLORS[i % PLAN_BAR_COLORS.length]])
-    )
-
-    const currentMonthly = plans.reduce((s, p) => s + planMonthlyFor(p, now), 0)
-    const totalContributions = rows.reduce((s, r) => s + r.contributions, 0)
-
-    // Timeline geometry: month index 0 = this month.
-    const bars = plans.map((p) => {
-        const rawStart = monthsUntil(now, p.startMonth)
-        const rawEnd = monthsUntil(now, p.targetMonth)
-        const start = Math.max(0, rawStart)
-        const end = Math.min(totalMonths - 1, rawEnd)
-        return {
-            plan: p,
-            start,
-            end,
-            visible: rawEnd >= 0 && rawStart <= totalMonths - 1,
-            endedBeforeNow: rawEnd < 0,
-            // The plan runs past the right edge of this horizon.
-            runsBeyondHorizon: rawEnd > totalMonths - 1,
-        }
-    })
-
-    return (
-        <section className="mt-8">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                    <h2 className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                        Long-term outlook
-                    </h2>
-                    <p className="mt-0.5 text-xs text-neutral-500">
-                        {plans.length} {plans.length === 1 ? 'plan' : 'plans'} combined — overlapping
-                        plans stack, sequential ones hand over.
-                    </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                    {OUTLOOK_HORIZONS.map((y) => (
-                        <button
-                            key={y}
-                            type="button"
-                            onClick={() => setHorizon(y)}
-                            className={[
-                                'rounded-full px-4 py-2 text-sm font-semibold tracking-tight transition-all duration-150 active:scale-[0.97]',
-                                horizon === y
-                                    ? 'bg-neutral-950 text-white'
-                                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200',
-                            ].join(' ')}
-                        >
-                            {y}
-                            {y === 1 ? ' yr' : ' yrs'}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Headline stats */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-                <div className="flex flex-col gap-1.5 rounded-xl bg-neutral-950 px-5 py-5 text-white">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                        Saving this month
-                    </p>
-                    <p className="text-2xl font-bold tabular-nums tracking-tight">
-                        £{fmt(currentMonthly, 0)}
-                    </p>
-                    <p className="text-xs text-neutral-500">across selected plans</p>
-                </div>
-                <div className="flex flex-col gap-1.5 rounded-xl bg-neutral-950 px-5 py-5 text-white">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                        Peak monthly
-                    </p>
-                    <p className="text-2xl font-bold tabular-nums tracking-tight">
-                        £{fmt(peakMonthly, 0)}
-                    </p>
-                    <p className="text-xs text-neutral-500">
-                        {peakMonthly > 0 ? monthLabelShort(peakMonth) : 'no saving in this window'}
-                    </p>
-                </div>
-                <div className="flex flex-col gap-1.5 rounded-xl bg-neutral-950 px-5 py-5 text-white">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                        Contributed over {horizon} {horizon === 1 ? 'yr' : 'yrs'}
-                    </p>
-                    <p className="text-2xl font-bold tabular-nums tracking-tight">
-                        {fmtCompact(totalContributions)}
-                    </p>
-                    <p className="text-xs text-neutral-500 tabular-nums">
-                        £{fmt(totalContributions, 0)}
-                    </p>
-                </div>
-            </div>
-
-            {/* Timeline */}
-            <div className="mt-4 border-t border-hairline pt-5 sm:pt-6">
-                <div className="flex flex-col gap-3">
-                    {bars.map(({ plan, start, end, visible, endedBeforeNow, runsBeyondHorizon }) => {
-                        const color = colorFor.get(plan._id) ?? PLAN_BAR_COLORS[0]
-                        const span = end - start + 1
-                        // Full plan length, start month through target month inclusive.
-                        const durationMonths = monthsUntil(plan.startMonth, plan.targetMonth) + 1
-                        // Label the bar with as much as its width can carry: monthly
-                        // amount + duration, then monthly only, then a bare month count.
-                        const frac = span / totalMonths
-                        const monthlyLabel =
-                            plan.requiredMonthly > 0
-                                ? `£${fmt(plan.requiredMonthly, 0)} / month`
-                                : ''
-                        const durationLabel = `${durationMonths} ${mo(durationMonths)}`
-                        const barLabel =
-                            frac >= 0.3
-                                ? [monthlyLabel, durationLabel].filter(Boolean).join(' · ')
-                                : frac >= 0.18
-                                  ? monthlyLabel || durationLabel
-                                  : frac >= 0.08
-                                    ? `${durationMonths} mo`
-                                    : ''
-                        return (
-                            <div key={plan._id} className="flex items-center gap-3">
-                                <div className="w-40 shrink-0">
-                                    <div className="flex items-center gap-2">
-                                        <span
-                                            className={`h-2.5 w-2.5 shrink-0 rounded-full ${color}`}
-                                        />
-                                        <span className="truncate text-xs font-semibold text-neutral-700">
-                                            {plan.name}
-                                        </span>
-                                    </div>
-                                    <p className="ml-[18px] text-[11px] text-neutral-500 tabular-nums">
-                                        {plan.onTrack || plan.requiredMonthly <= 0
-                                            ? 'nothing to save monthly'
-                                            : `save £${fmt(plan.requiredMonthly, 0)} / month`}
-                                    </p>
-                                    <p className="ml-[18px] text-[11px] text-neutral-500 tabular-nums">
-                                        {durationMonths} {mo(durationMonths)} start to finish
-                                    </p>
-                                </div>
-                                <div className="relative h-7 flex-1 overflow-hidden rounded-lg bg-neutral-50">
-                                    {Array.from({ length: horizon - 1 }, (_, i) => (
-                                        <div
-                                            key={i}
-                                            className="absolute inset-y-0 w-px bg-neutral-200"
-                                            style={{
-                                                left: `${(((i + 1) * 12) / totalMonths) * 100}%`,
-                                            }}
-                                        />
+                        {perGroup.length > 0 && (
+                            <div>
+                                <p className={`mb-2 ${OVERLINE}`}>By account</p>
+                                <ul className="divide-y divide-neutral-100 border-t border-hairline">
+                                    {perGroup.map(({ group, total }) => (
+                                        <li key={group._id} className="flex items-center justify-between gap-3 py-3">
+                                            <span className="truncate text-[15px] text-neutral-800">{group.name}</span>
+                                            <span className="shrink-0 text-[15px] font-medium text-neutral-950">
+                                                <Money v={total} />
+                                            </span>
+                                        </li>
                                     ))}
-                                    {visible ? (
-                                        <div
-                                            className={`absolute inset-y-1 flex items-center justify-center rounded-md ${color} ${runsBeyondHorizon ? 'rounded-r-none' : ''}`}
-                                            style={{
-                                                left: `${(start / totalMonths) * 100}%`,
-                                                width: `${(span / totalMonths) * 100}%`,
-                                            }}
-                                            title={`${monthLabelShort(plan.startMonth)} – ${monthLabelShort(plan.targetMonth)} · ${durationMonths} ${mo(durationMonths)} · £${fmt(plan.requiredMonthly)} / month${runsBeyondHorizon ? ' · continues past this horizon' : ''}`}
-                                        >
-                                            {barLabel && (
-                                                <span className="truncate px-2 text-[11px] font-bold tabular-nums text-white">
-                                                    {barLabel}
-                                                </span>
-                                            )}
-                                            {runsBeyondHorizon && (
-                                                <i
-                                                    className="fa-solid fa-angles-right absolute right-1 top-1/2 -translate-y-1/2 text-[8px] text-white/80"
-                                                    aria-hidden="true"
-                                                />
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <span className="absolute inset-0 grid place-items-center text-[11px] text-neutral-500">
-                                            {endedBeforeNow
-                                                ? `finished ${monthLabelShort(plan.targetMonth)}`
-                                                : `starts ${monthLabelShort(plan.startMonth)} — beyond this horizon`}
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="w-24 shrink-0 text-right">
-                                    <p className="text-xs font-bold tabular-nums text-neutral-900">
-                                        £{fmt(plan.targetAmount, 0)}
-                                    </p>
-                                    <p className="text-[11px] text-neutral-500">
-                                        in this pot
-                                    </p>
-                                </div>
+                                </ul>
                             </div>
-                        )
-                    })}
-                    <div className="flex items-center gap-3">
-                        <div className="w-40 shrink-0" />
-                        <div className="flex flex-1">
-                            {Array.from({ length: horizon }, (_, i) => (
-                                <div
-                                    key={i}
-                                    className="flex-1 text-center text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600"
-                                >
-                                    {horizon > 5 ? `Yr ${i + 1}` : `Year ${i + 1}`}
-                                </div>
-                            ))}
-                        </div>
-                        <div className="w-24 shrink-0" />
-                    </div>
-                </div>
-            </div>
-
-            {/* Milestones — how much you'll have, by when */}
-            <div className="mt-4 border-t border-hairline pt-5 sm:pt-6">
-                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                    How much, by when
-                </p>
-                <ol className="mt-5">
-                    {/* Today */}
-                    <li className="relative flex gap-4 pb-7">
-                        {timelineEvents.length > 0 && (
-                            <span className="absolute bottom-0 left-[5px] top-4 w-px bg-neutral-200" />
                         )}
-                        <span className="relative mt-1 h-[11px] w-[11px] shrink-0 rounded-full border-2 border-neutral-950 bg-white" />
-                        <div className="min-w-0">
-                            <p className="text-sm font-bold text-neutral-900">Today</p>
-                            <p className="mt-0.5 text-xs text-neutral-500 tabular-nums">
-                                {currentMonthly > 0
-                                    ? `putting away £${fmt(currentMonthly, 0)} a month across ${plans.length} ${plans.length === 1 ? 'plan' : 'plans'}`
-                                    : 'nothing to put away this month'}
-                            </p>
-                        </div>
-                    </li>
-
-                    {timelineEvents.map((ev, i) => {
-                        const reached = ev.monthsAway < 0
-                        const when = reached
-                            ? 'already reached'
-                            : ev.monthsAway === 0
-                              ? 'this month'
-                              : `in ${ev.monthsAway} ${mo(ev.monthsAway)}`
-                        const color = colorFor.get(ev.plan._id)
-                        const line = i < timelineEvents.length - 1 && (
-                            <span className="absolute bottom-0 left-[5px] top-4 w-px bg-neutral-200" />
-                        )
-
-                        if (ev.kind === 'start') {
-                            return (
-                                <li
-                                    key={`${ev.plan._id}-start`}
-                                    className="relative flex gap-4 pb-7 last:pb-0"
-                                >
-                                    {line}
-                                    {/* Hollow dot — saving begins here, pot not finished yet. */}
-                                    <span
-                                        className={`relative mt-1 grid h-[11px] w-[11px] shrink-0 place-items-center rounded-full ${color}`}
-                                    >
-                                        <span className="h-[5px] w-[5px] rounded-full bg-white" />
-                                    </span>
-                                    <div className="min-w-0 flex-1">
-                                        <p className="text-sm font-bold text-neutral-900">
-                                            {monthLabelLong(ev.month)}
-                                            <span className="ml-2 text-xs font-semibold text-neutral-500">
-                                                {when}
-                                            </span>
-                                        </p>
-                                        <p className="mt-0.5 truncate text-sm text-neutral-600">
-                                            Start saving for{' '}
-                                            <span className="font-semibold text-neutral-900">
-                                                {ev.plan.name}
-                                            </span>{' '}
-                                            — £{fmt(ev.plan.requiredMonthly, 0)}/month
-                                        </p>
-                                        <p className="mt-0.5 text-xs text-neutral-500 tabular-nums">
-                                            monthly saving becomes £{fmt(ev.monthlyAfter, 0)}
-                                        </p>
-                                    </div>
-                                </li>
-                            )
-                        }
-
-                        const monthlyChange =
-                            ev.monthlyAfter === ev.monthlyBefore
-                                ? null
-                                : ev.monthlyAfter === 0
-                                  ? 'nothing left to save each month'
-                                  : `monthly saving becomes £${fmt(ev.monthlyAfter, 0)}`
-                        return (
-                            <li
-                                key={`${ev.plan._id}-finish`}
-                                className="relative flex gap-4 pb-7 last:pb-0"
-                            >
-                                {line}
-                                <span
-                                    className={`relative mt-1 h-[11px] w-[11px] shrink-0 rounded-full ${color} ${reached ? 'opacity-40' : ''}`}
-                                />
-                                <div className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-x-6 gap-y-2">
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-bold text-neutral-900">
-                                            {monthLabelLong(ev.month)}
-                                            <span
-                                                className={`ml-2 text-xs font-semibold ${reached ? 'text-emerald-600' : 'text-neutral-500'}`}
-                                            >
-                                                {when}
-                                            </span>
-                                        </p>
-                                        <p className="mt-0.5 truncate text-sm text-neutral-600">
-                                            <span className="font-semibold text-neutral-900">
-                                                {ev.plan.name}
-                                            </span>{' '}
-                                            done
-                                        </p>
-                                        <p className="mt-0.5 text-xs text-neutral-500 tabular-nums">
-                                            £{fmt(ev.contributedByThen, 0)} put in across all plans
-                                            by then
-                                            {monthlyChange && <> · {monthlyChange}</>}
-                                        </p>
-                                    </div>
-                                    <div className="shrink-0 text-right">
-                                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                            This pot
-                                        </p>
-                                        <p className="text-lg font-bold tabular-nums tracking-tight text-neutral-900">
-                                            £{fmt(ev.plan.targetAmount, 0)}
-                                        </p>
-                                        <p className="text-[11px] text-neutral-500">
-                                            ready to spend
-                                        </p>
-                                    </div>
-                                </div>
-                            </li>
-                        )
-                    })}
-                </ol>
-            </div>
-        </section>
-    )
-}
-
-function TargetPlannerSection({
-    defaultBalance,
-    defaultRate,
-}: {
-    defaultBalance: number
-    defaultRate: number
-}) {
-    const toast = useToast()
-    const now = currentMonth()
-    const [mode, setMode] = useState<'target' | 'contribution'>('target')
-    const [targetAmount, setTargetAmount] = useState('10000')
-    const [monthlyAmount, setMonthlyAmount] = useState('250')
-    const [balance, setBalance] = useState(String(Math.round(defaultBalance)))
-    const [rate, setRate] = useState(String(Math.round(defaultRate * 100) / 100))
-    const [startDate, setStartDate] = useState(`${now}-01`)
-    const [targetDate, setTargetDate] = useState(`${addMonths(now, 12)}-01`)
-
-    const [snapshots, setSnapshots] = useState<SavingsTarget[]>([])
-    const [snapshotsLoading, setSnapshotsLoading] = useState(true)
-    const [snapshotName, setSnapshotName] = useState('')
-    const [snapshotNotes, setSnapshotNotes] = useState('')
-    const [saving, setSaving] = useState(false)
-    // Drag-to-reorder: the card being dragged and the card it's hovering over.
-    const [dragIndex, setDragIndex] = useState<number | null>(null)
-    const [overIndex, setOverIndex] = useState<number | null>(null)
-    // Plans picked for the combined long-term view.
-    const [selectedIds, setSelectedIds] = useState<string[]>([])
-
-    useEffect(() => {
-        let active = true
-        listSavingsTargets()
-            .then((t) => active && setSnapshots(t))
-            .finally(() => active && setSnapshotsLoading(false))
-        return () => {
-            active = false
-        }
-    }, [])
-
-    const parse = (s: string) => {
-        const n = parseFloat(s.replace(/,/g, ''))
-        return Number.isNaN(n) ? 0 : n
-    }
-
-    const plan = computeTargetPlan(
-        parse(balance),
-        parse(targetAmount),
-        parse(rate),
-        startDate.slice(0, 7),
-        targetDate.slice(0, 7),
-        now
-    )
-    const contribPlan = computeContributionPlan(
-        parse(balance),
-        parse(monthlyAmount),
-        parse(rate),
-        startDate.slice(0, 7),
-        targetDate.slice(0, 7),
-        now
-    )
-    const activeError = mode === 'target' ? plan.error : contribPlan.error
-
-    async function handleSave() {
-        const endLabel = monthLabelLong(targetDate.slice(0, 7))
-        const defaultName =
-            mode === 'target'
-                ? `£${parse(targetAmount).toLocaleString('en-GB')} by ${endLabel}`
-                : `£${parse(monthlyAmount).toLocaleString('en-GB')}/month until ${endLabel}`
-        setSaving(true)
-        try {
-            const created = await createSavingsTarget(
-                mode === 'target'
-                    ? {
-                          name: snapshotName.trim() || defaultName,
-                          notes: snapshotNotes.trim() || undefined,
-                          mode: 'target',
-                          targetAmount: parse(targetAmount),
-                          startingBalance: parse(balance),
-                          annualInterestRate: parse(rate),
-                          startMonth: plan.firstContribMonth,
-                          targetMonth: targetDate.slice(0, 7),
-                          savedMonth: now,
-                          onTrack: plan.onTrack,
-                          requiredMonthly: plan.requiredMonthly,
-                          contributionMonths: plan.contributionMonths,
-                          totalContributions: plan.totalContributions,
-                          interestEarned: plan.interestEarned,
-                          growthOnly: plan.growthOnly,
-                      }
-                    : {
-                          name: snapshotName.trim() || defaultName,
-                          notes: snapshotNotes.trim() || undefined,
-                          mode: 'contribution',
-                          // In contribution mode the projected pot is the "target".
-                          targetAmount: contribPlan.finalBalance,
-                          startingBalance: parse(balance),
-                          annualInterestRate: parse(rate),
-                          startMonth: contribPlan.firstContribMonth,
-                          targetMonth: targetDate.slice(0, 7),
-                          savedMonth: now,
-                          onTrack: false,
-                          requiredMonthly: parse(monthlyAmount),
-                          contributionMonths: contribPlan.contributionMonths,
-                          totalContributions: contribPlan.totalContributions,
-                          interestEarned: contribPlan.interestEarned,
-                          growthOnly: contribPlan.growthOnly,
-                      }
-            )
-            setSnapshots((prev) => [created, ...prev])
-            setSnapshotName('')
-            setSnapshotNotes('')
-            toast.show('Plan saved.', 'success')
-        } catch {
-            toast.error("Couldn't save that plan.")
-        } finally {
-            setSaving(false)
-        }
-    }
-
-    async function handleUpdate(
-        id: string,
-        fields: { name?: string; notes?: string | null; priority?: boolean }
-    ) {
-        try {
-            const updated = await updateSavingsTarget(id, fields)
-            setSnapshots((prev) => prev.map((t) => (t._id === id ? updated : t)))
-        } catch {
-            toast.error("Couldn't update that plan.")
-        }
-    }
-
-    // Move a plan to a new position (drag and drop), then persist the sequential
-    // order of every plan whose position changed.
-    async function handleReorder(from: number, to: number) {
-        if (from === to || from < 0 || to < 0 || from >= snapshots.length || to >= snapshots.length)
-            return
-        const reordered = [...snapshots]
-        const [moved] = reordered.splice(from, 1)
-        reordered.splice(to, 0, moved)
-        const withOrder = reordered.map((t, i) => ({ ...t, order: i }))
-        const prevById = new Map(snapshots.map((t) => [t._id, t.order]))
-        setSnapshots(withOrder)
-        const changed = withOrder.filter((t) => prevById.get(t._id) !== t.order)
-        await Promise.all(
-            changed.map((t) => updateSavingsTarget(t._id, { order: t.order }))
-        ).catch(() => listSavingsTargets().then(setSnapshots))
-    }
-
-    async function handleDelete(id: string) {
-        try {
-            await deleteSavingsTarget(id)
-            setSnapshots((prev) => prev.filter((t) => t._id !== id))
-            setSelectedIds((prev) => prev.filter((x) => x !== id))
-        } catch {
-            toast.error("Couldn't delete that plan.")
-        }
-    }
-
-    function toggleSelect(id: string) {
-        setSelectedIds((prev) =>
-            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-        )
-    }
-
-    // Keep the outlook's plan order (and colours) stable by following card order.
-    const selectedPlans = snapshots.filter((t) => selectedIds.includes(t._id))
-
-    return (
-        <section>
-            <div className="mb-8">
-                <h2 className="mb-3 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                    Saved plans
-                </h2>
-                {snapshotsLoading ? (
-                    <div className="grid place-items-center py-8">
-                        <Spinner />
                     </div>
-                ) : snapshots.length === 0 ? (
-                    <p className="text-sm text-neutral-500">
-                        No saved plans yet — create one below and hit “Save plan” to keep a
-                        snapshot of it.
-                    </p>
-                ) : (
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        {snapshots.map((t, i) => (
-                            <SavedTargetCard
-                                key={t._id}
-                                target={t}
-                                isDragging={dragIndex === i}
-                                isDragOver={
-                                    dragIndex !== null && overIndex === i && dragIndex !== i
-                                }
-                                selected={selectedIds.includes(t._id)}
-                                onToggleSelect={() => toggleSelect(t._id)}
-                                onUpdate={handleUpdate}
-                                onDelete={handleDelete}
-                                onDragStart={() => setDragIndex(i)}
-                                onDragOver={() => setOverIndex(i)}
-                                onDrop={() => {
-                                    if (dragIndex !== null) handleReorder(dragIndex, i)
-                                    setDragIndex(null)
-                                    setOverIndex(null)
-                                }}
-                                onDragEnd={() => {
-                                    setDragIndex(null)
-                                    setOverIndex(null)
-                                }}
-                            />
-                        ))}
-                    </div>
-                )}
 
-                {selectedPlans.length > 0 && <LongTermOutlook plans={selectedPlans} />}
-            </div>
-
-            <h2 className="mb-3 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                Create a savings plan
-            </h2>
-            <div className="border-t border-hairline pt-5 sm:pt-6">
-                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-                    <Tabs
-                        tabs={['Reach a target', 'Save a set amount']}
-                        value={mode === 'target' ? 'Reach a target' : 'Save a set amount'}
-                        onChange={(t) => setMode(t === 'Reach a target' ? 'target' : 'contribution')}
-                    />
-                    <p className="max-w-xs text-xs text-neutral-500">
-                        {mode === 'target'
-                            ? 'Work out the monthly amount needed to hit a target.'
-                            : 'Fix a monthly amount and see how much you end up with.'}
-                    </p>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                    {mode === 'target' ? (
-                        <SettingField
-                            label="Target amount"
-                            prefix="£"
-                            value={targetAmount}
-                            onChange={setTargetAmount}
-                            onCommit={(v) => setTargetAmount(String(v))}
-                        />
-                    ) : (
-                        <SettingField
-                            label="Monthly amount"
-                            prefix="£"
-                            value={monthlyAmount}
-                            onChange={setMonthlyAmount}
-                            onCommit={(v) => setMonthlyAmount(String(v))}
-                        />
-                    )}
-                    <SettingField
-                        label="Starting balance"
-                        prefix="£"
-                        value={balance}
-                        onChange={setBalance}
-                        onCommit={(v) => setBalance(String(v))}
-                    />
-                    <SettingField
-                        label="Annual interest rate"
-                        suffix="%"
-                        value={rate}
-                        onChange={setRate}
-                        onCommit={(v) => setRate(String(v))}
-                    />
-                    <MonthField
-                        label="Start saving from"
-                        value={startDate}
-                        minDate={`${now}-01`}
-                        maxDate={targetDate}
-                        onChange={setStartDate}
-                    />
-                    <MonthField
-                        label={mode === 'target' ? 'Reach target by' : 'Save until'}
-                        value={targetDate}
-                        minDate={startDate}
-                        onChange={setTargetDate}
-                    />
-                    <p className="self-end pb-1 text-xs text-neutral-500">
-                        Balance and rate are pre-filled from your savings accounts — adjust them
-                        freely; nothing here changes your sheet.
-                    </p>
-                </div>
-
-                <div className="mt-6">
-                    {activeError ? (
-                        <p className="text-sm text-neutral-500">{activeError}</p>
-                    ) : mode === 'contribution' ? (
-                        <div className="flex flex-col gap-4">
-                            <div className="rounded-xl bg-neutral-950 px-5 py-5 text-white">
-                                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                    You'll have saved
-                                </p>
-                                <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
-                                    £{fmt(contribPlan.finalBalance, 0)}
-                                </p>
-                                <p className="mt-1 text-xs text-neutral-500 tabular-nums">
-                                    by {monthLabelLong(targetDate.slice(0, 7))} · £
-                                    {fmt(parse(monthlyAmount))} / month ·{' '}
-                                    {contribPlan.contributionMonths}{' '}
-                                    {contribPlan.contributionMonths === 1 ? 'month' : 'months'} from{' '}
-                                    {monthLabelLong(contribPlan.firstContribMonth)}
-                                </p>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                                <div className="rounded-xl bg-neutral-50 px-4 py-3.5">
-                                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                        Total contributions
-                                    </p>
-                                    <p className="mt-1 text-base font-bold tabular-nums text-neutral-900">
-                                        £{fmt(contribPlan.totalContributions, 0)}
-                                    </p>
-                                </div>
-                                <div className="rounded-xl bg-neutral-50 px-4 py-3.5">
-                                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                        Interest earned
-                                    </p>
-                                    <p className="mt-1 text-base font-bold tabular-nums text-emerald-600">
-                                        +£{fmt(contribPlan.interestEarned, 0)}
-                                    </p>
-                                </div>
-                                <div className="rounded-xl bg-neutral-50 px-4 py-3.5">
-                                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                        Balance if you save nothing
-                                    </p>
-                                    <p className="mt-1 text-base font-bold tabular-nums text-neutral-900">
-                                        £{fmt(contribPlan.growthOnly, 0)}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    ) : plan.onTrack ? (
-                        <div className="rounded-xl bg-emerald-600 px-5 py-5 text-white">
-                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-emerald-200">
-                                Already on track
-                            </p>
-                            <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
-                                £0 / month
-                            </p>
-                            <p className="mt-1 text-xs text-emerald-100 tabular-nums">
-                                Interest alone takes your balance to £{fmt(plan.growthOnly, 0)} by{' '}
-                                {monthLabelLong(targetDate.slice(0, 7))} — £
-                                {fmt(plan.growthOnly - parse(targetAmount), 0)} over target.
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="flex flex-col gap-4">
-                            <div className="rounded-xl bg-neutral-950 px-5 py-5 text-white">
-                                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                    You need to save
-                                </p>
-                                <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
-                                    £{fmt(plan.requiredMonthly)} / month
-                                </p>
-                                <p className="mt-1 text-xs text-neutral-500 tabular-nums">
-                                    {plan.contributionMonths}{' '}
-                                    {plan.contributionMonths === 1 ? 'month' : 'months'} ·{' '}
-                                    {monthLabelLong(plan.firstContribMonth)} to{' '}
-                                    {monthLabelLong(targetDate.slice(0, 7))} · ≈ £
-                                    {fmt((plan.requiredMonthly * 12) / 52)} / week
-                                </p>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                                <div className="rounded-xl bg-neutral-50 px-4 py-3.5">
-                                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                        Total contributions
-                                    </p>
-                                    <p className="mt-1 text-base font-bold tabular-nums text-neutral-900">
-                                        £{fmt(plan.totalContributions, 0)}
-                                    </p>
-                                </div>
-                                <div className="rounded-xl bg-neutral-50 px-4 py-3.5">
-                                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                        Interest earned
-                                    </p>
-                                    <p className="mt-1 text-base font-bold tabular-nums text-emerald-600">
-                                        +£{fmt(plan.interestEarned, 0)}
-                                    </p>
-                                </div>
-                                <div className="rounded-xl bg-neutral-50 px-4 py-3.5">
-                                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                        Balance if you save nothing
-                                    </p>
-                                    <p className="mt-1 text-base font-bold tabular-nums text-neutral-900">
-                                        £{fmt(plan.growthOnly, 0)}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {!activeError && (
-                        <div className="mt-4 flex flex-col gap-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                                <input
-                                    value={snapshotName}
-                                    onChange={(e) => setSnapshotName(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && !saving) handleSave()
-                                    }}
-                                    placeholder="Name this plan (e.g. House deposit)"
-                                    className="min-w-0 flex-1 rounded-xl border border-neutral-200 hover:border-neutral-300 bg-white px-3 h-10.5 text-sm font-semibold text-neutral-900 outline-none transition-all placeholder:font-normal placeholder:text-neutral-500 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus:ring-4 focus:ring-neutral-950/5 focus-visible:outline-none"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={handleSave}
-                                    disabled={saving}
-                                    className="inline-flex items-center justify-center rounded-xl bg-neutral-900 px-5 h-10 text-sm font-medium text-white transition-all duration-150 hover:bg-neutral-800 disabled:opacity-50"
-                                >
-                                    {saving ? 'Saving…' : 'Save plan'}
-                                </button>
-                            </div>
-                            <textarea
-                                value={snapshotNotes}
-                                onChange={(e) => setSnapshotNotes(e.target.value)}
-                                rows={2}
-                                placeholder="Notes (optional) — why this target, what it's for…"
-                                className="w-full resize-none rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-700 outline-none transition-all placeholder:text-neutral-500 focus:border-neutral-950 focus:ring-4 focus:ring-neutral-950/5"
-                            />
+                    {perMonth.length > 1 && (
+                        <div>
+                            <p className={`mb-2 ${OVERLINE}`}>Month by month</p>
+                            <ul className="divide-y divide-neutral-100 border-t border-hairline">
+                                {perMonth.map(({ month, total }) => (
+                                    <li key={month} className="flex items-center justify-between gap-3 py-2.5">
+                                        <span className="text-sm text-neutral-600">
+                                            {new Date(month + '-02').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+                                        </span>
+                                        <span className={`text-sm font-medium ${total === 0 ? 'text-neutral-400' : 'text-neutral-900'}`}>
+                                            <Money v={total} />
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
                     )}
                 </div>
-            </div>
+            )}
         </section>
     )
 }
@@ -2253,17 +759,27 @@ export default function SavingsForecast() {
     // Milestone years to highlight (spread across horizon)
     const milestoneYears = HORIZONS.filter((y) => y <= horizon).slice(-4)
 
+    const finalRow = yearlyTable[yearlyTable.length - 1]
+    const totalInterest = yearlyTable.reduce((s, r) => s + r.interestEarned, 0)
+    const accountWord = savingsGroups.length === 1 ? 'account' : 'accounts'
+
     return (
-        <div className="max-w-4xl">
-            <header className="mb-8">
-                <h1 className="text-[34px] font-medium leading-[1.1] tracking-[-0.045em] text-neutral-950 sm:text-[44px]">
-                    Savings Forecast
-                </h1>
-                <p className="mt-2 max-w-2xl text-[18px] leading-[26px] tracking-[-0.01em] text-neutral-600">
-                    Project how your savings grow over time based on monthly contributions and
-                    interest.
-                </p>
-            </header>
+        <>
+            {/* Header — same compact title + status line as Monthly and Statement */}
+            <div className="mb-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+                <div className="min-w-0">
+                    <h1 className="truncate text-xl font-semibold tracking-tight text-neutral-950 sm:text-[22px]">
+                        Savings forecast
+                    </h1>
+                    <p className="truncate text-[13px] text-neutral-500">
+                        {loading
+                            ? 'Loading your savings…'
+                            : savingsGroups.length === 0
+                              ? 'No savings accounts yet'
+                              : `${savingsGroups.length} savings ${accountWord}${blendedRate > 0 ? ` · ${fmt(blendedRate, 2)}% blended rate` : ''}`}
+                    </p>
+                </div>
+            </div>
 
             {loading ? (
                 <div className="grid place-items-center py-16">
@@ -2276,192 +792,142 @@ export default function SavingsForecast() {
                     description="Add a group of type 'Savings' on the Monthly tab to start forecasting."
                 />
             ) : (
-                <div className="flex flex-col gap-8">
+                <>
                     <Tabs
                         tabs={['Projection', 'Savings to date', 'Target planner']}
                         value={view}
                         onChange={(t) => setView(t as typeof view)}
-                        className="self-start"
+                        className="mb-8"
                     />
 
                     {view === 'Savings to date' ? (
                         <LiveSavingsSection groups={groups} rows={rows} />
                     ) : view === 'Target planner' ? (
-                        <TargetPlannerSection
-                            defaultBalance={totalCurrentBalance}
+                        <TargetPlanner
+                            accounts={savingsGroups.map((g) => ({
+                                name: g.name,
+                                balance: g.currentBalance ?? 0,
+                                rate: g.annualInterestRate ?? 0,
+                            }))}
                             defaultRate={blendedRate}
+                            sheetMonthlyFor={(m) => savingsGroups.reduce((s, g) => s + contributionForMonth(g, m), 0)}
                         />
                     ) : (
                         <>
-                            {/* Headline: milestones + horizon control */}
-                            <section>
-                                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                                    <div>
-                                        <h2 className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                            Projected balance
-                                        </h2>
-                                        {blendedRate > 0 && (
-                                            <p className="mt-0.5 text-xs text-neutral-500">
-                                                at {fmt(blendedRate, 2)}% blended annual rate
-                                            </p>
-                                        )}
+                            {/* Hero — where your savings land, then how they get there */}
+                            <section className="mb-8 border-b border-hairline pb-8">
+                                <div className="grid gap-10 lg:grid-cols-[1fr_1.4fr] lg:items-end">
+                                    <div className="flex min-w-0 flex-col gap-6">
+                                        <BigFigure
+                                            label={`In ${horizon} ${horizon === 1 ? 'year' : 'years'}`}
+                                            value={<Money v={finalRow?.endBalance ?? totalCurrentBalance} />}
+                                            sub={
+                                                <>
+                                                    From <Money v={totalCurrentBalance} /> today, putting in{' '}
+                                                    <Money v={totalMonthly} /> a month
+                                                </>
+                                            }
+                                        />
+                                        <PillToggle
+                                            label="Forecast length"
+                                            options={HORIZONS.map((y) => ({ value: y, label: y === 1 ? '1 yr' : `${y} yrs` }))}
+                                            value={horizon}
+                                            onChange={setHorizon}
+                                        />
                                     </div>
-                                    <div className="flex flex-wrap gap-2">
-                                        {HORIZONS.map((y) => (
-                                            <button
-                                                key={y}
-                                                type="button"
-                                                onClick={() => setHorizon(y)}
-                                                className={[
-                                                    'rounded-full px-4 py-2 text-sm font-semibold tracking-tight transition-all duration-150 active:scale-[0.97]',
-                                                    horizon === y
-                                                        ? 'bg-neutral-950 text-white'
-                                                        : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200',
-                                                ].join(' ')}
-                                            >
-                                                {y}
-                                                {y === 1 ? ' yr' : ' yrs'}
-                                            </button>
+                                    <GrowthChart
+                                        startBalance={totalCurrentBalance}
+                                        rows={yearlyTable}
+                                        milestones={milestoneYears}
+                                    />
+                                </div>
+
+                                <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-4">
+                                    <Stat label="Saved today" value={<Money v={totalCurrentBalance} />} />
+                                    <Stat label="Each month" value={<Money v={totalMonthly} />} />
+                                    <Stat label="You put in" dot="bg-neutral-300" value={<Money v={totalContributions} />} />
+                                    <Stat label="Interest" dot="bg-emerald-400" tone="good" value={<Money v={totalInterest} sign />} />
+                                </div>
+                            </section>
+
+                            <div className="grid items-start gap-10 lg:grid-cols-[1.5fr_1fr]">
+                                {/* Year-by-year table */}
+                                <section className="min-w-0">
+                                    <h2 className={`mb-3 ${OVERLINE}`}>Year by year</h2>
+                                    {hasScheduleGaps && (
+                                        <p className="mb-3 flex items-start gap-2 text-xs text-neutral-500">
+                                            <i className="fa-solid fa-circle-info mt-0.5" aria-hidden="true" />
+                                            Skipped months, and months before a savings stream starts or
+                                            after it ends, add nothing — so yearly amounts follow your
+                                            real schedule.
+                                        </p>
+                                    )}
+                                    <div className="overflow-x-auto border-t border-hairline">
+                                        <table className="w-full min-w-[380px]">
+                                            <thead>
+                                                <tr className={`border-b border-neutral-100 ${OVERLINE}`}>
+                                                    <th className="py-3 pr-3 text-left font-medium">Year</th>
+                                                    <th className="px-3 py-3 text-right font-medium">Put in</th>
+                                                    <th className="px-3 py-3 text-right font-medium">Interest</th>
+                                                    <th className="py-3 pl-3 text-right font-medium">Balance</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-neutral-100">
+                                                {yearlyTable.map((row) => {
+                                                    const isMilestone = milestoneYears.includes(row.year as Horizon)
+                                                    const isOpen = openYear === row.year
+                                                    return (
+                                                        <tr
+                                                            key={row.year}
+                                                            onClick={() => setOpenYear(isOpen ? null : row.year)}
+                                                            className={[
+                                                                'cursor-pointer transition-colors hover:bg-neutral-50',
+                                                                isOpen ? 'bg-neutral-100' : '',
+                                                            ].join(' ')}
+                                                        >
+                                                            <td className="py-3 pr-3">
+                                                                <span className={`text-sm ${isMilestone ? 'font-semibold text-neutral-950' : 'text-neutral-700'}`}>
+                                                                    Year {row.year}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-3 py-3 text-right text-sm text-neutral-600">
+                                                                <Money v={row.contributions} />
+                                                            </td>
+                                                            <td className={`px-3 py-3 text-right text-sm ${row.interestEarned > 0 ? 'text-emerald-600' : 'text-neutral-500'}`}>
+                                                                <Money v={row.interestEarned} sign />
+                                                            </td>
+                                                            <td className={`py-3 pl-3 text-right text-sm ${isMilestone ? 'font-semibold text-neutral-950' : 'font-medium text-neutral-900'}`}>
+                                                                <Money v={row.endBalance} />
+                                                            </td>
+                                                        </tr>
+                                                    )
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <p className="mt-3 text-xs text-neutral-500">Tap a year to see it month by month.</p>
+                                </section>
+
+                                {/* Per-account balance & rate inputs */}
+                                <section className="min-w-0">
+                                    <h2 className={`mb-3 ${OVERLINE}`}>Accounts &amp; assumptions</h2>
+                                    <div className="flex flex-col gap-6">
+                                        {savingsGroups.map((group) => (
+                                            <GroupSettingsCard
+                                                key={group._id}
+                                                group={group}
+                                                monthlyContribution={monthlyContribution(group)}
+                                                activeDescription={groupActiveDescription(group)}
+                                                onUpdate={handleUpdateGroup}
+                                                onDelete={handleDeleteGroup}
+                                            />
                                         ))}
                                     </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-                                    {milestoneYears.map((y) => {
-                                        const row = yearlyTable[y - 1]
-                                        return row ? (
-                                            <MilestoneCard
-                                                key={y}
-                                                year={y}
-                                                balance={row.endBalance}
-                                                label={y === 1 ? '1 year' : `${y} years`}
-                                            />
-                                        ) : null
-                                    })}
-                                </div>
-                            </section>
-
-                            {/* Summary stats */}
-                            <section className="grid grid-cols-2 gap-4 border-t border-hairline pt-5 sm:pt-6 sm:grid-cols-3">
-                                <div>
-                                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                        Starting balance
-                                    </p>
-                                    <p className="mt-1 text-xl font-bold tabular-nums tracking-tight text-neutral-900">
-                                        £{fmt(totalCurrentBalance, 0)}
-                                    </p>
-                                </div>
-                                <div>
-                                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                        Total contributions
-                                    </p>
-                                    <p className="mt-1 text-xl font-bold tabular-nums tracking-tight text-neutral-900">
-                                        £{fmt(totalContributions, 0)}
-                                    </p>
-                                </div>
-                                <div>
-                                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                        Interest earned
-                                    </p>
-                                    <p className="mt-1 text-xl font-bold tabular-nums tracking-tight text-emerald-600">
-                                        £
-                                        {fmt(
-                                            yearlyTable.reduce((s, r) => s + r.interestEarned, 0),
-                                            0
-                                        )}
-                                    </p>
-                                </div>
-                            </section>
-
-                            {/* Per-group balance & rate inputs */}
-                            <section>
-                                <h2 className="mb-3 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                    Accounts &amp; assumptions
-                                </h2>
-                                <div className="grid gap-4 sm:grid-cols-2">
-                                    {savingsGroups.map((group) => (
-                                        <GroupSettingsCard
-                                            key={group._id}
-                                            group={group}
-                                            monthlyContribution={monthlyContribution(group)}
-                                            activeDescription={groupActiveDescription(group)}
-                                            onUpdate={handleUpdateGroup}
-                                            onDelete={handleDeleteGroup}
-                                        />
-                                    ))}
-                                </div>
-                            </section>
-
-                            {/* Year-by-year table */}
-                            <section>
-                                <h2 className="mb-3 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                    Year by year
-                                </h2>
-                                {hasScheduleGaps && (
-                                    <p className="mb-3 flex items-center gap-2 text-xs text-neutral-500">
-                                        <i className="fa-solid fa-circle-info" aria-hidden="true" />
-                                        Months you've skipped or where a savings stream hasn't
-                                        started (or has ended) contribute nothing — yearly
-                                        contributions reflect your actual schedule, not a flat
-                                        monthly amount.
-                                    </p>
-                                )}
-                                <div className="overflow-x-auto border-t border-hairline">
-                                    <table className="w-full min-w-[380px]">
-                                        <thead>
-                                            <tr className="border-b border-neutral-100 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                                <th className="py-3 pl-5 pr-3 text-left">Year</th>
-                                                <th className="py-3 px-3 text-right">
-                                                    Contributions
-                                                </th>
-                                                <th className="py-3 px-3 text-right">Interest</th>
-                                                <th className="py-3 pl-3 pr-5 text-right">
-                                                    Balance
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-neutral-100">
-                                            {yearlyTable.map((row) => {
-                                                const isMilestone = milestoneYears.includes(row.year as Horizon)
-                                                const isOpen = openYear === row.year
-                                                return (
-                                                    <tr
-                                                        key={row.year}
-                                                        onClick={() => setOpenYear(isOpen ? null : row.year)}
-                                                        className={[
-                                                            'cursor-pointer transition-colors hover:bg-neutral-50',
-                                                            isMilestone ? 'bg-neutral-50 hover:bg-neutral-100' : '',
-                                                            isOpen ? 'bg-neutral-100' : '',
-                                                        ].join(' ')}
-                                                    >
-                                                        <td className="py-3 pl-5 pr-3">
-                                                            <span className="text-sm font-semibold text-neutral-900">
-                                                                Year {row.year}
-                                                            </span>
-                                                            {isMilestone && (
-                                                                <span className="ml-2 rounded-full bg-neutral-200 px-1.5 py-0.5 text-[11px] font-bold text-neutral-600">
-                                                                    milestone
-                                                                </span>
-                                                            )}
-                                                        </td>
-                                                        <td className="py-3 px-3 text-right text-sm text-neutral-600">
-                                                            £{fmt(row.contributions, 0)}
-                                                        </td>
-                                                        <td className={`py-3 px-3 text-right text-sm ${row.interestEarned > 0 ? 'text-emerald-600' : 'text-neutral-500'}`}>
-                                                            {row.interestEarned > 0 ? '+' : ''}£{fmt(row.interestEarned, 0)}
-                                                        </td>
-                                                        <td className="py-3 pl-3 pr-5 text-right text-sm font-bold text-neutral-900">
-                                                            £{fmt(row.endBalance, 0)}
-                                                        </td>
-                                                    </tr>
-                                                )
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </section>
+                                </section>
+                            </div>
                         </>
                     )}
-                </div>
+                </>
             )}
 
             {openYear !== null && (() => {
@@ -2476,6 +942,6 @@ export default function SavingsForecast() {
                     />
                 )
             })()}
-        </div>
+        </>
     )
 }

@@ -349,8 +349,7 @@ export default function PlanLibrary({ onApplied }: { onApplied?: (firstDate: str
                         {(confirming?.appliedEntries ?? 0) > 0 && (
                             <label className="mt-4 flex cursor-pointer items-start gap-2.5 text-sm text-neutral-700">
                                 <input
-                                    type="checkbox"
-                                    className="mt-0.5"
+                                    type="checkbox" className="checkbox"
                                     checked={keepCompleted}
                                     onChange={(e) => setKeepCompleted(e.target.checked)}
                                 />
@@ -366,8 +365,7 @@ export default function PlanLibrary({ onApplied }: { onApplied?: (firstDate: str
                         {confirming && confirming.items.some((i) => i.created) && (
                             <label className="mt-4 flex cursor-pointer items-start gap-2.5 text-sm text-neutral-700">
                                 <input
-                                    type="checkbox"
-                                    className="mt-0.5"
+                                    type="checkbox" className="checkbox"
                                     checked={removeLibrary}
                                     onChange={(e) => setRemoveLibrary(e.target.checked)}
                                 />

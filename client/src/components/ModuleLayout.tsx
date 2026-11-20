@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useMediaQuery } from './planner/WeekPlannerUI'
+import { SectionRail, SectionTabs, type Section } from './SectionNav'
 
 /**
  * A module's page: the content across the full width, and a right-hand column
@@ -28,37 +29,56 @@ export function useModuleAside(): boolean {
     return useContext(SlotContext) !== null
 }
 
+/** From here up the sections sit down the left; below, they're a row of tabs. */
+const RAIL = '(min-width: 1100px)'
+
 export default function ModuleLayout({
     aside,
     asideLabel = 'Details',
+    sections,
+    sectionsLabel = 'Sections',
+    foldSections = false,
     children,
 }: {
     /** The column's own content, when the page has it to hand (Today's context). */
     aside?: ReactNode
     asideLabel?: string
+    /** The module's sections, shown down the left (or as tabs on narrow screens). */
+    sections?: Section[]
+    sectionsLabel?: string
+    /** Fold the side menu to its icon strip, for wide pages like the planners. */
+    foldSections?: boolean
     children: ReactNode
 }) {
     const wide = useMediaQuery(WIDE)
+    const rail = useMediaQuery(RAIL)
+    const hasSections = !!sections && sections.length > 1
     const [slot, setSlot] = useState<HTMLElement | null>(null)
 
     return (
         <SlotContext.Provider value={wide ? slot : null}>
-            <div className="flex min-h-screen">
+            {hasSections && !rail && <SectionTabs label={sectionsLabel} sections={sections} />}
+            <div className="flex min-h-[calc(100vh-72px)]">
+                {hasSections && rail && <SectionRail label={sectionsLabel} sections={sections} folded={foldSections} />}
                 <div className="min-w-0 flex-1">
                     {children}
                     {!wide && aside && (
-                        <aside aria-label={asideLabel} className="border-t border-hairline px-5 py-8 sm:px-8">
+                        <aside aria-label={asideLabel} className="bg-surface-muted px-5 py-10 sm:px-8">
                             {aside}
                         </aside>
                     )}
                 </div>
                 {wide && (
                     <aside
-                        ref={setSlot}
                         aria-label={asideLabel}
-                        className="sticky top-0 flex h-screen w-[460px] shrink-0 flex-col gap-8 overflow-y-auto border-l border-hairline px-7 py-8 empty:hidden 2xl:w-[520px]"
+                        className="w-[400px] shrink-0 bg-surface-muted has-[>div:empty]:hidden 2xl:w-[440px]"
                     >
-                        {aside}
+                        <div
+                            ref={setSlot}
+                            className="sticky top-18 flex max-h-[calc(100vh-72px)] flex-col gap-10 overflow-y-auto px-8 pb-16 pt-10 empty:hidden"
+                        >
+                            {aside}
+                        </div>
                     </aside>
                 )}
             </div>

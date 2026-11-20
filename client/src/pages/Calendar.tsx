@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useState, useCallback, useRef } from 'react'
+import Input from '../components/Input'
 import { useSearchParams } from 'react-router-dom'
 import {
     MONTHS,
@@ -36,9 +37,7 @@ import { useCalendarFilters } from '../components/useCalendarFilters'
 import { DAY_STATUS_OPTIONS } from '../types'
 import type { Event, Part, DayStatus, TotalRow, Reminder, MonthNote, Birthday } from '../types'
 import type { CalendarRow } from '../lib/calendarFilters'
-import Container from '../components/Container'
 import ConfirmModal from '../components/ConfirmModal'
-import Tabs from '../components/Tabs'
 import EventDetailModal from '../components/calendar/EventDetailModal'
 import EventEditor from '../components/calendar/EventEditor'
 import EventStack from '../components/calendar/EventStack'
@@ -52,7 +51,7 @@ import EditRecurringEventDialog, {
 import MonthView from '../components/calendar/MonthView'
 import MonthFlags from '../components/calendar/MonthFlags'
 import MonthNoteEditor from '../components/calendar/MonthNoteEditor'
-import { HeroShell, HeroButton, HeroIconButton } from '../components/planner/WeekPlannerUI'
+import { ArrowButton, BarButton, Eyebrow } from '../components/Blok'
 import CalendarFilterBar from '../components/calendar/CalendarFilterBar'
 import HiddenCalendarDots from '../components/calendar/HiddenCalendarDots'
 import Drawer from '../components/Drawer'
@@ -61,6 +60,7 @@ import DayStatusSection from '../components/calendar/DayStatusSection'
 import BirthdaysDaySection from '../components/calendar/BirthdaysDaySection'
 import DayMarkers from '../components/calendar/DayMarkers'
 import RemindersDaySection from '../components/reminders/RemindersDaySection'
+import { MonthSkeleton, YearSkeleton } from '../components/calendar/CalendarSkeleton'
 
 type CalendarView = 'Month' | 'Year'
 const VIEWS: CalendarView[] = ['Year', 'Month']
@@ -172,7 +172,17 @@ export default function Calendar() {
     // Totals are a Year-view-only feature gated behind a user setting.
     const totalsOn = !!user?.settings?.showTotals && view === 'Year'
 
+    // The range whose data is on screen. Until the current range's first fetch
+    // lands we show a skeleton; later reloads of the same range (after an edit)
+    // keep the grid up instead of flashing it.
+    const rangeKey = `${from}|${to}`
+    const [loadedKey, setLoadedKey] = useState<string | null>(null)
+    const latestKey = useRef(rangeKey)
+    latestKey.current = rangeKey
+    const loading = loadedKey !== rangeKey
+
     const reload = useCallback(() => {
+        const key = `${from}|${to}`
         Promise.all([
             listEvents(from, to),
             listStatuses(from, to),
@@ -181,13 +191,18 @@ export default function Calendar() {
             listMonthNotes(monthKeyOf(from), monthKeyOf(to)),
         ])
             .then(([evts, sts, bdays, rems, notes]) => {
+                // A quicker click on to another month/year wins; drop stale replies.
+                if (latestKey.current !== key) return
                 setEvents(evts as Event[])
                 setStatuses(sts)
                 setBirthdays(bdays)
                 setReminders(rems)
                 setMonthNotes(notes)
+                setLoadedKey(key)
             })
             .catch(() => {
+                if (latestKey.current !== key) return
+                setLoadedKey(key)
                 setEvents([])
                 setStatuses([])
                 setBirthdays([])
@@ -639,78 +654,74 @@ export default function Calendar() {
     const visibleMonths = MONTHS.map((_, m) => m).filter((m) => m >= firstMonth)
 
     const inRange = visibleEvents.filter((e) => e.startDate <= to && e.endDate >= from).length
-    const eventCountLabel = inRange === 0 ? 'Nothing planned' : `${inRange} ${inRange === 1 ? 'event' : 'events'}`
+    const eventCountLabel = loading ? 'Loading…' : inRange === 0 ? 'Nothing planned' : `${inRange} ${inRange === 1 ? 'event' : 'events'}`
 
-    const arrows = (
-        <div className="flex shrink-0 items-center gap-2 sm:gap-1">
-            <HeroIconButton
-                label={`Previous ${view.toLowerCase()}`}
-                icon="fa-solid fa-chevron-left"
-                onClick={() => setFocusDate((d) => navigate(view, d, -1))}
-            />
-            <HeroIconButton
-                label={`Next ${view.toLowerCase()}`}
-                icon="fa-solid fa-chevron-right"
-                onClick={() => setFocusDate((d) => navigate(view, d, 1))}
-            />
-        </div>
-    )
+    const eyebrow = [
+        title,
+        eventCountLabel + (view === 'Year' && !showPastMonths && firstMonth > 0 && firstMonth < 12 ? ` from ${MONTHS[firstMonth]}` : ''),
+        view === 'Year' && !showPastMonths && firstMonth > 0 ? 'Past months hidden' : null,
+    ]
+        .filter(Boolean)
+        .join(' · ')
 
     return (
-        <main className="min-h-screen bg-neutral-50">
-            {/* Header — the planners' soft hero: where you are, how to move, and the view. */}
-            <Container fluid className="pt-5 sm:pt-6">
-                <HeroShell tone="soft">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-3">
-                        <div className="flex min-w-0 flex-1 items-center gap-3">
-                            <div className="hidden sm:block">{arrows}</div>
-                            <div className="min-w-0 flex-1">
-                                <h1 className="truncate text-xl font-semibold tracking-tight sm:text-[22px]">
-                                    {relativeLabel(view, focusDate)}
-                                </h1>
-                                <p className="mt-0.5 truncate text-[13px] text-neutral-500">
-                                    {[title, eventCountLabel].join(' · ')}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-2">
-                            <div className="sm:hidden">{arrows}</div>
-                            {!isToday && (
-                                <HeroButton icon="fa-solid fa-calendar-day" onClick={() => setFocusDate(todayKey())}>
-                                    Today
-                                </HeroButton>
-                            )}
-                            {view === 'Year' && (
-                                <HeroButton
-                                    icon={showPastMonths ? 'fa-solid fa-eye-slash' : 'fa-solid fa-clock-rotate-left'}
-                                    onClick={() => setShowPastMonths((v) => !v)}
-                                    iconOnlyOnPhone
-                                >
-                                    {showPastMonths ? 'Hide past months' : 'Past months'}
-                                </HeroButton>
-                            )}
-                            <CalendarFilterBar onChanged={reload} />
-                            <HeroIconButton
-                                icon="fa-solid fa-file-export"
-                                label="Export calendar"
-                                onClick={() => setExportOpen(true)}
-                            />
-                            <Tabs
-                                tabs={VIEWS}
-                                value={view}
-                                onChange={(v) => setView(v as CalendarView)}
-                                className="ml-auto lg:ml-0"
-                            />
+        <main className="min-h-screen bg-white">
+            {/* Header: where you are, how to move, and the view. */}
+            <div className="flex flex-wrap items-end gap-x-8 gap-y-4 border-b border-hairline px-5 pb-7 pt-8 sm:px-10">
+                <div className="min-w-0">
+                    <Eyebrow>{eyebrow}</Eyebrow>
+                    <div className="mt-2 flex items-center gap-5">
+                        <h1 className="text-[36px] font-normal leading-[1.1] tracking-[-0.03em] sm:text-[48px]">
+                            {relativeLabel(view, focusDate)}
+                        </h1>
+                        <div className="flex shrink-0 gap-1.5">
+                            <ArrowButton dir="prev" label={`Previous ${view.toLowerCase()}`} onClick={() => setFocusDate((d) => navigate(view, d, -1))} />
+                            <ArrowButton dir="next" label={`Next ${view.toLowerCase()}`} onClick={() => setFocusDate((d) => navigate(view, d, 1))} />
                         </div>
                     </div>
+                </div>
+                <div className="ml-auto flex flex-wrap items-center gap-2">
+                    {!isToday && (
+                        <BarButton onClick={() => setFocusDate(todayKey())} className="!border-neutral-300">
+                            Today
+                        </BarButton>
+                    )}
+                    {view === 'Year' && (
+                        <BarButton onClick={() => setShowPastMonths((v) => !v)} className="!border-neutral-300">
+                            {showPastMonths ? 'Hide past months' : 'Past months'}
+                        </BarButton>
+                    )}
+                    <CalendarFilterBar onChanged={reload} />
+                    <button
+                        type="button"
+                        aria-label="Export calendar"
+                        onClick={() => setExportOpen(true)}
+                        className="grid h-11 w-11 lg:h-10 lg:w-10 place-items-center border border-neutral-300 hover:border-neutral-900"
+                    >
+                        <i className="fa-solid fa-download text-[13px]" aria-hidden="true" />
+                    </button>
+                    <div role="group" aria-label="View" className="inline-flex border border-neutral-900">
+                        {VIEWS.map((v) => (
+                            <button
+                                key={v}
+                                type="button"
+                                aria-pressed={view === v}
+                                onClick={() => setView(v)}
+                                className={`h-11 px-4 text-[11px] font-medium uppercase tracking-[0.12em] lg:h-10 ${
+                                    view === v ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-900'
+                                }`}
+                            >
+                                {v}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
 
-                </HeroShell>
-            </Container>
-
-            {/* Views */}
-            <Container fluid className="py-4 sm:py-6">
-                {view === 'Month' && (
+            {/* Views: each month on its own white panel, on a pale grey page, so months read apart. */}
+            <div className="bg-[#f7f7f7] px-5 pb-20 pt-2 sm:px-10">
+                {view === 'Month' && loading && <MonthSkeleton />}
+                {view === 'Month' && !loading && (
                     <div className="flex flex-col gap-3">
                         <MonthFlags
                             month={monthKeyOf(focusDate)}
@@ -722,8 +733,11 @@ export default function Calendar() {
                     </div>
                 )}
 
-                {view === 'Year' && (
-                    <div className="flex flex-col gap-6">
+                {view === 'Year' && loading && visibleMonths.length > 0 && (
+                    <YearSkeleton months={visibleMonths.length} />
+                )}
+                {view === 'Year' && (!loading || visibleMonths.length === 0) && (
+                    <div className="flex flex-col gap-6 pt-6">
                         {visibleMonths.length === 0 ? (
                             <div className="rounded-xl border border-dashed border-neutral-200 bg-white p-10 text-center">
                                 <p className="text-sm text-neutral-500">
@@ -781,7 +795,7 @@ export default function Calendar() {
                         )}
                     </div>
                 )}
-            </Container>
+            </div>
 
             <MonthNoteEditor
                 open={!!noteEdit}
@@ -1041,6 +1055,9 @@ interface MonthBlockProps {
     canPaste: boolean
 }
 
+// Today's column: one grey line down its right edge, through every row.
+const TODAY_COL_LINE = 'shadow-[inset_-1px_0_0_#a3a3a3]'
+
 function MonthBlock({
     year,
     month,
@@ -1084,6 +1101,8 @@ function MonthBlock({
     const dayNums = Array.from({ length: total }, (_, i) => i + 1)
     const isCurrentMonth = year === today.getFullYear() && month === today.getMonth()
     const isToday = (day: number) => isCurrentMonth && day === today.getDate()
+    // The part of today we're in: outlined in the grid so "now" reads at a glance.
+    const nowPart = PERIODS.find((p) => !isPartPast(tk, p.key, today))?.key ?? null
 
     // On load, centre today's column when the grid overflows (e.g. on mobile),
     // so the user lands on the current date instead of having to swipe across.
@@ -1102,12 +1121,15 @@ function MonthBlock({
     }, [isCurrentMonth])
 
     const colSpan = totalsOn ? dayNums.length + 2 : dayNums.length + 1
+    const monthStart = dateKey(year, month, 1)
+    const monthEnd = dateKey(year, month, total)
+    const monthEventCount = events.filter((e) => e.startDate >= monthStart && e.startDate <= monthEnd).length
 
     return (
-        <section className="overflow-hidden rounded-xl border border-hairline bg-white">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 px-4 py-3">
-                <h2 className="text-base font-bold tracking-tight text-neutral-950">
-                    {MONTHS[month]} <span className="font-semibold text-neutral-500">{year}</span>
+        <section className="bg-white px-5 pb-7 pt-7 sm:px-8 sm:pb-8 sm:pt-8">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+                <h2 className="text-[28px] font-normal leading-[1.1] tracking-[-0.025em] sm:text-[32px]">
+                    {MONTHS[month]} <span className="text-neutral-600">{year}</span>
                 </h2>
                 <MonthFlags
                     month={monthKey(year, month)}
@@ -1115,15 +1137,18 @@ function MonthBlock({
                     onEdit={onEditMonthNote}
                     onAdd={onAddMonthNote}
                 />
+                <span className="ml-auto text-[13px] text-neutral-600">
+                    {monthEventCount} event{monthEventCount === 1 ? '' : 's'}
+                </span>
             </div>
-            <div ref={scrollRef} className="overflow-x-auto">
+            <div ref={scrollRef} className="mt-6 overflow-x-auto">
                 <table
-                    className={`w-full min-w-[64rem] table-fixed border-collapse ${dragging ? 'select-none' : ''}`}
+                    className={`w-full min-w-[60rem] table-fixed border-collapse ${dragging ? 'select-none' : ''}`}
                 >
                     <thead>
-                        <tr className="border-b border-neutral-200">
-                            <th className="sticky left-0 z-10 w-28 bg-white px-3 py-3 text-left text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                Period
+                        <tr className="border-b border-hairline">
+                            <th className="sticky left-0 z-10 w-[104px] bg-white pb-3 pr-3 pt-2.5 text-left align-bottom text-[11px] font-medium uppercase tracking-[0.12em] text-neutral-600">
+                                Part
                             </th>
                             {dayNums.map((day) => {
                                 const weekday = new Date(year, month, day).getDay()
@@ -1136,35 +1161,22 @@ function MonthBlock({
                                         key={day}
                                         ref={todayCol ? todayRef : undefined}
                                         className={[
-                                            'group/day w-12 px-1 py-3 text-center',
-                                            weekend ? 'bg-neutral-100' : '',
-                                            todayCol ? 'border-r border-neutral-400' : '',
+                                            'group/day px-0 pb-2.5 pt-2 text-center font-normal',
+                                            weekend && !todayCol ? 'bg-neutral-50' : '',
                                         ].join(' ')}
                                     >
-                                        <div className="flex flex-col items-center gap-1">
+                                        <div className="flex flex-col items-center gap-0.5">
                                             <button
                                                 type="button"
                                                 onClick={() => onOpenDay(key)}
-                                                className={[
-                                                    'flex h-9 w-9 flex-col items-center justify-center rounded-lg transition-colors',
-                                                    todayCol
-                                                        ? 'bg-neutral-950 text-white hover:bg-neutral-800'
-                                                        : 'text-neutral-700 hover:bg-neutral-100',
-                                                ].join(' ')}
+                                                className="flex flex-col items-center gap-0.5"
                                             >
-                                                <span className="text-sm font-semibold leading-none tabular-nums">
-                                                    {day}
-                                                </span>
                                                 <span
-                                                    className={[
-                                                        'mt-0.5 text-[11px] leading-none',
-                                                        todayCol
-                                                            ? 'text-white/70'
-                                                            : 'text-neutral-500',
-                                                    ].join(' ')}
+                                                    className={`text-[10px] font-medium tracking-[0.08em] ${todayCol ? 'text-neutral-900' : 'text-neutral-500'}`}
                                                 >
                                                     {WEEKDAYS[weekday]}
                                                 </span>
+                                                <span className={`grid h-7 w-7 place-items-center text-[14px] font-medium leading-none ${todayCol ? 'rounded-full bg-neutral-900 text-white' : key < tk ? 'text-neutral-400' : 'text-neutral-800'}`}>{day}</span>
                                             </button>
                                             <DayMarkers
                                                 reminders={dayReminders}
@@ -1182,7 +1194,7 @@ function MonthBlock({
                                 )
                             })}
                             {totalsOn && (
-                                <th className="w-16 bg-neutral-50 px-2 py-3 text-center text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
+                                <th className="w-16 bg-neutral-50 px-2 py-3 text-center text-[11px] font-medium uppercase tracking-[0.12em] text-neutral-600">
                                     Total
                                 </th>
                             )}
@@ -1190,18 +1202,15 @@ function MonthBlock({
                     </thead>
                     <tbody>
                         {PERIODS.map((period) => (
-                            <tr key={period.key} className="border-b border-neutral-100">
+                            <tr
+                                key={period.key}
+                                className="border-b border-[#e4e4e4]"
+                            >
                                 <th
                                     scope="row"
-                                    className="sticky left-0 z-10 bg-white px-3 py-3 text-left align-middle"
+                                    className="sticky left-0 z-10 whitespace-nowrap bg-white pr-3 text-left align-middle text-[13px] font-medium text-neutral-900"
                                 >
-                                    <span className="flex items-center gap-2 text-sm font-medium text-neutral-700">
-                                        <i
-                                            className={`${period.icon} w-4 text-center text-neutral-500`}
-                                            aria-hidden="true"
-                                        />
-                                        {period.label}
-                                    </span>
+                                    {period.label}
                                 </th>
                                 {dayNums.map((day) => {
                                     const weekday = new Date(year, month, day).getDay()
@@ -1215,19 +1224,19 @@ function MonthBlock({
                                         <td
                                             key={day}
                                             className={[
-                                                'h-16 p-1 align-top',
-                                                isToday(day)
-                                                    ? 'border-r border-neutral-400'
-                                                    : 'border-l border-neutral-100',
-                                                past
-                                                    ? 'bg-neutral-300/60'
-                                                    : weekend
-                                                      ? 'bg-neutral-100/60'
-                                                      : '',
+                                                'border-l border-[#e4e4e4] p-0 align-top',
+                                                past ? 'bg-[#f0f0f0]' : isToday(day) ? 'bg-white' : weekend ? 'bg-neutral-50' : '',
+                                                isToday(day) ? TODAY_COL_LINE : '',
                                             ].join(' ')}
                                         >
+                                            <div
+                                                className="h-14 p-1"
+                                                title={isToday(day) && nowPart === period.key ? 'Now' : undefined}
+                                            >
                                             <EventStack
                                                 compact
+                                                date={key}
+                                                part={period.key}
                                                 events={slotEvents}
                                                 past={past}
                                                 onEventClick={onEventClick}
@@ -1238,6 +1247,7 @@ function MonthBlock({
                                                 onPaste={() => onPasteEvent(key, period.key)}
                                                 canPaste={canPaste}
                                             />
+                                            </div>
                                         </td>
                                     )
                                 })}
@@ -1249,18 +1259,12 @@ function MonthBlock({
 
                         {/* Other row */}
                         {!hiddenRows.has('other') && (
-                            <tr className="border-t border-neutral-200">
+                            <tr className="border-b border-[#e4e4e4]">
                                 <th
                                     scope="row"
-                                    className="sticky left-0 z-10 bg-white px-3 py-3 text-left align-middle"
+                                    className="sticky left-0 z-10 whitespace-nowrap bg-white pr-3 text-left align-middle text-[13px] font-medium text-neutral-900"
                                 >
-                                    <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
-                                        <i
-                                            className="fa-solid fa-ellipsis w-4 text-center text-neutral-500"
-                                            aria-hidden="true"
-                                        />
-                                        Other
-                                    </span>
+                                    Other
                                 </th>
                                 {dayNums.map((day) => {
                                     const weekday = new Date(year, month, day).getDay()
@@ -1277,15 +1281,16 @@ function MonthBlock({
                                         <td
                                             key={day}
                                             className={[
-                                                'h-16 p-1 align-top',
-                                                isToday(day)
-                                                    ? 'border-r border-neutral-400'
-                                                    : 'border-l border-neutral-100',
-                                                weekend ? 'bg-neutral-100/60' : '',
+                                                'border-l border-[#e4e4e4] p-0 align-top',
+                                                otherPast ? 'bg-[#f0f0f0]' : weekend ? 'bg-neutral-50' : '',
+                                                isToday(day) ? TODAY_COL_LINE : '',
                                             ].join(' ')}
                                         >
+                                            <div className="h-14 p-1">
                                             <EventStack
                                                 compact
+                                                date={key}
+                                                part="na"
                                                 events={slotEvents}
                                                 past={otherPast}
                                                 onEventClick={onEventClick}
@@ -1296,6 +1301,7 @@ function MonthBlock({
                                                 onPaste={() => onPasteEvent(key, 'na')}
                                                 canPaste={canPaste}
                                             />
+                                            </div>
                                         </td>
                                     )
                                 })}
@@ -1307,18 +1313,12 @@ function MonthBlock({
 
                         {/* Leave row */}
                         {!hiddenRows.has('leave') && (
-                            <tr className="border-t border-neutral-200">
+                            <tr className="border-b border-[#e4e4e4]">
                                 <th
                                     scope="row"
-                                    className="sticky left-0 z-10 bg-white px-3 py-3 text-left align-middle"
+                                    className="sticky left-0 z-10 whitespace-nowrap bg-white pr-3 text-left align-middle text-[13px] font-medium text-neutral-900"
                                 >
-                                    <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
-                                        <i
-                                            className="fa-solid fa-umbrella-beach w-4 text-center text-neutral-500"
-                                            aria-hidden="true"
-                                        />
-                                        Leave
-                                    </span>
+                                    Leave
                                 </th>
                                 {dayNums.map((day) => {
                                     const weekday = new Date(year, month, day).getDay()
@@ -1335,23 +1335,25 @@ function MonthBlock({
                                         <td
                                             key={day}
                                             className={[
-                                                'h-16 p-1 align-top',
-                                                isToday(day)
-                                                    ? 'border-r border-neutral-400'
-                                                    : 'border-l border-neutral-100',
-                                                weekend ? 'bg-neutral-100/60' : '',
+                                                'border-l border-[#e4e4e4] p-0 align-top',
+                                                key < tk ? 'bg-[#f0f0f0]' : weekend ? 'bg-neutral-50' : '',
+                                                isToday(day) ? TODAY_COL_LINE : '',
                                             ].join(' ')}
                                         >
+                                            <div className="h-14 p-1">
                                             {status && colors ? (
                                                 <button
                                                     type="button"
                                                     onClick={() => onLeaveClick(key)}
                                                     title={colors.label}
-                                                    className={`flex h-full w-full items-center overflow-hidden rounded-lg px-1.5 text-left transition-colors ${colors.bg} ${colors.hover} ${colors.text}`}
+                                                    aria-label={colors.label}
+                                                    className={`flex h-full w-full items-center overflow-hidden px-1.5 text-left transition ${colors.bg} ${colors.hover} ${colors.text}`}
                                                 >
-                                                    <span className="truncate text-[11px] font-semibold leading-tight">
-                                                        {colors.label}
-                                                    </span>
+                                                    {(key === status.startDate || day === 1) && (
+                                                        <span className="line-clamp-2 text-[11px] font-medium leading-[1.15]">
+                                                            {colors.label.replace(/^Annual Leave \((\w+)\)$/, (_, s: string) => `Leave, ${s.toLowerCase()}`)}
+                                                        </span>
+                                                    )}
                                                 </button>
                                             ) : (
                                                 <button
@@ -1362,6 +1364,7 @@ function MonthBlock({
                                                     <i className="fa-solid fa-plus text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100" />
                                                 </button>
                                             )}
+                                            </div>
                                         </td>
                                     )
                                 })}
@@ -1505,7 +1508,7 @@ function TotalRowCells({
                 className="sticky left-0 z-10 bg-white px-3 py-2 text-left align-middle"
             >
                 {editing ? (
-                    <input
+                    <Input
                         autoFocus
                         value={name}
                         onChange={(e) => setName(e.target.value)}
@@ -1517,7 +1520,7 @@ function TotalRowCells({
                                 setEditing(false)
                             }
                         }}
-                        className="w-full rounded-[10px] border border-neutral-200 hover:border-neutral-300 px-2 h-10 text-sm outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
+                        wrapperClassName="w-full"
                     />
                 ) : (
                     <div className="group flex items-center gap-1.5">
@@ -1680,7 +1683,7 @@ function TotalCell({
                     setEditing(false)
                 }
             }}
-            className="h-14 w-full rounded-[10px] border border-neutral-400 bg-white px-1 text-center text-xs tabular-nums text-neutral-800 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
+            className="h-14 w-full border border-neutral-400 bg-white px-1 text-center text-xs tabular-nums text-neutral-800 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus:border-neutral-900 focus:shadow-[inset_0_0_0_1px_#111111] focus-visible:outline-none"
         />
     )
 }

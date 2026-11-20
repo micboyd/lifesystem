@@ -1,4 +1,6 @@
 import { useMemo, useState, type DragEvent } from 'react'
+import Select from '../Select'
+import Input from '../Input'
 
 /** One thing in a planner's library: a workout, a session, a meal. */
 export interface LibraryEntry<K extends string = string> {
@@ -69,34 +71,36 @@ export default function PlannerLibrary<K extends string, P extends string>({
         )
     }, [items, query, filter])
 
+    const partLabel = parts.find((p) => p.value === part)?.label ?? ''
     return (
-        <aside aria-label={title} className={`flex min-h-0 flex-col gap-3.5 ${className}`}>
-            <div className="flex items-baseline justify-between gap-3">
-                <h2 className="text-[15px] font-semibold text-neutral-900">{title}</h2>
-                <span className="text-[12px] text-neutral-500">Drag onto a day</span>
-            </div>
+        <aside aria-label={title} className={`flex min-h-0 flex-col ${className}`}>
+            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-neutral-600">Library</p>
+            <h2 className="mt-3 text-[26px] font-normal leading-[1.15] tracking-[-0.02em]">{title}</h2>
 
-            <label className="flex h-9 items-center gap-2 rounded-lg border border-hairline bg-white px-2.5 text-[13px] text-neutral-500 focus-within:border-neutral-900">
-                <i className="fa-solid fa-magnifying-glass text-[12px]" aria-hidden="true" />
-                <span className="sr-only">Search {title.toLowerCase()}</span>
-                <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder={`Search ${title.toLowerCase()}`}
-                    className="min-w-0 flex-1 bg-transparent text-neutral-900 outline-none placeholder:text-neutral-500"
-                />
+            <label htmlFor="library-search" className="mt-5 block text-[13px] text-neutral-600">
+                Search
             </label>
+            <Input
+                id="library-search"
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={`Search ${title.toLowerCase()}`}
+                wrapperClassName="mt-1.5 w-full"
+            />
 
             {filters.length > 2 && (
-                <div role="group" aria-label="Filter" className="flex flex-wrap gap-1 rounded-lg bg-surface-muted p-1 text-[12px] font-medium">
-                    {filters.map((f) => (
+                <div role="group" aria-label="Filter" className="mt-3 flex border border-neutral-900">
+                    {filters.map((f, i) => (
                         <button
                             key={f.value}
                             type="button"
                             aria-pressed={filter === f.value}
                             onClick={() => setFilter(f.value)}
-                            className={`h-7 rounded-md px-2.5 transition-colors ${
-                                filter === f.value ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600 hover:text-neutral-900'
+                            className={`h-11 flex-[1_1_auto] lg:h-[38px] px-2.5 text-[13px] ${
+                                filter === f.value
+                                    ? 'bg-neutral-900 font-medium text-white'
+                                    : `bg-white text-neutral-900 hover:bg-neutral-50 ${i > 0 && filters[i - 1].value !== filter ? 'border-l border-[#dcdcdc]' : ''}`
                             }`}
                         >
                             {f.label}
@@ -105,29 +109,18 @@ export default function PlannerLibrary<K extends string, P extends string>({
                 </div>
             )}
 
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[12px] text-neutral-600">
-                <span>
-                    Click adds to <span className="font-medium text-neutral-900">{target}</span>
-                </span>
-                <span className="flex gap-0.5 rounded-md bg-surface-muted p-0.5">
-                    {parts.map((p) => (
-                        <button
-                            key={p.value}
-                            type="button"
-                            aria-pressed={part === p.value}
-                            onClick={() => onPart(p.value)}
-                            className={`h-6 rounded px-2 font-medium transition-colors ${
-                                part === p.value ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600 hover:text-neutral-900'
-                            }`}
-                        >
-                            {p.label}
-                        </button>
-                    ))}
-                </span>
+            <div className="mt-4 flex items-center justify-between gap-3 border-y border-[#dcdcdc] py-3">
+                <span className="text-neutral-600">Click adds to</span>
+                <Select
+                    value={part}
+                    onChange={(v) => onPart(v as P)}
+                    options={parts.map((p) => ({ value: p.value, label: `${target} · ${p.label}` }))}
+                    className="w-48"
+                />
             </div>
 
-            <ul className="min-h-0 flex-1 overflow-y-auto">
-                {shown.length === 0 && <li className="border-t border-hairline py-4 text-[13px] text-neutral-500">Nothing matches.</li>}
+            <ul className="mt-2 min-h-0 flex-1">
+                {shown.length === 0 && <li className="border-b border-[#dcdcdc] py-4 text-[13px] text-neutral-600">Nothing matches.</li>}
                 {shown.map((item) => (
                     <li
                         key={`${item.kind}:${item.id}`}
@@ -138,32 +131,25 @@ export default function PlannerLibrary<K extends string, P extends string>({
                             onDragStart({ kind: item.kind, id: item.id })
                         }}
                         onDragEnd={onDragEnd}
-                        className="group border-t border-hairline md:cursor-grab md:active:cursor-grabbing"
+                        className="grid grid-cols-[10px_minmax(0,1fr)_auto] items-center gap-3.5 border-b border-[#dcdcdc] py-3.5 md:cursor-grab md:active:cursor-grabbing"
                     >
+                        <span className={`h-2.5 w-2.5 ${item.dot}`} aria-hidden="true" />
+                        <span className="min-w-0">
+                            <span className="block truncate font-medium">{item.name}</span>
+                            <span className="block text-[13px] text-neutral-600">
+                                {item.meta}
+                                {item.aside && (
+                                    <span aria-label={asideLabel ? `${asideLabel}: ${item.aside}` : undefined}> · {item.aside}</span>
+                                )}
+                            </span>
+                        </span>
                         <button
                             type="button"
                             onClick={() => onAdd(item)}
-                            title={`Add ${item.name} to ${target}`}
-                            className="flex w-full items-center gap-2.5 py-2.5 text-left"
+                            aria-label={`Add ${item.name} to ${target} ${partLabel.toLowerCase()}`}
+                            className="h-11 border border-neutral-900 px-3 text-[11px] lg:h-10 font-medium uppercase tracking-[0.12em] hover:bg-neutral-900 hover:text-white"
                         >
-                            <i
-                                className="fa-solid fa-grip-vertical hidden text-[11px] text-neutral-300 group-hover:text-neutral-500 md:inline"
-                                aria-hidden="true"
-                            />
-                            <span className={`h-[7px] w-[7px] shrink-0 rounded-[2px] ${item.dot}`} aria-hidden="true" />
-                            <span className="min-w-0 flex-1">
-                                <span className="block truncate text-[13px] font-medium text-neutral-900">{item.name}</span>
-                                <span className="block truncate text-[12px] text-neutral-500">{item.meta}</span>
-                            </span>
-                            {item.aside && (
-                                <span className="shrink-0 text-[12px] text-neutral-500" aria-label={asideLabel ? `${asideLabel}: ${item.aside}` : undefined}>
-                                    {item.aside}
-                                </span>
-                            )}
-                            <i
-                                className="fa-solid fa-plus text-[11px] text-neutral-400 opacity-0 transition-opacity group-hover:opacity-100"
-                                aria-hidden="true"
-                            />
+                            Add
                         </button>
                     </li>
                 ))}

@@ -531,7 +531,7 @@ function StepRow({
                             <button
                                 type="button"
                                 onClick={() => onTick(step.habitId!)}
-                                className="inline-flex h-11 items-center gap-2 rounded-lg bg-coral-500 px-4 text-sm font-medium text-white transition-colors hover:bg-coral-600 lg:h-9"
+                                className="inline-flex h-11 items-center gap-2 rounded-lg bg-coral-500 px-4 text-sm font-medium text-white transition-colors hover:bg-coral-600 lg:h-10"
                             >
                                 <i className="fa-solid fa-check text-xs" aria-hidden="true" />
                                 {action.label}
@@ -539,7 +539,7 @@ function StepRow({
                         ) : (
                             <Link
                                 to={href}
-                                className="inline-flex h-11 items-center gap-2 rounded-lg bg-coral-500 px-4 text-sm font-medium text-white transition-colors hover:bg-coral-600 lg:h-9"
+                                className="inline-flex h-11 items-center gap-2 rounded-lg bg-coral-500 px-4 text-sm font-medium text-white transition-colors hover:bg-coral-600 lg:h-10"
                             >
                                 {action.label}
                                 <i className="fa-solid fa-arrow-right text-xs" aria-hidden="true" />

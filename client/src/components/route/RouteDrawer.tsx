@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import Input from '../Input'
 import Drawer from '../Drawer'
 import Button from '../Button'
 import PillToggle from '../PillToggle'
 import ConfirmModal from '../ConfirmModal'
 import Spinner from '../Spinner'
 import { StatStrip } from '../session/SessionUI'
-import { FIELD_BASE, FIELD_HINT, FIELD_IDLE, FIELD_LABEL } from '../fieldStyles'
+import { FIELD_HINT, FIELD_LABEL } from '../fieldStyles'
 import RouteMap from './RouteMap'
 import ElevationChart from './ElevationChart'
 import type { FitnessPlanEntry } from '../../types'
@@ -310,7 +311,7 @@ export default function RouteDrawer({
                             ) : (
                                 <label className="flex flex-col gap-1.5">
                                     <span className={FIELD_LABEL}>Route distance (km)</span>
-                                    <input
+                                    <Input
                                         type="number"
                                         inputMode="decimal"
                                         min={0.4}
@@ -319,7 +320,7 @@ export default function RouteDrawer({
                                         value={override}
                                         onChange={(ev) => setOverride(ev.target.value)}
                                         placeholder={planned?.totalM ? (planned.totalM / 1000).toFixed(2) : 'e.g. 4'}
-                                        className={`${FIELD_BASE} ${FIELD_IDLE} h-12 px-3.5`}
+                                       
                                     />
                                     <span className={FIELD_HINT}>
                                         {planned?.totalM

@@ -7,14 +7,12 @@ import {
     CALENDAR_COLOR_CLASSES,
     EVENT_TYPES,
     EVENT_TYPE_DOTS,
-    EVENT_TYPE_ICONS,
     EVENT_TYPE_LABELS,
 } from '../../types'
 import { useCalendars } from '../../context/CalendarsContext'
 import { useCalendarFilters } from '../useCalendarFilters'
 import {
     CALENDAR_ROWS,
-    CALENDAR_ROW_ICONS,
     CALENDAR_ROW_LABELS,
     showAllCalendarFilters,
     toggleEventType,
@@ -83,48 +81,45 @@ export default function CalendarFilterBar({ onChanged }: { onChanged: () => void
                     aria-haspopup="true"
                     aria-expanded={open}
                     className={[
-                        // Matches the planners' soft hero buttons it sits beside.
-                        'inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 text-sm font-semibold transition-colors sm:h-9 sm:px-3.5',
-                        activeFilters
-                            ? 'bg-neutral-900 text-white hover:bg-neutral-800'
-                            : 'bg-white text-neutral-700 ring-1 ring-inset ring-neutral-900/[0.06] hover:text-neutral-900',
+                        'inline-flex h-11 lg:h-10 shrink-0 items-center gap-2.5 whitespace-nowrap border px-3.5 text-[11px] font-medium uppercase tracking-[0.12em] transition-colors',
+                        open || activeFilters
+                            ? 'border-neutral-900 bg-neutral-900 text-white'
+                            : 'border-neutral-300 bg-white text-neutral-900 hover:border-neutral-900',
                     ].join(' ')}
                 >
-                    <i className="fa-solid fa-filter text-xs" aria-hidden="true" />
                     Filters
                     {activeFilters > 0 && (
-                        <span className="grid h-5 min-w-5 place-items-center rounded-full bg-white/20 px-1 text-[11px] font-bold">
+                        <span className="grid h-[18px] min-w-[18px] place-items-center bg-white px-1 text-[11px] tracking-normal text-neutral-900">
                             {activeFilters}
                         </span>
                     )}
+                    <i className={`fa-solid ${open ? 'fa-chevron-up' : 'fa-chevron-down'} text-[10px]`} aria-hidden="true" />
                 </button>
 
                 {open && (
                     <div
                         role="dialog"
                         aria-label="Calendar filters"
-                        className="absolute right-0 z-50 mt-2 w-64 max-w-[calc(100vw-1rem)] rounded-xl border border-neutral-100 bg-white p-1.5 shadow-lg"
+                        className="absolute right-0 z-50 mt-2 w-[280px] max-w-[calc(100vw-1rem)] border border-neutral-900 bg-white"
                     >
                         <SectionLabel>Event types</SectionLabel>
                         {EVENT_TYPES.map((type) => (
                             <FilterRow
                                 key={type}
                                 label={EVENT_TYPE_LABELS[type]}
-                                icon={EVENT_TYPE_ICONS[type]}
                                 swatch={EVENT_TYPE_DOTS[type]}
                                 checked={!hiddenTypes.has(type)}
                                 onToggle={() => toggleEventType(type as EventType)}
                             />
                         ))}
 
-                        <div className="my-1 h-px bg-neutral-100" />
+                        <div className="h-px bg-hairline" />
                         <SectionLabel>Rows</SectionLabel>
                         {CALENDAR_ROWS.map((row) => (
                             <FilterRow
                                 key={row}
                                 label={CALENDAR_ROW_LABELS[row]}
-                                icon={CALENDAR_ROW_ICONS[row]}
-                                swatch="bg-neutral-400"
+                                swatch={row === 'leave' ? 'bg-[#8fa79a]' : 'border border-neutral-400 bg-white'}
                                 checked={!hiddenRows.has(row)}
                                 onToggle={() => toggleRow(row)}
                             />
@@ -132,7 +127,7 @@ export default function CalendarFilterBar({ onChanged }: { onChanged: () => void
 
                         {calendars.length > 0 && (
                             <>
-                                <div className="my-1 h-px bg-neutral-100" />
+                                <div className="h-px bg-hairline" />
                                 <SectionLabel>Calendars</SectionLabel>
                                 {calendars.map((calendar) => (
                                     <FilterRow
@@ -148,26 +143,25 @@ export default function CalendarFilterBar({ onChanged }: { onChanged: () => void
                             </>
                         )}
 
-                        <div className="my-1 h-px bg-neutral-100" />
-                        <div className="flex items-center justify-between gap-2 px-1 py-1">
-                            <button
-                                type="button"
-                                disabled={activeFilters === 0}
-                                onClick={resetAll}
-                                className="rounded-lg px-2 py-1 text-xs font-semibold text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:pointer-events-none disabled:opacity-40"
-                            >
-                                Show all
-                            </button>
+                        <div className="h-px bg-hairline" />
+                        <div className="flex items-center justify-between gap-2 px-4 py-2.5">
                             <button
                                 type="button"
                                 onClick={() => {
                                     setManaging(true)
                                     setOpen(false)
                                 }}
-                                className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                                className="text-[13px] text-neutral-600 underline underline-offset-4 hover:text-neutral-900"
                             >
-                                <i className="fa-solid fa-sliders text-[11px]" aria-hidden="true" />
                                 Manage calendars
+                            </button>
+                            <button
+                                type="button"
+                                disabled={activeFilters === 0}
+                                onClick={resetAll}
+                                className="h-9 border border-neutral-900 px-3 text-[11px] font-medium uppercase tracking-[0.12em] hover:bg-neutral-100 disabled:opacity-40"
+                            >
+                                Show all
                             </button>
                         </div>
                     </div>
@@ -191,7 +185,7 @@ export default function CalendarFilterBar({ onChanged }: { onChanged: () => void
 
 function SectionLabel({ children }: { children: string }) {
     return (
-        <p className="px-3 pb-1 pt-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
+        <p className="px-4 pb-1 pt-3 text-[11px] font-medium uppercase tracking-[0.12em] text-neutral-600">
             {children}
         </p>
     )
@@ -200,13 +194,11 @@ function SectionLabel({ children }: { children: string }) {
 /** One toggle line: swatch, label, and a tick that only shows when included. */
 function FilterRow({
     label,
-    icon,
     swatch,
     checked,
     onToggle,
 }: {
     label: string
-    icon?: string
     swatch: string
     checked: boolean
     onToggle: () => void
@@ -217,25 +209,18 @@ function FilterRow({
             role="menuitemcheckbox"
             aria-checked={checked}
             onClick={onToggle}
-            className={[
-                'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors duration-100 hover:bg-neutral-100',
-                checked ? 'text-neutral-700' : 'text-neutral-500',
-            ].join(' ')}
+            className={`grid min-h-10 w-full grid-cols-[10px_minmax(0,1fr)_18px] items-center gap-3 px-4 text-left text-[15px] hover:bg-neutral-50 ${
+                checked ? 'text-neutral-900' : 'text-neutral-600'
+            }`}
         >
+            <span className={`h-2.5 w-2.5 ${swatch}`} aria-hidden="true" />
+            <span className="min-w-0 truncate">{label}</span>
             <span
-                className={[
-                    'h-2.5 w-2.5 shrink-0 rounded-full transition-colors',
-                    checked ? swatch : 'bg-neutral-200',
-                ].join(' ')}
-            />
-            <span className="min-w-0 flex-1 truncate">{label}</span>
-            {icon && (
-                <i className={`${icon} shrink-0 text-[11px] text-neutral-300`} aria-hidden="true" />
-            )}
-            <i
-                className={`fa-solid fa-check shrink-0 text-[11px] ${checked ? 'text-neutral-900' : 'invisible'}`}
                 aria-hidden="true"
-            />
+                className={`grid h-[18px] w-[18px] place-items-center ${checked ? 'bg-neutral-900' : 'border border-neutral-400 bg-white'}`}
+            >
+                {checked && <i className="fa-solid fa-check text-[10px] text-white" />}
+            </span>
         </button>
     )
 }
@@ -331,7 +316,7 @@ function CalendarRow({
     return (
         <div className="flex flex-col gap-2 rounded-xl border border-neutral-200 p-3">
             <div className="flex items-center gap-2">
-                <input
+                <Input
                     value={name}
                     disabled={busy}
                     onChange={(e) => setName(e.target.value)}
@@ -343,7 +328,7 @@ function CalendarRow({
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
                     }}
-                    className="min-w-0 flex-1 rounded-lg border border-transparent px-2 py-1 text-sm font-semibold text-neutral-900 outline-none hover:border-neutral-200 focus:border-neutral-400"
+                    wrapperClassName="min-w-0 flex-1"
                 />
                 {calendar.isDefault ? (
                     <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">

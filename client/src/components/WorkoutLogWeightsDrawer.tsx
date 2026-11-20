@@ -1037,7 +1037,7 @@ function StepperBar({
 // ─── One exercise ───────────────────────────────────────────────────────────────
 
 const inputCls =
-    'h-12 w-full min-w-0 rounded-xl border bg-white px-2 text-center text-base font-semibold tabular-nums text-neutral-900 outline-none transition-[border-color,box-shadow] placeholder:font-normal placeholder:text-neutral-500 hover:border-neutral-300 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none'
+    'h-12 w-full min-w-0 border bg-white px-2 text-center text-base font-semibold tabular-nums text-neutral-900 outline-none transition-[border-color,box-shadow] placeholder:font-normal placeholder:text-neutral-500 hover:border-neutral-900 focus:border-neutral-900 focus:shadow-[inset_0_0_0_1px_#111111] focus-visible:outline-none'
 
 function ExerciseStep({
     ex,
@@ -1308,7 +1308,7 @@ function ExerciseStep({
                                     aria-label={`Set ${si + 1} weight`}
                                     value={s.weight}
                                     onChange={(e) => onSet(si, { weight: e.target.value })}
-                                    className={`${inputCls} ${s.done ? 'border-emerald-200' : 'border-neutral-200'}`}
+                                    className={`${inputCls} ${s.done ? 'border-neutral-900' : 'border-neutral-400'}`}
                                 />
                                 <input
                                     type="number"
@@ -1319,7 +1319,7 @@ function ExerciseStep({
                                     aria-label={`Set ${si + 1} reps`}
                                     value={s.reps}
                                     onChange={(e) => onSet(si, { reps: e.target.value })}
-                                    className={`${inputCls} ${s.done ? 'border-emerald-200' : 'border-neutral-200'}`}
+                                    className={`${inputCls} ${s.done ? 'border-neutral-900' : 'border-neutral-400'}`}
                                 />
                                 <button
                                     type="button"

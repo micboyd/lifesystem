@@ -357,10 +357,9 @@ export function BatchDrawer({
                                 </p>
                                 <label className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 text-xs font-medium text-neutral-600">
                                     <input
-                                        type="checkbox"
+                                        type="checkbox" className="checkbox"
                                         checked={r.apart}
                                         onChange={(e) => patchRow(i, { apart: e.target.checked })}
-                                        className="h-4 w-4 rounded border-neutral-300 accent-coral-500"
                                     />
                                     Kept apart
                                 </label>

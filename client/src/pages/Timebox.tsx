@@ -404,7 +404,7 @@ export default function Timebox() {
                                     onClick={syncNow}
                                     disabled={syncing}
                                     aria-label="Sync Google meetings now"
-                                    className="grid h-11 w-11 place-items-center rounded-lg border border-hairline text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-white hover:text-neutral-900 disabled:opacity-60 lg:h-9 lg:w-9"
+                                    className="grid h-11 w-11 place-items-center rounded-lg border border-neutral-300 text-neutral-900 transition-colors hover:border-neutral-900 disabled:opacity-60 lg:h-10 lg:w-10"
                                 >
                                     <i
                                         className={`fa-solid fa-arrows-rotate ${syncing ? 'animate-spin' : ''}`}
@@ -418,7 +418,7 @@ export default function Timebox() {
                             trigger={
                                 <span
                                     aria-label="More"
-                                    className="grid h-11 w-11 place-items-center rounded-lg border border-hairline text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-white hover:text-neutral-900 lg:h-9 lg:w-9"
+                                    className="grid h-11 w-11 place-items-center rounded-lg border border-neutral-300 text-neutral-900 transition-colors hover:border-neutral-900 lg:h-10 lg:w-10"
                                 >
                                     <i className="fa-solid fa-ellipsis" aria-hidden="true" />
                                 </span>

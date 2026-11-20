@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { FIELD_BASE, FIELD_HINT, FIELD_IDLE } from '../fieldStyles'
+import Input from '../Input'
+import { FIELD_HINT } from '../fieldStyles'
 import { searchPlaces, type Place } from '../../services/walks'
 
 const DEBOUNCE_MS = 350
@@ -47,17 +48,14 @@ export default function PlaceSearch({
 
     return (
         <div className="flex flex-col gap-2">
-            <div className="relative">
-                <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-xs text-neutral-500" aria-hidden="true" />
-                <input
-                    type="search"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder={placeholder}
-                    aria-label={placeholder}
-                    className={`${FIELD_BASE} ${FIELD_IDLE} h-11 pl-9 pr-3`}
-                />
-            </div>
+            <Input
+                type="search"
+                icon="fa-solid fa-magnifying-glass"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={placeholder}
+                aria-label={placeholder}
+            />
             {searching && <p className={FIELD_HINT}>Searching…</p>}
             {result?.failed && <p className={FIELD_HINT}>Place search isn’t available right now. Tap the map instead.</p>}
             {result && !result.failed && result.places.length === 0 && <p className={FIELD_HINT}>Nothing found for “{text}”.</p>}

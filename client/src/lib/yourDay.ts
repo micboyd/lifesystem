@@ -203,11 +203,10 @@ function walkSteps(walks: YourDayWalk[], date: string, counts: (key: string) => 
             kind: 'walk',
             part: partAt(h * 60 + m),
             title: w.title,
-            // The time and length have columns of their own; the steps stay as the detail.
+            // No start time — a walk happens any time in its part. Length has its own column.
             detail: w.steps != null ? `${w.steps.toLocaleString('en-GB')} steps` : w.detail,
             state: w.done ? 'done' : 'todo',
             to: `/walking?date=${date}`,
-            time: w.time,
             minutes: w.minutes ?? null,
         }
     })

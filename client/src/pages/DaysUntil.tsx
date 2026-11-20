@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import Select from '../components/Select'
 import { Link } from 'react-router-dom'
 import Container from '../components/Container'
 import { Card } from '../components/Card'
@@ -521,7 +522,7 @@ export default function DaysUntil() {
                                 ))}
                             </div>
                             <div className="flex items-center gap-2">
-                                <input
+                                <Input
                                     type="number"
                                     min={1}
                                     inputMode="numeric"
@@ -536,25 +537,20 @@ export default function DaysUntil() {
                                                 s ? { ...s, targetDate: dateFromOffset(today, n, offsetUnit) } : s
                                             )
                                     }}
-                                    className="w-24 rounded-[10px] border border-neutral-200 hover:border-neutral-300 px-3 h-10 text-sm focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 outline-none focus-visible:outline-none"
+                                    wrapperClassName="w-24"
                                 />
-                                <select
+                                <Select
                                     value={offsetUnit}
-                                    onChange={(e) => {
-                                        const u = e.target.value as OffsetUnit
+                                    onChange={(v) => {
+                                        const u = v as OffsetUnit
                                         setOffsetUnit(u)
                                         const n = Math.floor(Number(offsetAmount))
                                         if (n > 0)
                                             setEditor((s) => (s ? { ...s, targetDate: dateFromOffset(today, n, u) } : s))
                                     }}
-                                    className="rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-                                >
-                                    {OFFSET_UNITS.map((u) => (
-                                        <option key={u} value={u}>
-                                            {u}
-                                        </option>
-                                    ))}
-                                </select>
+                                    options={OFFSET_UNITS.map((u) => ({ value: u, label: u }))}
+                                    className="w-32"
+                                />
                                 <span className="text-sm text-neutral-500">from today</span>
                             </div>
                         </div>

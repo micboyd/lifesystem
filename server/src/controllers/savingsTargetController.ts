@@ -59,8 +59,8 @@ export async function createSavingsTarget(req: AuthRequest, res: Response) {
 }
 
 export async function updateSavingsTarget(req: AuthRequest, res: Response) {
-    // A snapshot is immutable apart from its name, notes, display order and
-    // priority flag — the computed plan itself never changes.
+    // Name, notes, order and flags can change on their own. The plan's numbers
+    // only change as a full re-worked set (the client recomputes them).
     const set: Record<string, unknown> = {}
     const unset: Record<string, unknown> = {}
     if (typeof req.body.name === 'string' && req.body.name.trim()) set.name = req.body.name.trim()
@@ -72,6 +72,35 @@ export async function updateSavingsTarget(req: AuthRequest, res: Response) {
     if (req.body.notes === null) unset.notes = 1
     if (num(req.body.order) !== undefined) set.order = num(req.body.order)
     if (typeof req.body.priority === 'boolean') set.priority = req.body.priority
+    if (typeof req.body.included === 'boolean') set.included = req.body.included
+
+    if (req.body.targetAmount !== undefined) {
+        const targetAmount = num(req.body.targetAmount)
+        const startMonth = month(req.body.startMonth)
+        const targetMonth = month(req.body.targetMonth)
+        const savedMonth = month(req.body.savedMonth)
+        if (targetAmount === undefined || !startMonth || !targetMonth || !savedMonth) {
+            res.status(400).json({
+                message: 'targetAmount, startMonth, targetMonth and savedMonth are required',
+            })
+            return
+        }
+        Object.assign(set, {
+            mode: req.body.mode === 'contribution' ? 'contribution' : 'target',
+            targetAmount,
+            startingBalance: num(req.body.startingBalance) ?? 0,
+            annualInterestRate: num(req.body.annualInterestRate) ?? 0,
+            startMonth,
+            targetMonth,
+            savedMonth,
+            onTrack: req.body.onTrack === true,
+            requiredMonthly: num(req.body.requiredMonthly) ?? 0,
+            contributionMonths: num(req.body.contributionMonths) ?? 0,
+            totalContributions: num(req.body.totalContributions) ?? 0,
+            interestEarned: num(req.body.interestEarned) ?? 0,
+            growthOnly: num(req.body.growthOnly) ?? 0,
+        })
+    }
     if (Object.keys(set).length === 0 && Object.keys(unset).length === 0) {
         res.status(400).json({ message: 'nothing to update' })
         return

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Input from './Input'
 
 /**
  * A workout's "what to bring" — the kit you pack from home. Shown as a packing
@@ -201,7 +202,7 @@ export function BringInput({
             )}
 
             <div className="flex gap-2">
-                <input
+                <Input
                     value={draft}
                     onChange={(e) => {
                         const v = e.target.value
@@ -216,7 +217,7 @@ export function BringInput({
                     }}
                     placeholder="e.g. Lifting belt"
                     aria-label="Add something to bring"
-                    className="min-w-0 flex-1 rounded-[10px] border border-neutral-200 hover:border-neutral-300 bg-white px-3 h-10 text-base outline-none placeholder:text-neutral-500 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 sm:text-sm focus-visible:outline-none"
+                    wrapperClassName="min-w-0 flex-1"
                 />
                 <button
                     type="button"

@@ -1,5 +1,4 @@
 import { useState, type MouseEvent as ReactMouseEvent } from 'react'
-import { EVENT_TYPE_ICONS } from '../../types'
 import { useCalendars } from '../../context/CalendarsContext'
 import { colorsForEvent } from '../../lib/eventColors'
 import ContextMenu from '../ContextMenu'
@@ -29,16 +28,23 @@ interface EventStackProps {
      * glance keep their icon, so the title isn't squeezed out.
      */
     compact?: boolean
+    /** The slot this stack fills: an event carried on from an earlier slot shows its colour but not its name again. */
+    date?: string
+    part?: string
 }
 
-/** The types whose icon survives in a compact cell. */
-const COMPACT_ICON_TYPES = new Set(['hobby', 'worktrip'])
+/** Whether an event started in an earlier slot than this one. */
+function continues(event: Event, date?: string, part?: string): boolean {
+    if (!date) return false
+    if (date > event.startDate) return true
+    return date === event.startDate && !!part && part !== 'na' && event.startPart !== part
+}
 
 function Chip({
     event,
     mini = false,
     muted = false,
-    compact = false,
+    hideLabel = false,
     onClick,
     onContextMenu,
 }: {
@@ -47,43 +53,33 @@ function Chip({
     /** Dim the chip (a past slot) — it stays clickable. */
     muted?: boolean
     compact?: boolean
+    /** A continuation of a longer event: colour only. */
+    hideLabel?: boolean
     onClick: () => void
     onContextMenu?: (e: ReactMouseEvent) => void
 }) {
     const { byId } = useCalendars()
     const { bg, hover, text } = colorsForEvent(event, byId)
     const sizing = mini ? 'min-h-0 flex-1' : 'h-full'
-    const base = `flex h-full w-full items-center gap-1 overflow-hidden rounded-lg px-2 text-left ${bg} ${text}`
-    const title = (
-        <>
-            {(!compact || COMPACT_ICON_TYPES.has(event.eventType)) && (
-                <i
-                    className={`${EVENT_TYPE_ICONS[event.eventType]} shrink-0 text-[9px] opacity-70`}
-                    aria-hidden="true"
-                />
-            )}
-            <span
-                className={`truncate font-semibold leading-tight ${mini ? 'text-[11px]' : 'text-[11px]'}`}
-            >
-                {event.title}
-            </span>
-            {event.recurrence && (
-                <i className="fa-solid fa-repeat shrink-0 text-[8px] opacity-60" />
-            )}
-        </>
-    )
     return (
         <div className={`group/chip relative ${sizing}`} onContextMenu={onContextMenu}>
             <button
                 type="button"
                 title={event.title}
+                aria-label={event.title}
                 onClick={(e) => {
                     e.stopPropagation()
                     onClick()
                 }}
-                className={`${base} ${hover} transition-colors ${muted ? 'opacity-50 hover:opacity-100' : ''}`}
+                className={`flex h-full w-full items-center overflow-hidden px-1.5 py-[3px] text-left ${bg} ${text} ${hover} transition ${
+                    muted ? 'opacity-50 hover:opacity-100' : ''
+                }`}
             >
-                {title}
+                {!hideLabel && (
+                    <span lang="en-GB" className="line-clamp-2 text-[11px] font-medium leading-[1.15] [hyphens:auto]">
+                        {event.title}
+                    </span>
+                )}
             </button>
         </div>
     )
@@ -110,6 +106,8 @@ export default function EventStack({
     onPaste,
     canPaste = false,
     compact = false,
+    date,
+    part,
 }: EventStackProps) {
     // Cursor-anchored menu; `event` is null when opened over an empty slot.
     const [menu, setMenu] = useState<{ x: number; y: number; event: Event | null } | null>(null)
@@ -159,7 +157,7 @@ export default function EventStack({
         ) : null
 
     if (events.length === 0) {
-        if (past) return <div className="h-full w-full" />
+        if (past) return <div className="h-full w-full cursor-not-allowed" title="This has passed — open an event to view or change it" />
         return (
             <>
                 <button
@@ -167,7 +165,7 @@ export default function EventStack({
                     onClick={onAdd}
                     onContextMenu={(e) => openMenu(e, null)}
                     title={canPaste ? 'Right-click to paste event' : undefined}
-                    className="group grid h-full w-full place-items-center rounded-lg text-neutral-300 transition-colors hover:bg-neutral-100 hover:text-neutral-500"
+                    className="group grid h-full w-full place-items-center text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                 >
                     <i className="fa-solid fa-plus text-[11px] opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100" />
                 </button>
@@ -182,6 +180,7 @@ export default function EventStack({
                 <Chip
                     compact={compact}
                     event={events[0]}
+                    hideLabel={continues(events[0], date, part)}
                     muted={past}
                     onClick={() => onEventClick(events[0])}
                     onContextMenu={(e) => openMenu(e, events[0])}
@@ -211,7 +210,7 @@ export default function EventStack({
                             onPick(events)
                         }}
                         onContextMenu={(e) => openMenu(e, null)}
-                        className={`flex min-h-0 flex-1 items-center justify-center rounded-lg bg-neutral-200 text-[11px] font-semibold text-neutral-600 transition-colors hover:bg-neutral-300 ${past ? 'opacity-50 hover:opacity-100' : ''}`}
+                        className={`flex min-h-0 flex-1 items-center justify-center bg-neutral-100 text-[11px] font-semibold text-neutral-600 transition-colors hover:bg-neutral-200 ${past ? 'opacity-50 hover:opacity-100' : ''}`}
                     >
                         +{events.length - 1} more
                     </button>

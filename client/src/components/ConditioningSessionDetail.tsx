@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react'
-import RoundCounter, { clock, roundWindows } from './RoundCounter'
+import RoundCounter from './RoundCounter'
+import { RepList } from './session/RepList'
+import { formatMetres, partReps, repsDistance } from '../lib/sessionReps'
 import PhaseHeading, { phaseSpan } from './PhaseHeading'
 import {
     ItemDetail,
@@ -213,6 +215,7 @@ export default function ConditioningSessionDetail({
                                         target={part.rounds}
                                         label={part.roundLabel}
                                         details={part.roundDetails}
+                                        reps={part.reps}
                                         seconds={part.roundSeconds}
                                         startAtSec={
                                             part.startAtSec ??
@@ -251,8 +254,9 @@ export default function ConditioningSessionDetail({
 }
 
 /**
- * One part of a session in the overview: its number, name, slot and detail,
- * then any reps and steps as plain numbered lists — read, not ticked.
+ * One section of a session in the overview: its number, name, slot and cue,
+ * then its reps — each with its numbers (time, distance, speed, pace, effort)
+ * as pills, identical reps folded into one "6×" row. Read, not ticked.
  */
 function OverviewPart({
     part,
@@ -263,17 +267,14 @@ function OverviewPart({
     number: number
     slot: { startMin?: number; endMin?: number }
 }) {
-    const reps = part.rounds ?? 0
-    const one = (part.roundLabel?.trim() || 'round').toLowerCase()
-    const many = one.endsWith('s') ? one : `${one}s`
-    const windows = part.roundSeconds?.length
-        ? roundWindows(
-              reps,
-              part.roundSeconds,
-              part.startAtSec ?? (part.startMin !== undefined ? part.startMin * 60 : 0)
-          )
-        : []
-    const listReps = reps > 0 && (!!part.roundDetails?.length || windows.length > 0)
+    const reps = partReps(part)
+    const distance = repsDistance(reps)
+    const summary = [
+        reps.length > 1 ? `${reps.length} reps` : undefined,
+        distance ? `${formatMetres(distance)} total` : undefined,
+    ]
+        .filter(Boolean)
+        .join(' · ')
 
     return (
         <li className="flex flex-col gap-2.5 px-4 py-3.5">
@@ -283,50 +284,18 @@ function OverviewPart({
                 </span>
                 <div className="min-w-0 flex-1">
                     <p className="font-semibold leading-snug text-neutral-900">{part.name}</p>
-                    {reps > 0 && !listReps && (
-                        <p className="mt-0.5 text-xs text-neutral-500">
-                            {reps} {reps === 1 ? one : many}
-                        </p>
-                    )}
+                    {summary && <p className="mt-0.5 text-xs text-neutral-500">{summary}</p>}
                 </div>
                 <SlotChip slot={slot} />
             </div>
-            {(part.detail || listReps || !!part.steps?.length) && (
+            {(part.detail || reps.length > 0) && (
                 <div className="flex flex-col gap-2.5 pl-7">
                     {part.detail && (
                         <p className="whitespace-pre-wrap text-sm leading-relaxed text-neutral-600">
                             {part.detail}
                         </p>
                     )}
-                    {listReps && (
-                        <div className="flex flex-col gap-2">
-                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
-                                {reps} {reps === 1 ? one : many}
-                            </p>
-                            <ol className="flex flex-col gap-1.5">
-                                {Array.from({ length: reps }, (_, i) => (
-                                    <li
-                                        key={i}
-                                        className="flex items-center gap-3 rounded-xl bg-neutral-50 px-3 py-2.5 text-sm text-neutral-700"
-                                    >
-                                        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white text-[11px] font-semibold tabular-nums text-neutral-500 ring-1 ring-inset ring-neutral-200">
-                                            {i + 1}
-                                        </span>
-                                        <span className="min-w-0 flex-1 leading-snug">
-                                            {part.roundDetails?.[i] ??
-                                                `${part.roundLabel?.trim() || 'Round'} ${i + 1}`}
-                                        </span>
-                                        {windows[i] && (
-                                            <span className="shrink-0 text-xs tabular-nums text-neutral-500">
-                                                {clock(windows[i][0])}–{clock(windows[i][1])}
-                                            </span>
-                                        )}
-                                    </li>
-                                ))}
-                            </ol>
-                        </div>
-                    )}
-                    <StepChecklist steps={part.steps} />
+                    <RepList part={part} />
                 </div>
             )}
         </li>

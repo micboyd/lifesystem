@@ -125,7 +125,7 @@ describe('walks on a day', () => {
     it('builds Your day items in time order', () => {
         const items = walkDayItems([walk({ _id: 'b', time: '18:00', doneAt: 'x' }), walk({ _id: 'a', time: '08:00' })], null)
         expect(items.map((i) => i.id)).toEqual(['a', 'b'])
-        expect(items[0]).toMatchObject({ title: 'Morning walk', detail: '08:00 · 1 h 00 min · 6,500 steps', done: false })
+        expect(items[0]).toMatchObject({ title: 'Morning walk', detail: '1 h 00 min · 6,500 steps', done: false })
         expect(items[1].done).toBe(true)
     })
 })

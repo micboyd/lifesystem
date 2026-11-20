@@ -14,6 +14,7 @@
  * Pure functions over already-loaded data so the shaping can be tested without
  * a network or a rendered drawer.
  */
+import { repsForExport } from './sessionReps'
 import type {
     ConditioningLog,
     Exercise,
@@ -225,6 +226,7 @@ function shapeParts(parts: SessionPart[]) {
         ...(p.detail ? { detail: p.detail } : {}),
         ...(p.rounds ? { rounds: p.rounds } : {}),
         ...(p.rounds && p.roundLabel ? { roundLabel: p.roundLabel } : {}),
+        ...(p.reps?.length ? { reps: repsForExport(p.reps) } : {}),
         ...(p.startMin != null && p.endMin != null
             ? { startMin: p.startMin, endMin: p.endMin }
             : {}),

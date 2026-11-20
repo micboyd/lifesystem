@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import Input from '../components/Input'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Button from '../components/Button'
 import PillToggle from '../components/PillToggle'
 import ConfirmModal from '../components/ConfirmModal'
 import Spinner from '../components/Spinner'
 import DatePicker, { type DatePickerValue } from '../components/DatePicker'
-import TimePicker from '../components/TimePicker'
-import { FIELD_BASE, FIELD_HINT, FIELD_IDLE, FIELD_LABEL } from '../components/fieldStyles'
+import { FIELD_HINT, FIELD_LABEL } from '../components/fieldStyles'
 import RouteMap, { type MapWaypoint, type StepMarker } from '../components/route/RouteMap'
 import PlaceSearch from '../components/walking/PlaceSearch'
 import { loadWeightKg } from '../components/walking/useWalks'
@@ -16,6 +16,7 @@ import { haversine } from '../lib/routeTrack'
 import { googleMapsUrl, MAPS_WARNING } from '../lib/routeMaps'
 import { currentPosition } from '../lib/routeLocation'
 import { LIT_WARNING, needsLitCheck } from '../lib/routeSafety'
+import { DAY_PARTS, partAt, type DayPart } from '../lib/yourDay'
 import {
     convertGoal,
     daysForRepeat,
@@ -23,7 +24,6 @@ import {
     doubledBackShare,
     estimateWalk,
     FAVOURITE_NEAR_M,
-    finishTime,
     formatMinutes,
     formatWalkKm,
     GOAL_UNITS,
@@ -35,6 +35,9 @@ import {
     targetMetres,
     walkGap,
     walkPart,
+    PART_HOURS,
+    PART_NAME,
+    SLOT_TIMES,
     type WalkEstimate,
     type WalkGap,
     type WalkGoalKind,
@@ -117,12 +120,14 @@ interface Form {
 }
 
 /** The next half hour today; midday on any other day. */
+/** Walks have no start time — just a part of the day. Today it's the part we're in now. */
 function defaultTime(date: string): string {
-    if (date !== todayKey()) return '12:00'
+    if (date !== todayKey()) return SLOT_TIMES.afternoon
     const d = new Date()
-    const next = Math.min(23 * 60 + 30, Math.ceil((d.getHours() * 60 + d.getMinutes() + 1) / 30) * 30)
-    return `${String(Math.floor(next / 60)).padStart(2, '0')}:${String(next % 60).padStart(2, '0')}`
+    return SLOT_TIMES[partAt(d.getHours() * 60 + d.getMinutes())]
 }
+
+const PART_OPTIONS = DAY_PARTS.map((p) => ({ value: p, label: PART_NAME[p] }))
 
 function formFrom(walk: Walk | null, date: string, home: RouteSettings['home']): Form {
     if (walk)
@@ -251,7 +256,7 @@ function Planner({
     const navigate = useNavigate()
     const [initial] = useState(() => {
         const f = formFrom(walk, date, initialSettings?.home ?? null)
-        return !walk && time ? { ...f, time } : f
+        return !walk && time ? { ...f, time: SLOT_TIMES[walkPart(time)] } : f
     })
     const [form, setForm] = useState<Form>(initial)
     const [route, setRoute] = useState<WalkRoute | null>(walk?.route ?? null)
@@ -627,7 +632,7 @@ function Planner({
     const backButton = 'grid h-11 w-11 shrink-0 place-items-center rounded-xl text-neutral-700 transition-colors hover:bg-neutral-100'
     const smallIcon = 'grid h-9 w-9 shrink-0 place-items-center rounded-lg text-xs text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 disabled:opacity-30 disabled:hover:bg-transparent'
     const note = shown
-        ? [form.time && estimate ? `Back around ${finishTime(form.time, estimate.minutes)}` : null, `↑${shown.ascentM} m ↓${shown.descentM} m`].filter(Boolean).join(' · ')
+        ? `↑${shown.ascentM} m ↓${shown.descentM} m`
         : busy
           ? 'Finding a route…'
           : 'Estimated from your target'
@@ -767,13 +772,13 @@ function Planner({
 
                     {isLibrary && (
                         <Group title="Name">
-                            <input
+                            <Input
                                 value={form.name}
                                 maxLength={80}
                                 onChange={(e) => patch({ name: e.target.value })}
                                 placeholder="e.g. Coffee walk"
                                 aria-label="Name"
-                                className={`${FIELD_BASE} ${FIELD_IDLE} h-11 px-3.5`}
+                               
                             />
                         </Group>
                     )}
@@ -786,7 +791,7 @@ function Planner({
                             options={(Object.keys(GOAL_UNITS) as WalkGoalKind[]).map((k) => ({ value: k, label: GOAL_UNITS[k].label }))}
                         />
                         <div className="relative">
-                            <input
+                            <Input
                                 type="number"
                                 inputMode="decimal"
                                 min={0}
@@ -794,7 +799,7 @@ function Planner({
                                 value={form.value}
                                 onChange={(e) => patch({ value: e.target.value })}
                                 aria-label={`Target in ${unit.unit}`}
-                                className={`${FIELD_BASE} ${FIELD_IDLE} h-12 pl-3.5 pr-16 text-lg font-semibold`}
+                               
                             />
                             <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-neutral-500">{unit.unit}</span>
                         </div>
@@ -881,22 +886,26 @@ function Planner({
 
                     {!isLibrary && (
                     <Group title="When">
-                        <div className="grid grid-cols-2 gap-3">
-                            <DatePicker
-                                value={form.date}
-                                onChange={(v: DatePickerValue) => {
-                                    if (typeof v === 'string' && v) patch({ date: v })
-                                }}
-                            />
-                            <TimePicker value={form.time} onChange={(time) => patch({ time })} align="right" />
-                        </div>
-                        <input
+                        <DatePicker
+                            value={form.date}
+                            onChange={(v: DatePickerValue) => {
+                                if (typeof v === 'string' && v) patch({ date: v })
+                            }}
+                        />
+                        <PillToggle
+                            label="Part of the day"
+                            value={form.time ? walkPart(form.time) : 'afternoon'}
+                            onChange={(part: DayPart) => patch({ time: form.time && walkPart(form.time) === part ? form.time : SLOT_TIMES[part] })}
+                            options={PART_OPTIONS}
+                        />
+                        <p className={FIELD_HINT}>Any time {PART_HOURS[form.time ? walkPart(form.time) : 'afternoon'].toLowerCase()} — it just needs the length.</p>
+                        <Input
                             value={form.name}
                             maxLength={80}
                             onChange={(e) => patch({ name: e.target.value })}
                             placeholder={`Name (optional) — ${partName}`}
                             aria-label="Name (optional)"
-                            className={`${FIELD_BASE} ${FIELD_IDLE} h-11 px-3.5`}
+                           
                         />
                         <span className={`${FIELD_LABEL} mt-1`}>Repeat</span>
                         <PillToggle label="Repeat" value={form.repeat} onChange={chooseRepeat} options={REPEAT_OPTIONS} />
@@ -919,7 +928,7 @@ function Planner({
                         {form.days.length > 0 && <p className={FIELD_HINT}>Each day gets its own walk with a blank route, ready for that day’s.</p>}
                         {walk?.series && (
                             <label className="flex min-h-11 items-center gap-2.5 text-sm text-neutral-800">
-                                <input type="checkbox" className="h-4 w-4" checked={applyFuture || repeatChanged} disabled={repeatChanged} onChange={(e) => setApplyFuture(e.target.checked)} />
+                                <input type="checkbox" className="checkbox" checked={applyFuture || repeatChanged} disabled={repeatChanged} onChange={(e) => setApplyFuture(e.target.checked)} />
                                 {form.days.length === 0 ? 'Stop repeating this walk' : 'Use these settings on future days too'}
                             </label>
                         )}

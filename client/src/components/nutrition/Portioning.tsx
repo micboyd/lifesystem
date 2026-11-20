@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Input from '../Input'
 import { plural } from './ShoppingList'
 import { MACRO_DOT } from './mealUi'
 import { boxMacros } from '../../lib/sideMacros'
@@ -69,14 +70,14 @@ function PotLine({
                 {label}
             </label>
             <div className="relative w-24 shrink-0">
-                <input
+                <Input
                     id={id}
                     inputMode="numeric"
                     enterKeyHint="done"
                     placeholder="Weigh"
                     value={value}
                     onChange={(e) => onChange(digits(e.target.value))}
-                    className="h-11 w-full rounded-xl bg-neutral-50 pl-3 pr-7 text-right text-base font-semibold tabular-nums text-neutral-900 ring-1 ring-neutral-200 outline-none placeholder:font-normal placeholder:text-neutral-400 focus:bg-white focus:ring-2 focus:ring-neutral-900"
+                    className="text-right tabular-nums" wrapperClassName="w-full"
                 />
                 <span className="pointer-events-none absolute inset-y-0 right-3 grid place-items-center text-sm text-neutral-500">
                     g
@@ -89,7 +90,7 @@ function PotLine({
             <span className="w-20 shrink-0 text-right" aria-live="polite">
                 {each > 0 ? (
                     <>
-                        <span className="block text-lg font-semibold leading-tight tabular-nums text-neutral-950">
+                        <span className="block text-lg font-medium leading-tight tabular-nums text-neutral-950">
                             {fmt(each)} g
                         </span>
                         <span className="block text-[11px] text-neutral-500">per box</span>
@@ -178,13 +179,13 @@ function PortionCard({
     }
 
     return (
-        <li className="flex flex-col overflow-hidden border-t border-hairline pt-1">
-            <div className="px-4 pt-4">
-                <p className="text-sm font-semibold text-neutral-900">{meal.name}</p>
-                <p className="text-xs text-neutral-500">
+        <li className="flex flex-col border-t border-neutral-900">
+            <div className="pt-5">
+                <p className="text-[17px] font-medium text-neutral-900">{meal.name}</p>
+                <p className="mt-0.5 text-[13px] text-neutral-600">
                     {plural(boxes, 'box', 'boxes')} · weigh each pot once it’s cooked
                 </p>
-                <ul className="mt-1 divide-y divide-neutral-100">
+                <ul className="mt-2 divide-y divide-hairline border-t border-hairline">
                     {pots.map((p) => (
                         <PotLine
                             key={p.key}
@@ -201,7 +202,7 @@ function PortionCard({
                         />
                     ))}
                 </ul>
-                <div className="border-t border-neutral-100 py-1">
+                <div className="border-t border-hairline py-1">
                     {adding === null ? (
                         <button
                             type="button"
@@ -219,7 +220,7 @@ function PortionCard({
                                 addSide()
                             }}
                         >
-                            <input
+                            <Input
                                 autoFocus
                                 aria-label="Side name"
                                 placeholder="Rice, pasta, potatoes…"
@@ -227,14 +228,14 @@ function PortionCard({
                                 value={adding}
                                 onChange={(e) => setAdding(e.target.value)}
                                 onBlur={addSide}
-                                className="h-11 w-full rounded-xl bg-neutral-50 px-3 text-sm text-neutral-900 ring-1 ring-neutral-200 outline-none focus:bg-white focus:ring-2 focus:ring-neutral-900"
+                                wrapperClassName="w-full"
                             />
                         </form>
                     )}
                 </div>
             </div>
 
-            <div className="mt-auto border-t border-neutral-100 bg-neutral-50">
+            <div className="mt-auto bg-neutral-100/70">
                 <dl className="grid grid-cols-4 divide-x divide-neutral-200/70">
                     {(
                         [
@@ -277,14 +278,14 @@ function PortionCard({
                                 )}
                                 {t.label}
                             </dt>
-                            <dd className="text-lg font-semibold tabular-nums text-neutral-950 sm:text-xl">
+                            <dd className="text-[22px] leading-none tracking-[-0.03em] tabular-nums text-neutral-950 sm:text-[26px]">
                                 {t.value}
                             </dd>
                         </div>
                     ))}
                 </dl>
                 {box.sides.some((x) => x.from === 'unknown') && (
-                    <p className="border-t border-neutral-200/70 px-4 py-2 text-xs text-amber-700">
+                    <p className="border-t border-hairline px-4 py-2 text-xs text-amber-700">
                         No figures for{' '}
                         {box.sides
                             .filter((x) => x.from === 'unknown')
@@ -295,22 +296,6 @@ function PortionCard({
                 )}
             </div>
         </li>
-    )
-}
-
-function SectionHeading() {
-    return (
-        <div className="flex flex-col gap-1">
-            <div className="flex min-h-9 items-center">
-                <h2 className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                    Portioning
-                </h2>
-            </div>
-            <p className="px-1 text-sm text-neutral-600">
-                Weigh each pot after cooking — zero the scale with the empty pot first. You’ll see
-                how much of each goes in every box, and what one box gives you.
-            </p>
-        </div>
     )
 }
 
@@ -329,13 +314,10 @@ export default function Portioning({
     if (rows.length === 0) return null
 
     return (
-        <section className="flex flex-col gap-3">
-            <SectionHeading />
-            <ul className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-10">
                 {rows.map(({ g, meal }) => (
                     <PortionCard key={g.id} group={g} meal={meal} marks={sides} />
                 ))}
-            </ul>
-        </section>
+        </ul>
     )
 }

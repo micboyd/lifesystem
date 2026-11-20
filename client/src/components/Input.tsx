@@ -7,16 +7,20 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
     hint?: string
     /** Font Awesome class string for a leading icon, e.g. "fa-solid fa-envelope". */
     icon?: string
+    /** A unit in front of the value, e.g. "£". */
+    prefix?: string
+    /** Layout classes for the field's outer box (width, flex), as opposed to the input itself. */
+    wrapperClassName?: string
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-    { label, error, hint, icon, className = '', id, ...props },
+    { label, error, hint, icon, prefix, wrapperClassName = '', className = '', id, ...props },
     ref
 ) {
     const inputId = id ?? label?.toLowerCase().replace(/\s+/g, '-')
 
     return (
-        <div className="flex flex-col gap-1.5">
+        <div className={`flex flex-col gap-1.5 ${wrapperClassName}`}>
             {label && (
                 <label htmlFor={inputId} className={FIELD_LABEL}>
                     {label}
@@ -28,14 +32,19 @@ const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
                         <i className={`${icon} text-sm`} aria-hidden="true" />
                     </span>
                 )}
+                {prefix && !icon && (
+                    <span className="pointer-events-none absolute inset-y-0 left-3.5 grid place-items-center text-[15px] text-neutral-600">
+                        {prefix}
+                    </span>
+                )}
                 <input
                     ref={ref}
                     id={inputId}
                     aria-invalid={error ? true : undefined}
                     className={[
                         FIELD_BASE,
-                        'h-11 pr-3.5',
-                        icon ? 'pl-10' : 'pl-3.5',
+                        'h-11 pr-3.5 lg:h-10',
+                        icon ? 'pl-10' : prefix ? 'pl-7' : 'pl-3.5',
                         error ? FIELD_ERROR : FIELD_IDLE,
                         className,
                     ]

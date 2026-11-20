@@ -1,9 +1,9 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import BottomSheet from '../BottomSheet'
-import Button from '../Button'
 import Input from '../Input'
-import EmptyState from '../EmptyState'
 import ConfirmModal from '../ConfirmModal'
+import { Bar, BarButton, CAPS, DoneTick, Eyebrow, SectionTitle } from '../Blok'
 import { CategoryIcon } from './mealUi'
 import Portioning from './Portioning'
 import { useSideMarks } from './useSideMarks'
@@ -28,24 +28,16 @@ import { useToast } from '../../context/ToastContext'
 import type { Meal, ShoppingGroup, ShoppingList } from '../../types'
 
 /**
- * Thinking ahead: plan a cook. Add the meals you're going to make and how
- * many of each ("7 portions", "2 trays"); underneath is one shopping list
- * with every ingredient merged into a single line. Nothing is tracked after
- * the shop — clear it and plan the next one.
+ * Thinking ahead: plan a cook, full screen. Three steps in the order a batch
+ * cook happens — Plan (the meals and how many of each), Shop (every
+ * ingredient merged into one line) and Portion (weigh each pot, split it into
+ * boxes). A rail across the top says where each step stands; Back / Next sit
+ * at the foot. Nothing is tracked after the cook — start over for the next one.
  */
 
-const OVERLINE = 'text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600'
-const CARD = 'overflow-hidden border-t border-hairline'
 const MAX = 99
-
-function SectionHead({ title, aside }: { title: string; aside?: ReactNode }) {
-    return (
-        <div className="flex min-h-9 items-center justify-between gap-3">
-            <h2 className={OVERLINE}>{title}</h2>
-            {aside}
-        </div>
-    )
-}
+const ICON_BTN =
+    'grid h-11 w-11 shrink-0 place-items-center text-neutral-700 transition-colors hover:bg-neutral-100 hover:text-neutral-900 lg:h-10 lg:w-10'
 
 /** − n + with the number typeable. At one, the minus takes it off. */
 function CountStepper({
@@ -70,25 +62,15 @@ function CountStepper({
             onChange(Math.min(n, max))
     }
     const btn =
-        'grid h-9 w-9 place-items-center rounded-full text-neutral-600 transition-colors hover:bg-white hover:text-neutral-900 disabled:opacity-40'
+        'grid h-11 w-10 place-items-center text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:opacity-40 lg:h-10'
     return (
-        <div className="flex shrink-0 items-center rounded-full bg-neutral-100 p-0.5">
+        <div className="flex shrink-0 items-center border border-neutral-300">
             {value > 1 ? (
-                <button
-                    type="button"
-                    aria-label={`One fewer ${name}`}
-                    onClick={() => onChange(value - 1)}
-                    className={btn}
-                >
+                <button type="button" aria-label={`One fewer ${name}`} onClick={() => onChange(value - 1)} className={btn}>
                     <i className="fa-solid fa-minus text-[11px]" aria-hidden="true" />
                 </button>
             ) : (
-                <button
-                    type="button"
-                    aria-label={`Take ${name} off`}
-                    onClick={onRemove}
-                    className={btn}
-                >
+                <button type="button" aria-label={`Take ${name} off`} onClick={onRemove} className={btn}>
                     <i className="fa-solid fa-trash-can text-[11px]" aria-hidden="true" />
                 </button>
             )}
@@ -105,7 +87,7 @@ function CountStepper({
                     setDraft(String(value))
                     e.currentTarget.select()
                 }}
-                className="h-9 w-8 bg-transparent text-center text-sm font-semibold tabular-nums text-neutral-900 outline-none"
+                className="h-11 w-10 border-x border-neutral-200 bg-transparent text-center text-[15px] tabular-nums outline-none focus-visible:shadow-[inset_0_-2px_0_#111111] lg:h-10"
             />
             <button
                 type="button"
@@ -140,8 +122,8 @@ function CookRow({
     const hasIngredients = group.ingredients.length > 0
 
     return (
-        <li>
-            <div className="flex min-h-16 items-center gap-3 py-2.5 pl-3 pr-2">
+        <li className="border-b border-hairline">
+            <div className="flex min-h-[72px] items-center gap-3 py-3">
                 <button
                     type="button"
                     aria-expanded={open}
@@ -152,28 +134,21 @@ function CookRow({
                     {meal?.types[0] ? (
                         <CategoryIcon type={meal.types[0]} />
                     ) : (
-                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neutral-100 text-sm text-neutral-500">
+                        <span className="grid h-9 w-9 shrink-0 place-items-center bg-neutral-100 text-sm text-neutral-500">
                             <i className="fa-solid fa-utensils" aria-hidden="true" />
                         </span>
                     )}
                     <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold text-neutral-900">
-                            {group.name}
-                        </span>
-                        <span className="block truncate text-xs text-neutral-500">
+                        <span className="block truncate text-[15px] font-medium text-neutral-900">{group.name}</span>
+                        <span className="block truncate text-[13px] text-neutral-600">
                             {countLabel(group)}
                             {meal && (
                                 <>
                                     {' · '}
-                                    <span className="tabular-nums">
-                                        {Math.round(meal.macros.calories)}
-                                    </span>{' '}
-                                    kcal each
+                                    <span className="tabular-nums">{Math.round(meal.macros.calories)}</span> kcal each
                                 </>
                             )}
-                            {!hasIngredients && (
-                                <span className="text-amber-700"> · no ingredients yet</span>
-                            )}
+                            {!hasIngredients && <span className="text-amber-700"> · no ingredients yet</span>}
                         </span>
                     </span>
                     {hasIngredients && (
@@ -192,22 +167,15 @@ function CookRow({
                 />
             </div>
             {open && hasIngredients && (
-                <ul className="mx-3 mb-3 divide-y divide-neutral-100 rounded-xl bg-neutral-50 px-3">
+                <ul className="mb-4 ml-12 border-l-2 border-neutral-900 pl-4">
                     {mergeLines([group]).map((l) => (
-                        <li
-                            key={l.key}
-                            className="flex items-center justify-between gap-3 py-2 text-sm"
-                        >
+                        <li key={l.key} className="flex items-center justify-between gap-3 py-1.5 text-[14px]">
                             <span className="truncate text-neutral-700">{l.name}</span>
-                            <span className="shrink-0 tabular-nums text-neutral-500">
-                                {lineAmount(l) || '×1'}
-                            </span>
+                            <span className="shrink-0 tabular-nums text-neutral-600">{lineAmount(l) || '×1'}</span>
                         </li>
                     ))}
-                    <li className="py-2 text-xs text-neutral-500">
-                        {tray
-                            ? `Each tray makes ${plural(tray, 'box', 'boxes')}.`
-                            : `${plural(times, 'portion')}’ worth.`}
+                    <li className="pt-1.5 text-[12px] text-neutral-500">
+                        {tray ? `Each tray makes ${plural(tray, 'box', 'boxes')}.` : `${plural(times, 'portion')}’ worth.`}
                     </li>
                 </ul>
             )}
@@ -254,42 +222,30 @@ function MealPicker({
                 {shown.length === 0 ? (
                     <p className="py-6 text-center text-sm text-neutral-500">No meals match.</p>
                 ) : (
-                    <ul className="-mx-2 flex flex-col">
+                    <ul className="flex flex-col border-t border-hairline">
                         {shown.map((m) => {
                             const added = onList.has(m._id)
                             return (
-                                <li key={m._id}>
+                                <li key={m._id} className="border-b border-hairline">
                                     <button
                                         type="button"
                                         onClick={() => {
                                             setQ('')
                                             onPick(m)
                                         }}
-                                        className="flex min-h-14 w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-neutral-50"
+                                        className="flex min-h-14 w-full items-center gap-3 px-1 py-2 text-left transition-colors hover:bg-neutral-50"
                                     >
-                                        {m.types[0] ? (
-                                            <CategoryIcon type={m.types[0]} size="sm" />
-                                        ) : (
-                                            <span className="h-7 w-7 shrink-0" />
-                                        )}
+                                        {m.types[0] ? <CategoryIcon type={m.types[0]} size="sm" /> : <span className="h-7 w-7 shrink-0" />}
                                         <span className="min-w-0 flex-1">
-                                            <span className="block truncate text-sm font-medium text-neutral-900">
-                                                {m.name}
-                                            </span>
+                                            <span className="block truncate text-sm font-medium text-neutral-900">{m.name}</span>
                                             <span className="block truncate text-xs text-neutral-500">
-                                                {m.batchOf && m.batchOf > 1
-                                                    ? `Tray · ${m.batchOf} boxes · `
-                                                    : ''}
-                                                {m.ingredients.length > 0
-                                                    ? plural(m.ingredients.length, 'ingredient')
-                                                    : 'No ingredients yet'}
+                                                {m.batchOf && m.batchOf > 1 ? `Tray · ${m.batchOf} boxes · ` : ''}
+                                                {m.ingredients.length > 0 ? plural(m.ingredients.length, 'ingredient') : 'No ingredients yet'}
                                             </span>
                                         </span>
                                         <i
                                             className={`fa-solid ${added ? 'fa-check text-emerald-600' : 'fa-plus text-neutral-400'} text-xs`}
-                                            aria-label={
-                                                added ? 'Already added — adds one more' : undefined
-                                            }
+                                            aria-label={added ? 'Already added — adds one more' : undefined}
                                         />
                                     </button>
                                 </li>
@@ -303,6 +259,7 @@ function MealPicker({
 }
 
 type Step = 'plan' | 'shop' | 'portion'
+const ORDER: Step[] = ['plan', 'shop', 'portion']
 const STEP_KEY = 'nutrition.aheadStep'
 
 function readStep(): Step {
@@ -314,8 +271,8 @@ function readStep(): Step {
     }
 }
 
-/** Plan · Shop · Portion — the order a batch cook happens in, each with where it stands. */
-function StepBar({
+/** Plan · Shop · Portion across the top: number (or tick), name, where it stands. */
+function StepRail({
     step,
     onStep,
     steps,
@@ -325,7 +282,7 @@ function StepBar({
     steps: { key: Step; label: string; status: string; done: boolean }[]
 }) {
     return (
-        <nav aria-label="Batch cook steps" className="grid grid-cols-3 gap-2">
+        <nav aria-label="Batch cook steps" className="grid grid-cols-3 border-b border-hairline">
             {steps.map((s, n) => {
                 const on = s.key === step
                 return (
@@ -334,36 +291,25 @@ function StepBar({
                         type="button"
                         aria-current={on ? 'step' : undefined}
                         onClick={() => onStep(s.key)}
-                        className={`flex min-h-16 min-w-0 flex-col justify-center gap-1 rounded-xl bg-white px-3 py-2.5 text-left transition-shadow sm:px-4 ${
-                            on
-                                ? 'ring-2 ring-neutral-900'
-                                : 'ring-1 ring-neutral-900/[0.06] hover:ring-neutral-300'
-                        }`}
+                        className={`-mb-px flex min-w-0 flex-col gap-1 border-b-2 px-3 py-3 text-left transition-colors sm:px-5 ${
+                            on ? 'border-neutral-900' : 'border-transparent hover:bg-neutral-50'
+                        } ${n > 0 ? 'border-l border-l-hairline' : ''}`}
                     >
-                        <span className="flex items-center gap-2">
-                            <span
-                                className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-semibold ${
-                                    s.done && !on
-                                        ? 'bg-emerald-600 text-white'
-                                        : on
-                                          ? 'bg-neutral-900 text-white'
-                                          : 'bg-neutral-100 text-neutral-600'
-                                }`}
-                            >
-                                {s.done && !on ? (
-                                    <i
-                                        className="fa-solid fa-check text-[9px]"
-                                        aria-hidden="true"
-                                    />
-                                ) : (
-                                    n + 1
-                                )}
-                            </span>
-                            <span className="truncate text-sm font-semibold text-neutral-900">
-                                {s.label}
-                            </span>
+                        <span className="flex items-center gap-2.5">
+                            {s.done && !on ? (
+                                <DoneTick size={18} />
+                            ) : (
+                                <span
+                                    className={`grid h-[18px] w-[18px] shrink-0 place-items-center text-[11px] font-medium tabular-nums ${
+                                        on ? 'bg-neutral-900 text-white' : 'border border-neutral-300 text-neutral-600'
+                                    }`}
+                                >
+                                    {n + 1}
+                                </span>
+                            )}
+                            <span className={`${CAPS} truncate ${on ? 'text-neutral-900' : 'text-neutral-600'}`}>{s.label}</span>
                         </span>
-                        <span className="truncate text-xs text-neutral-500">{s.status}</span>
+                        <span className="truncate text-[12px] text-neutral-500 sm:text-[13px]">{s.status}</span>
                     </button>
                 )
             })}
@@ -371,18 +317,34 @@ function StepBar({
     )
 }
 
-/** A quiet "carry on" link at the foot of a step. */
-function NextStep({ label, onClick }: { label: string; onClick: () => void }) {
+/** Each step's own heading: "Step 1 of 3", a title, a line on what to do. */
+function StepHead({ n, title, children, aside }: { n: number; title: string; children: ReactNode; aside?: ReactNode }) {
     return (
-        <div className="flex justify-end">
-            <Button
-                variant="secondary"
-                icon="fa-solid fa-arrow-right"
-                iconPosition="right"
-                onClick={onClick}
-            >
-                {label}
-            </Button>
+        <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+            <div className="min-w-0">
+                <Eyebrow>Step {n} of 3</Eyebrow>
+                <div className="mt-3">
+                    <SectionTitle>{title}</SectionTitle>
+                </div>
+                <p className="mt-3 max-w-[560px] text-[15px] leading-normal text-neutral-600">{children}</p>
+            </div>
+            {aside}
+        </header>
+    )
+}
+
+/** A big, quiet message when a step has nothing in it yet. */
+function Empty({ icon, title, children, action }: { icon: string; title: string; children: ReactNode; action?: ReactNode }) {
+    return (
+        <div className="flex flex-col items-start gap-4 border-y border-hairline py-12">
+            <span className="grid h-11 w-11 place-items-center bg-neutral-100 text-neutral-600">
+                <i className={icon} aria-hidden="true" />
+            </span>
+            <div>
+                <p className="text-[17px] font-medium text-neutral-900">{title}</p>
+                <p className="mt-1 max-w-[480px] text-[14px] text-neutral-600">{children}</p>
+            </div>
+            {action}
         </div>
     )
 }
@@ -397,6 +359,7 @@ export default function ThinkingAhead({
     onChange: (list: ShoppingList) => void
 }) {
     const toast = useToast()
+    const navigate = useNavigate()
     const [picking, setPicking] = useState(false)
     const [text, setText] = useState('')
     const [confirmClear, setConfirmClear] = useState(false)
@@ -412,6 +375,7 @@ export default function ThinkingAhead({
         }
         window.scrollTo({ top: 0, behavior: 'smooth' })
     }
+    const leave = () => navigate('/nutrition')
 
     function run(fn: () => Promise<ShoppingList>) {
         fn()
@@ -449,20 +413,13 @@ export default function ThinkingAhead({
         {
             key: 'plan' as const,
             label: 'Plan',
-            status: cooking.length
-                ? `${plural(cooking.length, 'meal')} · ${plural(portions, 'portion')}`
-                : 'Pick meals',
+            status: cooking.length ? `${plural(cooking.length, 'meal')} · ${plural(portions, 'portion')}` : 'Pick meals',
             done: cooking.length > 0,
         },
         {
             key: 'shop' as const,
             label: 'Shop',
-            status:
-                lines.length === 0
-                    ? 'Nothing yet'
-                    : toGet.length
-                      ? `${toGet.length} to buy`
-                      : 'All bought',
+            status: lines.length === 0 ? 'Nothing yet' : toGet.length ? `${toGet.length} to buy` : 'All bought',
             done: lines.length > 0 && toGet.length === 0,
         },
         {
@@ -473,46 +430,54 @@ export default function ThinkingAhead({
         },
     ]
 
+    const at = ORDER.indexOf(step)
+    const prev = at > 0 ? ORDER[at - 1] : null
+    const next = at < ORDER.length - 1 ? ORDER[at + 1] : null
+    const nextLabel =
+        step === 'plan' ? (toGet.length ? `Shop · ${toGet.length}` : 'Shop') : step === 'shop' ? 'Portion' : 'Done'
+    const footNote =
+        step === 'plan'
+            ? cooking.length
+                ? `${plural(cooking.length, 'meal')} · ${plural(portions, 'portion')}`
+                : 'Nothing planned yet'
+            : step === 'shop'
+              ? lines.length
+                  ? `${inBasket.length} of ${lines.length} bought`
+                  : 'Nothing to buy yet'
+              : portionable
+                ? `${plural(portionable, 'meal')} to portion`
+                : 'Nothing to portion yet'
+
     const line = (l: (typeof lines)[number]) => {
         const done = ticked.has(l.key)
         const item = l.item
         const side = sides.isSide(l.name)
         return (
-            <li key={l.key} className="flex min-h-14 items-center gap-1 pr-1">
+            <li key={l.key} className="flex min-h-14 items-center gap-1 border-b border-hairline">
                 <button
                     type="button"
                     role="checkbox"
                     aria-checked={done}
                     onClick={() => run(() => tickShopping(l.name, !done))}
-                    className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pl-4 pr-2 text-left"
+                    className="flex min-w-0 flex-1 items-center gap-3 py-3 pr-2 text-left"
                 >
-                    <span
-                        className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border transition-colors ${
-                            done
-                                ? 'border-neutral-900 bg-neutral-900 text-white'
-                                : 'border-neutral-300'
-                        }`}
-                    >
-                        {done && <i className="fa-solid fa-check text-[10px]" aria-hidden="true" />}
-                    </span>
+                    {done ? (
+                        <DoneTick size={18} label="Bought" />
+                    ) : (
+                        <span className="h-[18px] w-[18px] shrink-0 border border-neutral-400" />
+                    )}
                     <span className="min-w-0 flex-1">
                         <span
-                            className={`block truncate text-sm font-medium ${
-                                done ? 'text-neutral-400 line-through' : 'text-neutral-900'
-                            }`}
+                            className={`block truncate text-[15px] ${done ? 'text-neutral-400 line-through' : 'text-neutral-900'}`}
                         >
                             {l.name}
                         </span>
                         {l.from.length > 0 && (
-                            <span className="block truncate text-xs text-neutral-500">
-                                {l.from.join(', ')}
-                            </span>
+                            <span className="block truncate text-[12px] text-neutral-500">{l.from.join(', ')}</span>
                         )}
                     </span>
                     {lineAmount(l) && (
-                        <span
-                            className={`shrink-0 text-sm font-medium tabular-nums ${done ? 'text-neutral-400' : 'text-neutral-700'}`}
-                        >
+                        <span className={`shrink-0 text-[15px] tabular-nums ${done ? 'text-neutral-400' : 'text-neutral-800'}`}>
                             {lineAmount(l)}
                         </span>
                     )}
@@ -524,13 +489,13 @@ export default function ThinkingAhead({
                         aria-label={`${l.name} is a side`}
                         title="A side is cooked in its own pot and weighed out on its own"
                         onClick={() => sides.setSide(l.name, !side)}
-                        className="grid h-11 shrink-0 place-items-center px-1.5"
+                        className="grid h-11 shrink-0 place-items-center px-1"
                     >
                         <span
-                            className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                            className={`px-2 py-1 text-[10px] font-medium uppercase tracking-[0.12em] transition-colors ${
                                 side
                                     ? 'bg-neutral-900 text-white'
-                                    : 'text-neutral-400 ring-1 ring-inset ring-neutral-200 hover:text-neutral-700'
+                                    : 'border border-neutral-200 text-neutral-400 hover:border-neutral-400 hover:text-neutral-700'
                             }`}
                         >
                             Side
@@ -542,7 +507,7 @@ export default function ThinkingAhead({
                         type="button"
                         aria-label={`Remove ${l.name}`}
                         onClick={() => run(() => deleteShoppingGroup(item.id))}
-                        className="grid h-11 w-9 shrink-0 place-items-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-700"
+                        className={ICON_BTN}
                     >
                         <i className="fa-solid fa-xmark" aria-hidden="true" />
                     </button>
@@ -552,213 +517,194 @@ export default function ThinkingAhead({
     }
 
     return (
-        <div className="flex max-w-3xl flex-col gap-6">
-            <StepBar step={step} onStep={setStep} steps={steps} />
+        <div className="flex min-h-dvh flex-col bg-canvas">
+            {/* Top: the way back, the name, and the three steps. */}
+            <div className="sticky top-0 z-20 bg-canvas pt-[env(safe-area-inset-top)]">
+                <div className="flex min-h-16 items-center gap-3 border-b border-hairline px-3 sm:px-8">
+                    <button type="button" onClick={leave} aria-label="Back to Nutrition" className={ICON_BTN}>
+                        <i className="fa-solid fa-arrow-left" aria-hidden="true" />
+                    </button>
+                    <div className="min-w-0 flex-1">
+                        <p className={`${CAPS} hidden text-neutral-500 sm:block`}>Nutrition</p>
+                        <h1 className="truncate text-[17px] font-medium">Thinking ahead</h1>
+                    </div>
+                    {list.groups.length > 0 && (
+                        <BarButton onClick={() => setConfirmClear(true)} className="!border-neutral-300">
+                            Start over
+                        </BarButton>
+                    )}
+                </div>
+                <div className="mx-auto max-w-5xl sm:px-8">
+                    <StepRail step={step} onStep={setStep} steps={steps} />
+                </div>
+            </div>
 
-            {step === 'plan' && (
-                <section className="flex flex-col gap-3">
-                    <SectionHead
-                        title="What you’re cooking"
-                        aside={
-                            list.groups.length > 0 && (
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => setConfirmClear(true)}
-                                >
-                                    Start over
-                                </Button>
-                            )
-                        }
-                    />
-                    {cooking.length === 0 ? (
-                        <div className={CARD}>
-                            <EmptyState
+            <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-36 pt-10 sm:px-8 sm:pt-14">
+                {step === 'plan' && (
+                    <section className="flex flex-col gap-8">
+                        <StepHead n={1} title="What are you cooking?">
+                            The meals you’re batching and how many of each. Their ingredients become one shopping
+                            list.
+                        </StepHead>
+                        {cooking.length === 0 ? (
+                            <Empty
                                 icon="fa-solid fa-kitchen-set"
                                 title="Plan your next cook"
-                                description="Add the meals you’re batching and how many of each. Their ingredients become one shopping list."
                                 action={
-                                    <Button
-                                        icon="fa-solid fa-plus"
-                                        onClick={() => setPicking(true)}
-                                    >
+                                    <BarButton solid onClick={() => setPicking(true)}>
+                                        <i className="fa-solid fa-plus text-[11px]" aria-hidden="true" />
                                         Add a meal
-                                    </Button>
+                                    </BarButton>
                                 }
-                            />
-                        </div>
-                    ) : (
-                        <ul className={`${CARD} divide-y divide-neutral-100`}>
-                            {cooking.map((g) => (
-                                <CookRow
-                                    key={g.id}
-                                    group={g}
-                                    meal={g.ref ? byId.get(g.ref) : undefined}
-                                    run={run}
-                                />
-                            ))}
-                            <li>
+                            >
+                                Pick a meal from your Library, then say how many portions or trays.
+                            </Empty>
+                        ) : (
+                            <div>
+                                <ul className="border-t border-neutral-900">
+                                    {cooking.map((g) => (
+                                        <CookRow key={g.id} group={g} meal={g.ref ? byId.get(g.ref) : undefined} run={run} />
+                                    ))}
+                                </ul>
                                 <button
                                     type="button"
                                     onClick={() => setPicking(true)}
-                                    className="flex min-h-14 w-full items-center gap-3 px-3 text-left text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                                    className="flex min-h-16 w-full items-center gap-3 border-b border-hairline text-left text-[15px] text-neutral-600 transition-colors hover:text-neutral-900"
                                 >
-                                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-dashed border-neutral-300 text-neutral-500">
-                                        <i
-                                            className="fa-solid fa-plus text-xs"
-                                            aria-hidden="true"
-                                        />
+                                    <span className="grid h-9 w-9 shrink-0 place-items-center border border-dashed border-neutral-400">
+                                        <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
                                     </span>
                                     Add a meal
                                 </button>
-                            </li>
-                        </ul>
-                    )}
-                    {cooking.some((g) => g.ingredients.length === 0) && (
-                        <p className="px-1 text-xs text-neutral-500">
-                            A meal with no ingredients goes on the list as itself. Add its
-                            ingredients in the Library to split it out.
-                        </p>
-                    )}
-                    {cooking.length > 0 && (
-                        <NextStep
-                            label={
-                                toGet.length ? `Shop · ${plural(toGet.length, 'thing')}` : 'Shop'
-                            }
-                            onClick={() => setStep('shop')}
-                        />
-                    )}
-                </section>
-            )}
-
-            {step === 'shop' && (
-                <section className="flex flex-col gap-3">
-                    <SectionHead
-                        title="Shopping list"
-                        aside={
-                            inBasket.length > 0 && (
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => run(() => clearShopping(true))}
-                                >
-                                    Clear bought
-                                </Button>
-                            )
-                        }
-                    />
-                    {lines.length > 0 && (
-                        <div className="flex items-center gap-3 px-1">
-                            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-neutral-200">
-                                <div
-                                    className="h-full rounded-full bg-neutral-900 transition-[width] duration-300"
-                                    style={{ width: `${(inBasket.length / lines.length) * 100}%` }}
-                                />
-                            </div>
-                            <span className="shrink-0 text-xs text-neutral-500">
-                                <span className="tabular-nums">{inBasket.length}</span> of{' '}
-                                <span className="tabular-nums">{lines.length}</span> bought
-                            </span>
-                        </div>
-                    )}
-                    <div className={CARD}>
-                        <form
-                            className="flex items-center gap-2 border-b border-neutral-100 p-2"
-                            onSubmit={(e) => {
-                                e.preventDefault()
-                                submit()
-                            }}
-                        >
-                            <div className="min-w-0 flex-1">
-                                <Input
-                                    aria-label="Add something else"
-                                    placeholder="Add something else… (milk, foil)"
-                                    enterKeyHint="done"
-                                    value={text}
-                                    onChange={(e) => setText(e.target.value)}
-                                />
-                            </div>
-                            <Button
-                                type="submit"
-                                icon="fa-solid fa-plus"
-                                disabled={!text.trim()}
-                                aria-label="Add"
-                            >
-                                <span className="hidden sm:inline">Add</span>
-                            </Button>
-                        </form>
-                        {lines.length === 0 ? (
-                            <p className="px-4 py-10 text-center text-sm text-neutral-500">
-                                Add meals in Plan and their ingredients land here, one line each.
-                            </p>
-                        ) : (
-                            <>
-                                {toGet.length > 0 ? (
-                                    <ul className="divide-y divide-neutral-100">
-                                        {toGet.map(line)}
-                                    </ul>
-                                ) : (
-                                    <p className="px-4 py-6 text-center text-sm text-neutral-600">
-                                        <i
-                                            className="fa-solid fa-check mr-1.5 text-emerald-600"
-                                            aria-hidden="true"
-                                        />
-                                        Everything’s in the basket.
+                                {cooking.some((g) => g.ingredients.length === 0) && (
+                                    <p className="mt-4 text-[13px] text-neutral-500">
+                                        A meal with no ingredients goes on the list as itself. Add its ingredients in the
+                                        Library to split it out.
                                     </p>
                                 )}
-                                {inBasket.length > 0 && (
-                                    <>
-                                        <p
-                                            className={`${OVERLINE} border-t border-neutral-100 bg-neutral-50 px-4 py-2`}
-                                        >
-                                            In the basket
-                                        </p>
-                                        <ul className="divide-y divide-neutral-100">
-                                            {inBasket.map(line)}
-                                        </ul>
-                                    </>
-                                )}
-                            </>
+                            </div>
                         )}
-                    </div>
-                    {lines.length > 0 && (
-                        <p className="px-1 text-xs text-neutral-500">
-                            Tap <span className="font-medium text-neutral-700">Side</span> on
-                            anything cooked in its own pot (rice, pasta) — you’ll weigh it on its
-                            own when portioning.
-                        </p>
-                    )}
-                    {portionable > 0 && (
-                        <NextStep label="Portion" onClick={() => setStep('portion')} />
-                    )}
-                </section>
-            )}
+                    </section>
+                )}
 
-            {step === 'portion' &&
-                (portionable > 0 ? (
-                    <Portioning cooking={cooking} byId={byId} sides={sides} />
-                ) : (
-                    <div className={CARD}>
-                        <EmptyState
-                            icon="fa-solid fa-scale-balanced"
-                            title="Nothing to portion yet"
-                            description="Add the meals you’re cooking in Plan. After cooking, weigh each pot here and it tells you what goes in every box."
-                            action={
-                                <Button variant="secondary" onClick={() => setStep('plan')}>
-                                    Go to Plan
-                                </Button>
+                {step === 'shop' && (
+                    <section className="flex flex-col gap-8">
+                        <StepHead
+                            n={2}
+                            title="Shopping list"
+                            aside={
+                                inBasket.length > 0 && (
+                                    <BarButton onClick={() => run(() => clearShopping(true))} className="!border-neutral-300">
+                                        Clear bought
+                                    </BarButton>
+                                )
                             }
-                        />
-                    </div>
-                ))}
+                        >
+                            Every ingredient on one line. Tap <span className="text-neutral-900">Side</span> on anything
+                            cooked in its own pot (rice, pasta) — you’ll weigh it on its own when portioning.
+                        </StepHead>
 
-            <MealPicker
-                open={picking}
-                onClose={() => setPicking(false)}
-                meals={meals}
-                onPick={pick}
-                onList={onList}
-            />
+                        {lines.length > 0 && (
+                            <div className="flex items-center gap-4">
+                                <Bar pct={(inBasket.length / lines.length) * 100} color="#111111" className="flex-1" />
+                                <span className="shrink-0 text-[13px] text-neutral-600">
+                                    <span className="tabular-nums text-neutral-900">{inBasket.length}</span> of{' '}
+                                    <span className="tabular-nums">{lines.length}</span> bought
+                                </span>
+                            </div>
+                        )}
+
+                        <div>
+                            <form
+                                className="flex items-center gap-2 border-t border-neutral-900 py-3"
+                                onSubmit={(e) => {
+                                    e.preventDefault()
+                                    submit()
+                                }}
+                            >
+                                <div className="min-w-0 flex-1">
+                                    <Input
+                                        aria-label="Add something else"
+                                        placeholder="Add something else… (milk, foil)"
+                                        enterKeyHint="done"
+                                        value={text}
+                                        onChange={(e) => setText(e.target.value)}
+                                    />
+                                </div>
+                                <BarButton type="submit" solid disabled={!text.trim()}>
+                                    Add
+                                </BarButton>
+                            </form>
+                            {lines.length === 0 ? (
+                                <p className="border-t border-hairline py-12 text-[14px] text-neutral-500">
+                                    Add meals in Plan and their ingredients land here, one line each.
+                                </p>
+                            ) : (
+                                <>
+                                    {toGet.length > 0 ? (
+                                        <ul className="border-t border-hairline">{toGet.map(line)}</ul>
+                                    ) : (
+                                        <p className="flex items-center gap-2.5 border-y border-hairline py-6 text-[15px] text-neutral-700">
+                                            <DoneTick size={16} />
+                                            Everything’s in the basket.
+                                        </p>
+                                    )}
+                                    {inBasket.length > 0 && (
+                                        <div className="mt-8">
+                                            <Eyebrow className="pb-3">In the basket · {inBasket.length}</Eyebrow>
+                                            <ul className="border-t border-hairline">{inBasket.map(line)}</ul>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </section>
+                )}
+
+                {step === 'portion' && (
+                    <section className="flex flex-col gap-8">
+                        <StepHead n={3} title="Portion it out">
+                            Weigh each pot after cooking — zero the scale with the empty pot first. You’ll see how much
+                            of each goes in every box, and what one box gives you.
+                        </StepHead>
+                        {portionable > 0 ? (
+                            <Portioning cooking={cooking} byId={byId} sides={sides} />
+                        ) : (
+                            <Empty
+                                icon="fa-solid fa-scale-balanced"
+                                title="Nothing to portion yet"
+                                action={<BarButton onClick={() => setStep('plan')}>Go to Plan</BarButton>}
+                            >
+                                Add the meals you’re cooking in Plan. After cooking, weigh each pot here and it tells you
+                                what goes in every box.
+                            </Empty>
+                        )}
+                    </section>
+                )}
+            </main>
+
+            {/* Foot: where this step stands, and Back / Next. */}
+            <div className="fixed inset-x-0 bottom-0 z-20 border-t border-hairline bg-canvas pb-[env(safe-area-inset-bottom)]">
+                <div className="mx-auto flex min-h-[72px] max-w-3xl items-center gap-3 px-5 sm:px-8">
+                    <p className="min-w-0 flex-1 truncate text-[13px] text-neutral-600">{footNote}</p>
+                    {prev && (
+                        <BarButton onClick={() => setStep(prev)} className="!border-neutral-300">
+                            Back
+                        </BarButton>
+                    )}
+                    {next ? (
+                        <BarButton solid arrow onClick={() => setStep(next)}>
+                            {nextLabel}
+                        </BarButton>
+                    ) : (
+                        <BarButton solid onClick={leave}>
+                            {nextLabel}
+                        </BarButton>
+                    )}
+                </div>
+            </div>
+
+            <MealPicker open={picking} onClose={() => setPicking(false)} meals={meals} onPick={pick} onList={onList} />
             <ConfirmModal
                 open={confirmClear}
                 onClose={() => setConfirmClear(false)}

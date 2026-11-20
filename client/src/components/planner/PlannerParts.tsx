@@ -14,6 +14,36 @@ import { parseDateKey, WEEKDAYS_LONG, MONTHS } from '../../lib/calendar'
  * segmented switch and list rows.
  */
 
+// ─── Week grid cells ─────────────────────────────────────────────────────────
+
+/**
+ * A week-grid cell's add button: a faint + that shows when the cell is
+ * hovered (or focused), so empty cells stay empty instead of shouting "Add".
+ * Needs `group/cell` on the cell.
+ */
+export function GridCellAdd({ label, onClick }: { label: string; onClick: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            aria-label={label}
+            title={label}
+            className="grid min-h-9 flex-1 place-items-center text-neutral-400 opacity-0 transition-opacity hover:bg-neutral-50 focus-visible:opacity-100 group-hover/cell:opacity-100"
+        >
+            <i className="fa-solid fa-plus text-[11px]" aria-hidden="true" />
+        </button>
+    )
+}
+
+/** Where a drag would land in a week-grid cell. */
+export function GridDropHere() {
+    return (
+        <div className="grid min-h-16 place-items-center border border-dashed border-neutral-900 bg-white text-[11px] font-medium uppercase tracking-[0.12em] text-neutral-700">
+            Drop here
+        </div>
+    )
+}
+
 // ─── Menus ────────────────────────────────────────────────────────────────────
 
 /** The week's ⋯ menu in the hero: copy, paste, clear and the like. */

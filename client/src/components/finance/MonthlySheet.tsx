@@ -76,7 +76,7 @@ export function AmountCell({
                     if (e.key === 'Enter') commit()
                     if (e.key === 'Escape') setEditing(false)
                 }}
-                className="h-9 w-full rounded-[10px] border border-neutral-900 bg-white px-2.5 text-right text-[15px] tabular-nums outline-none ring-4 ring-neutral-100"
+                className="h-9 w-full border border-neutral-900 bg-white px-2.5 text-right text-[15px] tabular-nums outline-none shadow-[inset_0_0_0_1px_#111111]"
             />
         )
     }

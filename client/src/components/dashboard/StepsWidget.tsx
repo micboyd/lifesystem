@@ -6,7 +6,7 @@ import { useWalks } from '../walking/useWalks'
 import { useAuth } from '../../context/AuthContext'
 import { todayKey } from '../../lib/calendar'
 import { stepsSummary, type StepsWeekDay } from '../../lib/steps'
-import { nextWalk, walkDayTotals } from '../../lib/walking'
+import { PART_NAME, nextWalk, walkDayTotals, walkPart } from '../../lib/walking'
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -262,7 +262,7 @@ function WalksToday({ today }: { today: string }) {
             </li>
         )
     const value = next
-        ? `Next ${next.time} · ${totals.done} of ${totals.count} done`
+        ? `Next: ${PART_NAME[walkPart(next.time)].toLowerCase()} · ${totals.done} of ${totals.count} done`
         : `All ${totals.count} done`
     return (
         <li>

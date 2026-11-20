@@ -1,10 +1,10 @@
 import { Schema, model, Document, Types } from 'mongoose'
 
 /**
- * A named snapshot of the savings target planner. Both the inputs and the
- * computed results are frozen at save time — the required monthly amount is
- * relative to the month it was saved in (`savedMonth`), so it is stored
- * verbatim rather than recomputed.
+ * A named savings plan from the target planner. Inputs and computed results
+ * are stored together; the required monthly amount is relative to the month
+ * it was worked out in (`savedMonth`). Editing the plan's numbers re-works it
+ * client-side and saves the whole set again.
  */
 export interface ISavingsTarget extends Document {
     user: Types.ObjectId
@@ -20,6 +20,8 @@ export interface ISavingsTarget extends Document {
     order: number
     /** User-set flag to mark the plan as a priority. */
     priority: boolean
+    /** Counted in the planner's combined totals. */
+    included: boolean
     // Inputs
     targetAmount: number
     startingBalance: number
@@ -46,6 +48,7 @@ const savingsTargetSchema = new Schema<ISavingsTarget>(
         mode: { type: String, enum: ['target', 'contribution'], default: 'target' },
         order: { type: Number, default: 0 },
         priority: { type: Boolean, default: false },
+        included: { type: Boolean, default: true },
         targetAmount: { type: Number, required: true },
         startingBalance: { type: Number, default: 0 },
         annualInterestRate: { type: Number, default: 0 },

@@ -1,3 +1,4 @@
+import { repSeconds, repsForExport } from '../lib/sessionReps'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Drawer from './Drawer'
 import Button from './Button'
@@ -124,12 +125,23 @@ function shapeParts(parts: SessionPart[]) {
     return parts.map((p) => ({
         name: p.name,
         ...(p.detail ? { detail: p.detail } : {}),
-        ...(p.rounds ? { rounds: p.rounds } : {}),
-        ...(p.rounds && p.roundLabel ? { roundLabel: p.roundLabel } : {}),
-        ...(p.rounds && p.roundDetails?.length ? { roundDetails: p.roundDetails } : {}),
-        ...(p.rounds && p.roundSeconds?.length ? { roundSeconds: p.roundSeconds } : {}),
-        ...(p.rounds && p.startAtSec != null ? { startAtSec: p.startAtSec } : {}),
-        ...(p.steps?.length ? { steps: p.steps } : {}),
+        // Reps are the section's structure; the counter fields come from them on import.
+        ...(p.reps?.length
+            ? {
+                  reps: repsForExport(p.reps),
+                  ...(p.roundSeconds?.length && !p.reps.every((r) => repSeconds(r) !== undefined)
+                      ? { roundSeconds: p.roundSeconds }
+                      : {}),
+                  ...(p.startAtSec != null ? { startAtSec: p.startAtSec } : {}),
+              }
+            : {
+                  ...(p.rounds ? { rounds: p.rounds } : {}),
+                  ...(p.rounds && p.roundLabel ? { roundLabel: p.roundLabel } : {}),
+                  ...(p.rounds && p.roundDetails?.length ? { roundDetails: p.roundDetails } : {}),
+                  ...(p.rounds && p.roundSeconds?.length ? { roundSeconds: p.roundSeconds } : {}),
+                  ...(p.rounds && p.startAtSec != null ? { startAtSec: p.startAtSec } : {}),
+                  ...(p.steps?.length ? { steps: p.steps } : {}),
+              }),
         // The conditioning importer requires each part's slot.
         ...(p.startMin != null && p.endMin != null
             ? { startMin: p.startMin, endMin: p.endMin }

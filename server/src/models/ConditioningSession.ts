@@ -1,6 +1,7 @@
 import { Schema, model, Document, Types } from 'mongoose'
 import type { Phased } from '../lib/phases'
 import type { WatchStep } from '../lib/watchSteps'
+import type { IRepEffort, ISessionRep } from '../lib/sessionReps'
 
 export const CONDITIONING_CATEGORIES = [
     'HIIT',
@@ -30,6 +31,11 @@ export interface ISessionPart {
     endMin?: number
     /** A sub-list of things to do within the part, ticked off one by one. */
     steps?: string[]
+    /**
+     * The section's reps, one entry each (lib/sessionReps.ts). When present,
+     * rounds / roundDetails / roundSeconds are worked out from them.
+     */
+    reps?: ISessionRep[]
 }
 
 /** A session's parts sit in three ordered phases: warmUp, main, coolDown (Phased). */
@@ -58,6 +64,24 @@ export interface IConditioningSession extends Document, Phased<ISessionPart> {
     updatedAt: Date
 }
 
+const effortFields = {
+    do: { type: String, required: true, trim: true },
+    seconds: { type: Number, min: 0 },
+    metres: { type: Number, min: 0 },
+    count: { type: Number, min: 0 },
+    speed: { type: String, trim: true },
+    pace: { type: String, trim: true },
+    incline: { type: String, trim: true },
+    effort: { type: String, trim: true },
+    note: { type: String, trim: true },
+}
+
+const restSchema = new Schema<IRepEffort>(effortFields, { _id: false })
+const repSchema = new Schema<ISessionRep>(
+    { ...effortFields, rest: { type: restSchema, default: undefined } },
+    { _id: false }
+)
+
 const partSchema = new Schema<ISessionPart>(
     {
         name: { type: String, required: true, trim: true },
@@ -70,6 +94,7 @@ const partSchema = new Schema<ISessionPart>(
         startMin: { type: Number, min: 0 },
         endMin: { type: Number, min: 0 },
         steps: { type: [String], default: undefined },
+        reps: { type: [repSchema], default: undefined },
     },
     { _id: false }
 )

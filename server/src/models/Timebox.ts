@@ -35,6 +35,8 @@ export interface ITimebox extends Document {
     location?: string
     /** Video call link on an imported meeting. */
     joinUrl?: string
+    /** 'cleaning' on blocks sent from the Cleaning module — editable, but replaced when it sends again. */
+    origin?: 'cleaning'
     createdAt: Date
     updatedAt: Date
 }
@@ -65,6 +67,7 @@ const timeboxSchema = new Schema<ITimebox>(
         occurrenceDate: { type: String, match: DATE_PATTERN },
         location: { type: String, trim: true, maxlength: 500 },
         joinUrl: { type: String, trim: true, maxlength: 1000 },
+        origin: { type: String, enum: ['cleaning'] },
     },
     { timestamps: true }
 )

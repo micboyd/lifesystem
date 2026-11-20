@@ -1,39 +1,16 @@
+import type { KeyboardEvent } from 'react'
+import { buildPageItems, clampPage, type PageItem } from '../lib/pagination'
+
 interface PaginationProps {
     page: number
     pageCount: number
     onChange: (page: number) => void
-    /** Pages to show on each side of the current page. Default 1. */
+    /** Pages to show on each side of the current page from `sm` up. Default 1. Phones always use 0 so the bar fits on one line. */
     siblingCount?: number
     className?: string
 }
 
-type PageItem = number | 'ellipsis'
-
-function buildPages(page: number, pageCount: number, siblingCount: number): PageItem[] {
-    // Show first, last, current ± siblings; collapse gaps with an ellipsis.
-    const totalShown = siblingCount * 2 + 5 // first, last, current, 2 ellipses
-    if (pageCount <= totalShown) {
-        return Array.from({ length: pageCount }, (_, i) => i + 1)
-    }
-
-    const left = Math.max(page - siblingCount, 1)
-    const right = Math.min(page + siblingCount, pageCount)
-    const showLeftEllipsis = left > 2
-    const showRightEllipsis = right < pageCount - 1
-
-    const pages: PageItem[] = [1]
-    if (showLeftEllipsis) pages.push('ellipsis')
-    for (
-        let p = showLeftEllipsis ? left : 2;
-        p <= (showRightEllipsis ? right : pageCount - 1);
-        p++
-    ) {
-        pages.push(p)
-    }
-    if (showRightEllipsis) pages.push('ellipsis')
-    pages.push(pageCount)
-    return pages
-}
+const SLOT = 'grid h-11 min-w-11 place-items-center text-sm transition-colors duration-150 lg:h-10 lg:min-w-10'
 
 export default function Pagination({
     page,
@@ -44,63 +21,100 @@ export default function Pagination({
 }: PaginationProps) {
     if (pageCount <= 1) return null
 
-    const pages = buildPages(page, pageCount, siblingCount)
+    const current = clampPage(page, pageCount)
+    const go = (p: number) => {
+        const next = clampPage(p, pageCount)
+        if (next !== current) onChange(next)
+    }
+
+    const onKeyDown = (e: KeyboardEvent<HTMLElement>) => {
+        const moves: Record<string, number> = {
+            ArrowLeft: current - 1,
+            ArrowRight: current + 1,
+            Home: 1,
+            End: pageCount,
+        }
+        if (!(e.key in moves)) return
+        e.preventDefault()
+        go(moves[e.key])
+    }
 
     const arrowClass = (enabled: boolean) =>
         [
-            'grid h-9 w-9 place-items-center rounded-[10px] border border-neutral-200 text-sm transition-colors duration-150',
+            SLOT,
+            'border border-neutral-300',
             enabled
-                ? 'text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50'
+                ? 'text-neutral-600 hover:bg-neutral-50'
                 : 'cursor-not-allowed text-neutral-300',
         ].join(' ')
+
+    const renderItem = (item: PageItem) => {
+        if (item.kind === 'gap') {
+            const label = `Jump to page ${item.target}`
+            return (
+                <button
+                    key={`gap-${item.side}`}
+                    type="button"
+                    aria-label={label}
+                    title={label}
+                    onClick={() => go(item.target)}
+                    className={`${SLOT} group text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900`}
+                >
+                    <span className="group-hover:hidden group-focus-visible:hidden" aria-hidden="true">…</span>
+                    <i
+                        className={`fa-solid ${item.side === 'left' ? 'fa-angles-left' : 'fa-angles-right'} hidden text-xs group-hover:inline group-focus-visible:inline`}
+                        aria-hidden="true"
+                    />
+                </button>
+            )
+        }
+        const isCurrent = item.page === current
+        return (
+            <button
+                key={item.page}
+                type="button"
+                aria-label={`Page ${item.page}`}
+                aria-current={isCurrent ? 'page' : undefined}
+                onClick={() => go(item.page)}
+                className={[
+                    SLOT,
+                    'px-2 font-medium tabular-nums',
+                    isCurrent ? 'bg-neutral-900 text-neutral-50' : 'text-neutral-600 hover:bg-neutral-100',
+                ].join(' ')}
+            >
+                {item.page}
+            </button>
+        )
+    }
 
     return (
         <nav
             aria-label="Pagination"
-            className={`flex flex-wrap items-center justify-center gap-1 sm:gap-1.5 ${className}`}
+            onKeyDown={onKeyDown}
+            className={`flex items-center justify-center gap-1 sm:gap-1.5 ${className}`}
         >
             <button
                 type="button"
                 aria-label="Previous page"
-                disabled={page <= 1}
-                onClick={() => onChange(page - 1)}
-                className={arrowClass(page > 1)}
+                disabled={current <= 1}
+                onClick={() => go(current - 1)}
+                className={arrowClass(current > 1)}
             >
                 <i className="fa-solid fa-chevron-left text-xs" aria-hidden="true" />
             </button>
 
-            {pages.map((p, i) =>
-                p === 'ellipsis' ? (
-                    <span
-                        key={`ellipsis-${i}`}
-                        className="grid h-9 w-9 place-items-center text-sm text-neutral-500"
-                    >
-                        …
-                    </span>
-                ) : (
-                    <button
-                        key={p}
-                        type="button"
-                        aria-current={p === page ? 'page' : undefined}
-                        onClick={() => onChange(p)}
-                        className={[
-                            'grid h-9 min-w-9 place-items-center rounded-[10px] px-2 text-sm font-medium tabular-nums transition-colors duration-150',
-                            p === page
-                                ? 'bg-neutral-900 text-neutral-50'
-                                : 'text-neutral-600 hover:bg-neutral-100',
-                        ].join(' ')}
-                    >
-                        {p}
-                    </button>
-                )
-            )}
+            {/* Phones: no siblings, so seven slots fit a 375px screen without wrapping. */}
+            <div className="contents sm:hidden">{buildPageItems(current, pageCount, 0).map(renderItem)}</div>
+            <div className="hidden sm:contents">
+                {buildPageItems(current, pageCount, siblingCount).map(renderItem)}
+            </div>
 
             <button
                 type="button"
                 aria-label="Next page"
-                disabled={page >= pageCount}
-                onClick={() => onChange(page + 1)}
-                className={arrowClass(page < pageCount)}
+                disabled={current >= pageCount}
+                onClick={() => go(current + 1)}
+                className={arrowClass(current < pageCount)}
             >
                 <i className="fa-solid fa-chevron-right text-xs" aria-hidden="true" />
             </button>

@@ -2,13 +2,21 @@ import { useEffect, useState } from 'react'
 import DatePicker, { type DateRange } from '../DatePicker'
 import { Card } from '../Card'
 import Button from '../Button'
-import { listStatuses, createStatus, deleteStatus } from '../../services/dayStatus'
+import {
+    listStatuses,
+    createStatus,
+    updateStatus,
+    deleteStatus,
+} from '../../services/dayStatus'
 import { DAY_STATUS_OPTIONS, type DayStatus, type DayStatusType } from '../../types'
 import { MONTHS } from '../../lib/calendar'
 
 interface Props {
     date: string
-    /** Start with the add form open (used when launched from the calendar). */
+    /**
+     * Start with the form open (used when launched from the calendar). If the
+     * day already has leave, that leave opens for editing with its real range.
+     */
     defaultAdding?: boolean
 }
 
@@ -27,26 +35,51 @@ export default function DayStatusSection({ date, defaultAdding = false }: Props)
     const [saving, setSaving] = useState(false)
     const [range, setRange] = useState<DateRange>({ start: date, end: date })
     const [selectedStatus, setSelectedStatus] = useState<DayStatusType | null>(null)
+    // The record the form is editing; null means the form adds a new one.
+    const [editingId, setEditingId] = useState<string | null>(null)
+
+    function startEdit(record: DayStatus) {
+        setEditingId(record._id)
+        setRange({ start: record.startDate, end: record.endDate })
+        setSelectedStatus(record.status)
+        setAdding(true)
+    }
+
+    function closeForm() {
+        setAdding(false)
+        setEditingId(null)
+        setRange({ start: date, end: date })
+        setSelectedStatus(null)
+    }
 
     useEffect(() => {
         let active = true
         listStatuses(date, date)
-            .then((list) => active && setRecords(list))
+            .then((list) => {
+                if (!active) return
+                setRecords(list)
+                // Opened on a day that already has leave: edit that leave, not a new one-day entry.
+                if (defaultAdding && list.length > 0) startEdit(list[0])
+            })
             .finally(() => active && setLoading(false))
         return () => {
             active = false
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [date])
 
-    async function handleAdd() {
+    async function handleSave() {
         if (!selectedStatus || !range.start || !range.end) return
         setSaving(true)
         try {
-            const record = await createStatus(range.start, range.end, selectedStatus)
-            setRecords((prev) => [...prev, record])
-            setAdding(false)
-            setRange({ start: date, end: date })
-            setSelectedStatus(null)
+            if (editingId) {
+                const record = await updateStatus(editingId, range.start, range.end, selectedStatus)
+                setRecords((prev) => prev.map((r) => (r._id === record._id ? record : r)))
+            } else {
+                const record = await createStatus(range.start, range.end, selectedStatus)
+                setRecords((prev) => [...prev, record])
+            }
+            closeForm()
         } finally {
             setSaving(false)
         }
@@ -55,6 +88,7 @@ export default function DayStatusSection({ date, defaultAdding = false }: Props)
     async function handleDelete(id: string) {
         await deleteStatus(id)
         setRecords((prev) => prev.filter((r) => r._id !== id))
+        if (editingId === id) closeForm()
     }
 
     if (loading) return null
@@ -64,17 +98,23 @@ export default function DayStatusSection({ date, defaultAdding = false }: Props)
             {/* Existing records */}
             {records.map((record) => {
                 const opt = DAY_STATUS_OPTIONS.find((o) => o.value === record.status)!
+                const editing = editingId === record._id
                 return (
                     <div
                         key={record._id}
-                        className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 ${opt.bg} border-transparent`}
+                        className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 ${opt.bg} ${editing ? 'border-neutral-900' : 'border-transparent'}`}
                     >
-                        <div className="min-w-0">
+                        <button
+                            type="button"
+                            onClick={() => startEdit(record)}
+                            className="min-w-0 flex-1 text-left"
+                            aria-label={`Edit ${opt.label}`}
+                        >
                             <p className={`text-sm font-semibold ${opt.text}`}>{opt.label}</p>
                             <p className={`text-xs font-medium ${opt.text} opacity-70`}>
                                 {formatRange(record.startDate, record.endDate)}
                             </p>
-                        </div>
+                        </button>
                         <Button
                             variant="ghost"
                             size="sm"
@@ -151,19 +191,12 @@ export default function DayStatusSection({ date, defaultAdding = false }: Props)
 
                     <div className="flex gap-2">
                         <Button
-                            onClick={handleAdd}
+                            onClick={handleSave}
                             disabled={saving || !selectedStatus || !range.start || !range.end}
                         >
-                            {saving ? 'Saving…' : 'Save'}
+                            {saving ? 'Saving…' : editingId ? 'Save changes' : 'Save'}
                         </Button>
-                        <Button
-                            variant="ghost"
-                            onClick={() => {
-                                setAdding(false)
-                                setSelectedStatus(null)
-                                setRange({ start: date, end: date })
-                            }}
-                        >
+                        <Button variant="ghost" onClick={closeForm}>
                             Cancel
                         </Button>
                     </div>

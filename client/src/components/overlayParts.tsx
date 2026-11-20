@@ -23,7 +23,7 @@ export function OverlayCloseButton({ onClose, className = '' }: { onClose: () =>
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className={`grid h-10 w-10 shrink-0 place-items-center rounded-[10px] text-neutral-500 transition-colors duration-150 hover:bg-neutral-100 hover:text-neutral-900 ${className}`}
+            className={`grid h-10 w-10 shrink-0 place-items-center text-neutral-500 transition-colors duration-150 hover:bg-neutral-100 hover:text-neutral-900 ${className}`}
         >
             <i className="fa-solid fa-xmark text-base" aria-hidden="true" />
         </button>
@@ -49,7 +49,7 @@ export function OverlayHeader({
                     type="button"
                     onClick={onBack}
                     aria-label="Back"
-                    className="-ml-2 grid h-10 w-10 shrink-0 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                    className="-ml-2 grid h-10 w-10 shrink-0 place-items-center text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                 >
                     <i className="fa-solid fa-arrow-left" aria-hidden="true" />
                 </button>

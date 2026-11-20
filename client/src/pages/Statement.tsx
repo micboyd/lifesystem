@@ -235,7 +235,7 @@ function MonthArrow({ dir, onClick, disabled = false }: { dir: 'prev' | 'next'; 
             title={label}
             onClick={onClick}
             disabled={disabled}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-surface-muted text-neutral-700 transition-colors hover:bg-neutral-200 hover:text-neutral-950 disabled:pointer-events-none disabled:opacity-30 sm:h-9 sm:w-9"
+            className="grid h-11 w-11 shrink-0 place-items-center border border-neutral-300 text-neutral-900 transition-colors hover:border-neutral-900 disabled:pointer-events-none disabled:opacity-30 lg:h-10 lg:w-10"
         >
             <i className={`fa-solid ${dir === 'prev' ? 'fa-chevron-left' : 'fa-chevron-right'} text-xs`} aria-hidden="true" />
         </button>
