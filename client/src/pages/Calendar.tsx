@@ -1055,8 +1055,9 @@ interface MonthBlockProps {
     canPaste: boolean
 }
 
-// Today's column: one grey line down its right edge, through every row.
-const TODAY_COL_LINE = 'shadow-[inset_-1px_0_0_#a3a3a3]'
+// Today's column: one grey line down its right edge, through every row. A real
+// border (not an inset shadow) so it runs unbroken through the row hairlines.
+const TODAY_COL_LINE = 'border-r border-r-[#a3a3a3]'
 
 function MonthBlock({
     year,
@@ -1313,7 +1314,9 @@ function MonthBlock({
 
                         {/* Leave row */}
                         {!hiddenRows.has('leave') && (
-                            <tr className="border-b border-[#e4e4e4]">
+                            /* A darker line above splits Leave off from the day-part grid. It sits on the
+                               cells, because in a collapsed table the row above's lighter edge would win. */
+                            <tr className="border-b border-[#e4e4e4] [&>*]:border-t [&>*]:border-t-neutral-300">
                                 <th
                                     scope="row"
                                     className="sticky left-0 z-10 whitespace-nowrap bg-white pr-3 text-left align-middle text-[13px] font-medium text-neutral-900"
@@ -1505,7 +1508,7 @@ function TotalRowCells({
         <tr className={first ? 'border-t border-neutral-200' : 'border-t border-neutral-100'}>
             <th
                 scope="row"
-                className="sticky left-0 z-10 bg-white px-3 py-2 text-left align-middle"
+                className="sticky left-0 z-10 bg-white py-2 pr-3 text-left align-middle"
             >
                 {editing ? (
                     <Input
@@ -1523,22 +1526,24 @@ function TotalRowCells({
                         wrapperClassName="w-full"
                     />
                 ) : (
-                    <div className="group flex items-center gap-1.5">
+                    <div className="group relative flex items-center">
                         <button
                             type="button"
                             onClick={() => setEditing(true)}
-                            title="Rename"
-                            className="flex-1 truncate text-left text-sm font-semibold text-neutral-700 hover:text-neutral-900"
+                            title={`Rename ${row.name}`}
+                            className="min-w-0 flex-1 truncate text-left text-[13px] font-medium text-neutral-900"
                         >
                             {row.name}
                         </button>
+                        {/* Row actions float over the name on hover, so they never squeeze it. */}
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center gap-0.5 bg-white pl-1 opacity-0 transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100">
                         <button
                             type="button"
                             onClick={() =>
                                 onChangeGranularity(row._id, weekly ? 'daily' : 'weekly')
                             }
                             title={weekly ? 'Switch to daily' : 'Switch to weekly'}
-                            className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold opacity-100 transition-all sm:opacity-0 sm:group-hover:opacity-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-600"
+                            className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-600"
                         >
                             {weekly ? 'W' : 'D'}
                         </button>
@@ -1546,10 +1551,11 @@ function TotalRowCells({
                             type="button"
                             onClick={() => onDelete(row._id)}
                             aria-label="Delete row"
-                            className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-neutral-300 opacity-100 transition-all hover:bg-neutral-200 hover:text-neutral-600 sm:opacity-0 sm:group-hover:opacity-100"
+                            className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-200 hover:text-neutral-600"
                         >
                             <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
                         </button>
+                        </div>
                     </div>
                 )}
             </th>
