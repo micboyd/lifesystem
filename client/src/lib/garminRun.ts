@@ -92,6 +92,110 @@ export function lapRows(planned: PlannedStep[], laps: GarminRunLap[]): LapRow[] 
     return rows
 }
 
+/**
+ * Whether the laps can't be the workout's steps: no lap names a step, and they
+ * are either the watch's automatic whole-km laps or a different count from
+ * the plan. Happens when a plain run is started instead of the workout.
+ */
+export function lapsAreNotSteps(planned: PlannedStep[], laps: GarminRunLap[]): boolean {
+    if (!planned.length || !laps.length) return false
+    if (laps.some((l) => l.stepIndex != null)) return false
+    const whole = laps.slice(0, -1)
+    const autoKm =
+        whole.length > 0 &&
+        whole.every((l) => l.distanceM != null && l.distanceM >= 990 && Math.abs(l.distanceM - Math.round(l.distanceM / 1000) * 1000) <= 10)
+    return autoKm || laps.length !== planned.length
+}
+
+/** The chart's samples with time and distance both known, in time order. */
+function samples(chart: GarminRun['chart']): { t: number; d: number; hr: number | null }[] {
+    const { t = [], d = [], hr = [] } = chart
+    const out: { t: number; d: number; hr: number | null }[] = []
+    for (let i = 0; i < t.length; i++) {
+        const ti = t[i]
+        const di = d[i]
+        if (ti == null || di == null) continue
+        if (out.length && ti < out[out.length - 1].t) continue
+        out.push({ t: ti, d: di, hr: hr[i] ?? null })
+    }
+    return out
+}
+
+/** Linear read of `want` along samples by `by`; clamps to the ends. */
+function at(pts: { t: number; d: number }[], by: 't' | 'd', value: number, want: 't' | 'd'): number {
+    if (value <= pts[0][by]) return pts[0][want]
+    for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1]
+        const b = pts[i]
+        if (b[by] >= value) {
+            const span = b[by] - a[by]
+            const f = span > 0 ? (value - a[by]) / span : 1
+            return a[want] + f * (b[want] - a[want])
+        }
+    }
+    return pts[pts.length - 1][want]
+}
+
+/** A made-up lap covering [t0, t1] of the run. */
+function sliceLap(pts: { t: number; d: number; hr: number | null }[], t0: number, t1: number, index: number): GarminRunLap {
+    const distanceM = Math.max(0, at(pts, 't', t1, 'd') - at(pts, 't', t0, 'd'))
+    const durationS = t1 - t0
+    const hrs = pts.filter((p) => p.t >= t0 && p.t <= t1 && p.hr != null).map((p) => p.hr as number)
+    return {
+        index,
+        distanceM,
+        durationS,
+        movingS: null,
+        avgSpeed: durationS > 0 ? distanceM / durationS : null,
+        avgHr: hrs.length ? hrs.reduce((a, b) => a + b, 0) / hrs.length : null,
+        maxHr: hrs.length ? Math.max(...hrs) : null,
+        elevGainM: null,
+        intensity: null,
+        stepIndex: index,
+    }
+}
+
+/**
+ * The run cut into the planned steps by their own times or distances, from
+ * the second-by-second data. Null when a step ends on the lap button (no way
+ * to know where it stopped) or there's no data to cut. Anything left after
+ * the last step over a minute shows as its own row.
+ */
+export function splitByPlan(planned: PlannedStep[], chart: GarminRun['chart']): GarminRunLap[] | null {
+    if (!planned.length || planned.some((s) => s.end.kind === 'lapButton')) return null
+    const pts = samples(chart)
+    if (pts.length < 2) return null
+    const tEnd = pts[pts.length - 1].t
+    const out: GarminRunLap[] = []
+    let t0 = pts[0].t
+    for (let i = 0; i < planned.length; i++) {
+        if (t0 >= tEnd) break
+        const end = planned[i].end
+        const t1 =
+            end.kind === 'time'
+                ? Math.min(t0 + end.seconds, tEnd)
+                : end.kind === 'distance'
+                  ? at(pts, 'd', at(pts, 't', t0, 'd') + end.metres, 't')
+                  : tEnd
+        out.push(sliceLap(pts, t0, t1, i))
+        t0 = t1
+    }
+    if (out.length === planned.length && tEnd - t0 > 60) out.push(sliceLap(pts, t0, tEnd, out.length))
+    return out
+}
+
+/**
+ * The rows for "Planned vs done": real laps when they're the steps, else the
+ * run cut by the plan's times (`split` says so, so the screen can).
+ */
+export function runRows(run: Pick<GarminRun, 'planned' | 'laps' | 'chart'>): { rows: LapRow[]; split: boolean } {
+    if (lapsAreNotSteps(run.planned, run.laps)) {
+        const cut = splitByPlan(run.planned, run.chart)
+        if (cut) return { rows: lapRows(run.planned, cut), split: true }
+    }
+    return { rows: lapRows(run.planned, run.laps), split: false }
+}
+
 /** How many paced laps landed in their band, of how many had one. */
 export function paceScore(rows: LapRow[]): { on: number; of: number } | null {
     const judged = rows.filter((r) => r.verdict)

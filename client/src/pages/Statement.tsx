@@ -1,12 +1,23 @@
-import { createContext, Fragment, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import Spinner from '../components/Spinner'
 import EmptyState from '../components/EmptyState'
 import Drawer from '../components/Drawer'
 import Input from '../components/Input'
 import PillToggle from '../components/PillToggle'
+import Tabs from '../components/Tabs'
+import Switch from '../components/Switch'
+import Button from '../components/Button'
+import { useSearchParams } from 'react-router-dom'
 import Pagination from '../components/Pagination'
 import { Card } from '../components/Card'
-import { getStarlingHistory, listStarlingFlow } from '../services/finances'
+import {
+    getSpendReview,
+    getStarlingHistory,
+    listEventUnlinks,
+    listStarlingFlow,
+    putSpendReview,
+    setEventUnlink,
+} from '../services/finances'
 import { listEvents } from '../services/events'
 import { listCalendars } from '../services/calendars'
 import { colorsForEvent } from '../lib/eventColors'
@@ -42,9 +53,24 @@ import { incomeForMonth } from '../lib/finance'
 import { listEntries, listGroups, listRows } from '../services/finances'
 import { updateSettings } from '../services/users'
 import { useAuth } from '../context/AuthContext'
-import { matchSpendToEvents, upcomingPlans, type EventSpend, type UpcomingPlan } from '../lib/spendEvents'
+import {
+    eventKey,
+    matchSpendToEvents,
+    unlinkKey,
+    upcomingPlans,
+    type EventSpend,
+    type UpcomingPlan,
+} from '../lib/spendEvents'
 import { goalProgress, type GoalProgress } from '../lib/goalProgress'
 import { buildWeekReview, type WeekReview } from '../lib/weekReview'
+import {
+    buildReviewReport,
+    loadReview,
+    saveReview,
+    type ReviewGroup,
+    type SavedReview,
+    type Verdict,
+} from '../lib/statementReview'
 import {
     EVENT_TYPE_LABELS,
     type Calendar,
@@ -126,9 +152,40 @@ function useEventColors(event: Event) {
     return colorsForEvent(event, useContext(CalendarsContext))
 }
 
-/** The plan a payment was matched to, as a small pill in the event's calendar colour. */
-function EventPill({ event }: { event: Event }) {
+/** Tick/untick a payment's calendar match; null where the page doesn't offer it. */
+interface EventLinks {
+    isOff: (itemId: string) => boolean
+    toggle: (itemId: string, event: Event) => void
+}
+const EventLinksContext = createContext<EventLinks | null>(null)
+
+/**
+ * The plan a payment was matched to, as a small pill in the event's calendar colour.
+ * With `itemId` it's also a checkbox, ticked by default: untick it when the payment
+ * wasn't really part of that plan, and it stops counting towards the plan's cost.
+ */
+function EventPill({ event, itemId }: { event: Event; itemId?: string }) {
     const c = useEventColors(event)
+    const links = useContext(EventLinksContext)
+    if (links && itemId) {
+        const on = !links.isOff(itemId)
+        return (
+            <button
+                type="button"
+                role="checkbox"
+                aria-checked={on}
+                aria-label={`${on ? 'Linked to' : 'Not linked to'} ${event.title}. ${on ? 'Untick if this payment wasn\u2019t part of it' : 'Tick to link it again'}`}
+                title={on ? `Linked to ${event.title}. Untick if it wasn\u2019t part of it.` : `Not linked to ${event.title}. Tick to link again.`}
+                onClick={() => links.toggle(itemId, event)}
+                className={`inline-flex min-w-0 max-w-[12rem] shrink items-center gap-1.5 rounded-full py-0.5 pl-1.5 pr-2 text-[11px] font-medium transition-colors ${
+                    on ? `${c.bg} ${c.text}` : 'bg-neutral-100 text-neutral-500 ring-1 ring-inset ring-neutral-200'
+                }`}
+            >
+                <i className={`${on ? 'fa-solid fa-square-check' : 'fa-regular fa-square'} shrink-0 text-[12px]`} aria-hidden="true" />
+                <span className={`truncate ${on ? '' : 'line-through'}`}>{event.title}</span>
+            </button>
+        )
+    }
     return (
         <span
             title={`Linked to ${event.title} in your calendar`}
@@ -284,16 +341,34 @@ function HeroFigure({ label, children, sub }: { label: string; children: ReactNo
     )
 }
 
+type MonthNav = { label: string; onPrev: () => void; onNext: () => void; nextDisabled: boolean }
+
+/** The month and its arrows: sits above the sub-tabs and drives both of them. */
+function MonthHeader({ nav, status }: { nav: MonthNav; status: ReactNode }) {
+    return (
+        <div className="mb-4 flex items-center gap-3">
+            <div className="flex shrink-0 items-center gap-1.5">
+                <MonthArrow dir="prev" onClick={nav.onPrev} />
+                <MonthArrow dir="next" onClick={nav.onNext} disabled={nav.nextDisabled} />
+            </div>
+            <div className="min-w-0 flex-1">
+                <h1 className="truncate text-xl font-semibold tracking-tight text-neutral-950 sm:text-[22px]">
+                    {nav.label}
+                </h1>
+                <p className="truncate text-[13px] text-neutral-500">{status}</p>
+            </div>
+        </div>
+    )
+}
+
 function Hero({
     s,
     kinds,
-    status,
-    nav,
+    monthLabel,
 }: {
     s: MonthStatement | null
     kinds: KindTotal[]
-    status: ReactNode
-    nav: { label: string; onPrev: () => void; onNext: () => void; nextDisabled: boolean }
+    monthLabel: string
 }) {
     const vs = s ? compare(s.total, s.prev.toSameDay) : null
     const pill =
@@ -306,20 +381,9 @@ function Hero({
 
     return (
         <section className="mb-6 border-b border-hairline pb-6 sm:pb-8">
-            <div className="flex items-center gap-3">
-                <div className="flex shrink-0 items-center gap-1.5">
-                    <MonthArrow dir="prev" onClick={nav.onPrev} />
-                    <MonthArrow dir="next" onClick={nav.onNext} disabled={nav.nextDisabled} />
-                </div>
-                <div className="min-w-0 flex-1">
-                    <h1 className="truncate text-xl font-semibold tracking-tight text-neutral-950 sm:text-[22px]">{nav.label}</h1>
-                    <p className="truncate text-[13px] text-neutral-500">{status}</p>
-                </div>
-            </div>
-
             {s && vs && (
                 <>
-                    <div className="mt-7 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_1.2fr]">
+                    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_1.2fr]">
                         <div className="flex min-w-0 flex-col gap-5">
                             <div>
                                 <p className={HERO_OVERLINE}>{s.isCurrent ? 'Spent so far' : 'Spent in total'}</p>
@@ -340,7 +404,7 @@ function Hero({
                             <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-neutral-500">
                                 <span className="inline-flex items-center gap-2">
                                     <span className="h-0.5 w-4 rounded bg-neutral-900" aria-hidden="true" />
-                                    {nav.label.split(' ')[0]}
+                                    {monthLabel.split(' ')[0]}
                                 </span>
                                 <span className="inline-flex items-center gap-2">
                                     <span className="h-0 w-4 border-t border-dashed border-neutral-500" aria-hidden="true" />
@@ -1035,11 +1099,29 @@ function Breakdown({ s, onOpen }: { s: MonthStatement; onOpen: (title: string, i
 
 // ── Transactions ──────────────────────────────────────────────────────────────
 
-function TransactionRow({ t, event, showDate }: { t: StarlingSpendItem; event?: Event; showDate?: boolean }) {
+function TransactionRow({
+    t,
+    event,
+    showDate,
+    onGrey = false,
+    verdict,
+    onVerdict,
+}: {
+    t: StarlingSpendItem
+    event?: Event
+    showDate?: boolean
+    /** Sitting on a grey day card: the icon tile turns white so it still stands out. */
+    onGrey?: boolean
+    /** Reviewing: shows the good/bad toggle. */
+    verdict?: Verdict
+    onVerdict?: (v: Verdict) => void
+}) {
     const main = useContext(TagsContext).get(t.id)?.[0]
     return (
         <li className="flex items-center gap-3 py-2.5">
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-neutral-100 text-xs text-neutral-600">
+            <span
+                className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg text-xs text-neutral-600 ${onGrey ? 'bg-white' : 'bg-neutral-100'}`}
+            >
                 <i className={`fa-solid ${categoryIcon(t.category)}`} aria-hidden="true" />
             </span>
             <div className="min-w-0 flex-1">
@@ -1050,11 +1132,53 @@ function TransactionRow({ t, event, showDate }: { t: StarlingSpendItem; event?: 
                         {timeLabel(t.time)}
                         {main ? ` · ${TAGS[main].label}` : ''}
                     </span>
-                    {event && <EventPill event={event} />}
+                    {event && <EventPill event={event} itemId={t.id} />}
                 </div>
             </div>
             <M v={t.amount} className="shrink-0 text-[15px] font-medium text-neutral-900" />
+            {verdict && onVerdict && (
+                <VerdictToggle
+                    verdict={verdict}
+                    onChange={onVerdict}
+                    label={t.merchant ?? 'payment'}
+                />
+            )}
         </li>
+    )
+}
+
+/** Good / bad for one payment: a two-way segmented toggle, good by default. */
+function VerdictToggle({
+    verdict,
+    onChange,
+    label,
+}: {
+    verdict: Verdict
+    onChange: (v: Verdict) => void
+    label: string
+}) {
+    const opt = (v: Verdict, text: string, on: string) => (
+        <button
+            type="button"
+            aria-pressed={verdict === v}
+            aria-label={`Mark ${label} as ${v}`}
+            onClick={() => onChange(v)}
+            className={`h-8 px-2.5 text-[12px] font-semibold transition-colors ${
+                verdict === v ? on : 'text-neutral-500 hover:text-neutral-800'
+            }`}
+        >
+            {text}
+        </button>
+    )
+    return (
+        <div
+            role="group"
+            aria-label={`Verdict for ${label}`}
+            className="flex shrink-0 overflow-hidden rounded-full bg-white ring-1 ring-inset ring-neutral-200"
+        >
+            {opt('good', 'Good', 'bg-success text-white')}
+            {opt('bad', 'Bad', 'bg-danger text-white')}
+        </div>
     )
 }
 
@@ -1062,8 +1186,26 @@ type KindFilter = 'all' | SpendKind
 
 const PAGE_SIZE = 20
 
-function Transactions({ s, eventOf }: { s: MonthStatement; eventOf: (id: string) => Event | undefined }) {
+interface ReviewControls {
+    on: boolean
+    setOn: (on: boolean) => void
+    bad: ReadonlySet<string>
+    setVerdict: (id: string, v: Verdict) => void
+    reportMade: boolean
+    onCreateReport: () => void
+}
+
+function Transactions({
+    s,
+    eventOf,
+    review,
+}: {
+    s: MonthStatement
+    eventOf: (id: string) => Event | undefined
+    review: ReviewControls
+}) {
     const [query, setQuery] = useState('')
+    const [filtersOpen, setFiltersOpen] = useState(false)
     const [kind, setKind] = useState<KindFilter>('all')
     const [page, setPage] = useState(1)
     const [tag, setTag] = useState<Tag | null>(null)
@@ -1072,7 +1214,8 @@ function Transactions({ s, eventOf }: { s: MonthStatement; eventOf: (id: string)
     // The month's most common tags, as quick filters.
     const tagCounts = new Map<Tag, number>()
     for (const c of s.categories)
-        for (const t of c.items) for (const x of tagsOf.get(t.id) ?? []) tagCounts.set(x, (tagCounts.get(x) ?? 0) + 1)
+        for (const t of c.items)
+            for (const x of tagsOf.get(t.id) ?? []) tagCounts.set(x, (tagCounts.get(x) ?? 0) + 1)
     const topTags = [...tagCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12)
     const items = s.categories
         .flatMap((c) => c.items)
@@ -1088,9 +1231,23 @@ function Transactions({ s, eventOf }: { s: MonthStatement; eventOf: (id: string)
         )
         .sort((a, b) => (a.time < b.time ? 1 : -1))
     const total = items.reduce((sum, t) => sum + t.amount, 0)
+    const activeFilters = (kind === 'all' ? 0 : 1) + (tag ? 1 : 0)
+    const all = s.categories.flatMap((c) => c.items)
+    const badAll = all.filter((t) => review.bad.has(t.id))
+    const badTotal = badAll.reduce((sum, t) => sum + t.amount, 0)
     // A day's total covers the whole day, even when it runs across two pages.
     const dayTotals = new Map<string, number>()
-    for (const t of items) dayTotals.set(t.date, (dayTotals.get(t.date) ?? 0) + t.amount)
+    const dayCounts = new Map<string, number>()
+    for (const t of items) {
+        dayTotals.set(t.date, (dayTotals.get(t.date) ?? 0) + t.amount)
+        dayCounts.set(t.date, (dayCounts.get(t.date) ?? 0) + 1)
+    }
+    const today = todayKey()
+    const yesterday = (() => {
+        const [y, m, d] = today.split('-').map(Number)
+        const x = new Date(y, m - 1, d - 1)
+        return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`
+    })()
     const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE))
     const current = Math.min(page, pageCount)
     const byDay = new Map<string, StarlingSpendItem[]>()
@@ -1100,12 +1257,28 @@ function Transactions({ s, eventOf }: { s: MonthStatement; eventOf: (id: string)
     return (
         <Card hover={false}>
             <div className="mb-4 flex flex-col gap-3">
-                <div className="flex items-baseline justify-between gap-3">
-                    <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-neutral-900">Transactions</h2>
-                    <p className="text-[13px] text-neutral-500">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                        <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-neutral-900">
+                            Transactions
+                        </h2>
+                        <Switch checked={review.on} onChange={review.setOn} label="Review" />
+                    </div>
+                    <p className="text-right text-[13px] text-neutral-500">
                         {plural(items.length, 'payment')} · <M v={total} />
                     </p>
                 </div>
+                {review.on && (
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-[13px] text-neutral-600">
+                            <span className="font-semibold text-danger">{badAll.length} bad</span> ·{' '}
+                            <M v={badTotal} /> of {plural(all.length, 'payment')}
+                        </p>
+                        <Button size="sm" icon="fa-solid fa-file-lines" onClick={review.onCreateReport}>
+                            {review.reportMade ? 'Update report' : 'Create report'}
+                        </Button>
+                    </div>
+                )}
                 <Input
                     icon="fa-solid fa-magnifying-glass"
                     placeholder="Search: pub, coffee, taxi, a place, a plan"
@@ -1116,63 +1289,170 @@ function Transactions({ s, eventOf }: { s: MonthStatement; eventOf: (id: string)
                     }}
                     aria-label="Search payments"
                 />
-                <PillToggle
-                    label="Kind of spend"
-                    value={kind}
-                    onChange={(k) => {
-                        setKind(k)
-                        setPage(1)
-                    }}
-                    options={[
-                        { value: 'all', label: 'All' },
-                        { value: 'essential', label: 'Essentials' },
-                        { value: 'lifestyle', label: 'Lifestyle' },
-                        { value: 'other', label: 'Other' },
-                    ]}
-                />
-                {topTags.length > 0 && (
-                    <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1" role="group" aria-label="Filter by tag">
-                        {topTags.map(([x, count]) => {
-                            const on = tag === x
-                            return (
-                                <button
-                                    key={x}
-                                    type="button"
-                                    aria-pressed={on}
-                                    onClick={() => {
-                                        setTag(on ? null : x)
+                <div className="rounded-xl ring-1 ring-inset ring-neutral-200">
+                    <button
+                        type="button"
+                        aria-expanded={filtersOpen}
+                        aria-controls="statement-filters"
+                        onClick={() => setFiltersOpen((o) => !o)}
+                        className="flex h-11 w-full items-center gap-2 rounded-xl px-4 text-left text-[14px] font-medium text-neutral-900 hover:bg-neutral-50"
+                    >
+                        <i
+                            className="fa-solid fa-sliders text-[12px] text-neutral-500"
+                            aria-hidden="true"
+                        />
+                        Filters
+                        {activeFilters > 0 && (
+                            <span className="grid h-5 min-w-5 place-items-center rounded-full bg-neutral-900 px-1.5 text-[11px] font-semibold text-white">
+                                {activeFilters}
+                            </span>
+                        )}
+                        <i
+                            className={`fa-solid fa-chevron-down ml-auto text-[11px] text-neutral-500 transition-transform duration-300 ${filtersOpen ? 'rotate-180' : ''}`}
+                            aria-hidden="true"
+                        />
+                    </button>
+                    <div
+                        id="statement-filters"
+                        className={`grid transition-[grid-template-rows] duration-300 ease-out ${filtersOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+                    >
+                        <div className="min-w-0 overflow-hidden">
+                            <div
+                                className={`flex flex-col gap-3 px-4 pb-4 pt-1 ${filtersOpen ? '' : 'invisible'}`}
+                            >
+                                <PillToggle
+                                    label="Kind of spend"
+                                    value={kind}
+                                    onChange={(k) => {
+                                        setKind(k)
                                         setPage(1)
                                     }}
-                                    className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium transition-colors ${
-                                        on ? 'bg-neutral-900 text-neutral-50' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-                                    }`}
-                                >
-                                    <i className={`fa-solid ${TAGS[x].icon} text-[11px] opacity-70`} aria-hidden="true" />
-                                    {TAGS[x].label}
-                                    <span className={on ? 'text-neutral-400' : 'text-neutral-500'}>{count}</span>
-                                </button>
-                            )
-                        })}
+                                    options={[
+                                        { value: 'all', label: 'All' },
+                                        { value: 'essential', label: 'Essentials' },
+                                        { value: 'lifestyle', label: 'Lifestyle' },
+                                        { value: 'other', label: 'Other' },
+                                    ]}
+                                />
+                                {topTags.length > 0 && (
+                                    <div
+                                        className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
+                                        role="group"
+                                        aria-label="Filter by tag"
+                                    >
+                                        {topTags.map(([x, count]) => {
+                                            const on = tag === x
+                                            return (
+                                                <button
+                                                    key={x}
+                                                    type="button"
+                                                    aria-pressed={on}
+                                                    onClick={() => {
+                                                        setTag(on ? null : x)
+                                                        setPage(1)
+                                                    }}
+                                                    className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium transition-colors ${
+                                                        on
+                                                            ? 'bg-neutral-900 text-neutral-50'
+                                                            : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                                                    }`}
+                                                >
+                                                    <i
+                                                        className={`fa-solid ${TAGS[x].icon} text-[11px] opacity-70`}
+                                                        aria-hidden="true"
+                                                    />
+                                                    {TAGS[x].label}
+                                                    <span
+                                                        className={
+                                                            on
+                                                                ? 'text-neutral-400'
+                                                                : 'text-neutral-500'
+                                                        }
+                                                    >
+                                                        {count}
+                                                    </span>
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+                                )}
+                                {activeFilters > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setKind('all')
+                                            setTag(null)
+                                            setPage(1)
+                                        }}
+                                        className="self-start text-[13px] font-medium text-neutral-600 underline underline-offset-2 hover:text-neutral-900"
+                                    >
+                                        Clear filters
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                     </div>
-                )}
+                </div>
             </div>
             {items.length === 0 ? (
                 <p className="py-6 text-center text-[13px] text-neutral-500">No payments match.</p>
             ) : (
-                <div className="divide-y divide-neutral-100">
-                    {[...byDay.entries()].map(([date, list]) => (
-                        <div key={date} className="py-2">
-                            <div className="flex items-baseline justify-between gap-3 pt-2">
-                                <p className="text-[13px] font-medium text-neutral-600">{dayLabel(date)}</p>
-                                <M v={dayTotals.get(date) ?? 0} className="text-[13px] font-medium text-neutral-600" />
-                            </div>
-                            <ul>
-                                {list.map((t) => (
-                                    <TransactionRow key={t.id} t={t} event={eventOf(t.id)} />
-                                ))}
-                            </ul>
-                        </div>
-                    ))}
+                <div className="flex flex-col gap-3">
+                    {[...byDay.entries()].map(([date, list]) => {
+                        const { weekday, day } = shortDay(date)
+                        const when =
+                            date === today ? 'Today' : date === yesterday ? 'Yesterday' : null
+                        return (
+                            <section
+                                key={date}
+                                className="rounded-2xl bg-neutral-100 px-4 pb-1.5 pt-3.5 sm:px-5"
+                            >
+                                <header className="flex items-center gap-3 border-b border-neutral-200 pb-3">
+                                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-neutral-900 text-neutral-50">
+                                        <span className="text-center leading-none">
+                                            <span className="block text-[10px] font-medium uppercase tracking-[0.06em] opacity-70">
+                                                {weekday}
+                                            </span>
+                                            <span className="mt-0.5 block text-[17px] font-semibold">
+                                                {day}
+                                            </span>
+                                        </span>
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-[15px] font-semibold text-neutral-900">
+                                            {when ?? dayLabel(date)}
+                                        </p>
+                                        <p className="text-[13px] text-neutral-500">
+                                            {when ? `${dayLabel(date)} · ` : ''}
+                                            {plural(dayCounts.get(date) ?? list.length, 'payment')}
+                                        </p>
+                                    </div>
+                                    <M
+                                        v={dayTotals.get(date) ?? 0}
+                                        className="shrink-0 text-[17px] font-semibold tracking-[-0.01em] text-neutral-950"
+                                    />
+                                </header>
+                                <ul className="divide-y divide-neutral-200/70">
+                                    {list.map((t) => (
+                                        <TransactionRow
+                                            key={t.id}
+                                            t={t}
+                                            event={eventOf(t.id)}
+                                            onGrey
+                                            verdict={
+                                                review.on
+                                                    ? review.bad.has(t.id)
+                                                        ? 'bad'
+                                                        : 'good'
+                                                    : undefined
+                                            }
+                                            onVerdict={(v) => review.setVerdict(t.id, v)}
+                                        />
+                                    ))}
+                                </ul>
+                            </section>
+                        )
+                    })}
                 </div>
             )}
             {pageCount > 1 && (
@@ -1182,15 +1462,270 @@ function Transactions({ s, eventOf }: { s: MonthStatement; eventOf: (id: string)
                         pageCount={pageCount}
                         onChange={(p) => {
                             setPage(p)
-                            document.getElementById('statement-transactions')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                            document
+                                .getElementById('statement-transactions')
+                                ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                         }}
                     />
                     <p className="text-xs text-neutral-500">
-                        {(current - 1) * PAGE_SIZE + 1}–{Math.min(current * PAGE_SIZE, items.length)} of {items.length}
+                        {(current - 1) * PAGE_SIZE + 1}–
+                        {Math.min(current * PAGE_SIZE, items.length)} of {items.length}
                     </p>
                 </div>
             )}
         </Card>
+    )
+}
+
+// ── Good/bad report ───────────────────────────────────────────────────────────
+
+function ReviewGroupList({
+    title,
+    groups,
+    onOpen,
+    icon,
+}: {
+    title: string
+    groups: ReviewGroup[]
+    onOpen: (title: string, items: StarlingSpendItem[]) => void
+    icon?: (key: string) => string
+}) {
+    if (!groups.length) return null
+    return (
+        <Card hover={false}>
+            <h3 className="mb-2 text-[15px] font-semibold text-neutral-900">{title}</h3>
+            <ul className="divide-y divide-neutral-100">
+                {groups.slice(0, 6).map((g) => (
+                    <li key={g.key}>
+                        <button
+                            type="button"
+                            onClick={() => onOpen(`Bad · ${g.label}`, g.items)}
+                            className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-2.5 text-left hover:bg-neutral-50"
+                        >
+                            {icon && (
+                                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-neutral-100 text-xs text-neutral-600">
+                                    <i className={`fa-solid ${icon(g.key)}`} aria-hidden="true" />
+                                </span>
+                            )}
+                            <div className="min-w-0 flex-1">
+                                <p className="truncate text-[14px] text-neutral-900">{g.label}</p>
+                                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-neutral-100">
+                                    <div
+                                        className="h-full rounded-full bg-danger"
+                                        style={{ width: `${Math.max(3, g.share * 100)}%` }}
+                                    />
+                                </div>
+                            </div>
+                            <div className="shrink-0 text-right">
+                                <M
+                                    v={g.total}
+                                    className="block text-[14px] font-medium text-neutral-900"
+                                />
+                                <span className="text-[12px] text-neutral-500">
+                                    {plural(g.count, 'payment')}
+                                </span>
+                            </div>
+                        </button>
+                    </li>
+                ))}
+            </ul>
+        </Card>
+    )
+}
+
+function ReviewReportView({
+    s,
+    bad,
+    tags,
+    reportAt,
+    onOpen,
+    onBack,
+    onClear,
+}: {
+    s: MonthStatement
+    bad: ReadonlySet<string>
+    tags: Map<string, Tag[]>
+    reportAt: string | null
+    onOpen: (title: string, items: StarlingSpendItem[]) => void
+    onBack: () => void
+    onClear: () => void
+}) {
+    const r = useMemo(
+        () =>
+            buildReviewReport(
+                s.categories.flatMap((c) => c.items),
+                bad,
+                tags,
+                (t) => TAGS[t].label
+            ),
+        [s, bad, tags]
+    )
+    const badPct = Math.round(r.badShare * 100)
+    const made = reportAt
+        ? new Date(reportAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+        : null
+    return (
+        <div className="flex flex-col gap-6">
+            <section className="rounded-2xl bg-neutral-950 px-5 py-6 text-neutral-50 sm:px-7">
+                <p className={HERO_OVERLINE}>Good or bad · {formatMonthKey(s.month)}</p>
+                {r.bad.count === 0 ? (
+                    <>
+                        <p className="mt-2 text-[28px] font-semibold tracking-[-0.02em]">
+                            All good
+                        </p>
+                        <p className="mt-1 text-[14px] text-neutral-400">
+                            You marked every one of {plural(r.count, 'payment')} as good. Nothing
+                            you&rsquo;d take back.
+                        </p>
+                    </>
+                ) : (
+                    <>
+                        <p className="mt-2 text-[34px] font-semibold leading-none tracking-[-0.02em]">
+                            <M v={r.bad.total} />
+                            <span className="ml-2 text-[15px] font-medium text-neutral-400">
+                                you&rsquo;d take back
+                            </span>
+                        </p>
+                        <p className="mt-2 text-[14px] text-neutral-400">
+                            {badPct}% of the <M v={r.total} /> spent —{' '}
+                            {plural(r.bad.count, 'payment')} of {r.count}. Skip those and it stays
+                            in your pocket.
+                        </p>
+                    </>
+                )}
+                <div
+                    className="mt-5 flex h-2.5 overflow-hidden rounded-full bg-neutral-800"
+                    aria-hidden="true"
+                >
+                    <div
+                        className="h-full bg-success"
+                        style={{ width: `${100 - r.badShare * 100}%` }}
+                    />
+                    <div className="h-full bg-danger" style={{ width: `${r.badShare * 100}%` }} />
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-4">
+                    <div>
+                        <p className="flex items-center gap-1.5 text-[12px] text-neutral-400">
+                            <span className="h-2 w-2 rounded-full bg-success" /> Good
+                        </p>
+                        <M v={r.good.total} className="text-[18px] font-semibold" />
+                        <p className="text-[12px] text-neutral-400">
+                            {plural(r.good.count, 'payment')}
+                        </p>
+                    </div>
+                    <div>
+                        <p className="flex items-center gap-1.5 text-[12px] text-neutral-400">
+                            <span className="h-2 w-2 rounded-full bg-danger" /> Bad
+                        </p>
+                        <M v={r.bad.total} className="text-[18px] font-semibold" />
+                        <p className="text-[12px] text-neutral-400">
+                            {plural(r.bad.count, 'payment')}
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            {r.patterns.length > 0 && (
+                <Card hover={false}>
+                    <h3 className="mb-2 text-[15px] font-semibold text-neutral-900">
+                        What the bad ones have in common
+                    </h3>
+                    <ul className="flex flex-col gap-2">
+                        {r.patterns.map((p) => (
+                            <li key={p.text}>
+                                <button
+                                    type="button"
+                                    onClick={() => onOpen(p.text, p.items)}
+                                    className="flex w-full items-start gap-3 rounded-xl bg-danger-bg px-3.5 py-3 text-left text-[14px] text-neutral-900 transition-[filter] hover:brightness-[0.97]"
+                                >
+                                    <i
+                                        className={`fa-solid ${p.icon} mt-0.5 w-4 text-center text-danger`}
+                                        aria-hidden="true"
+                                    />
+                                    <span className="flex-1">{p.text}</span>
+                                    <i
+                                        className="fa-solid fa-chevron-right mt-1 text-[11px] text-neutral-400"
+                                        aria-hidden="true"
+                                    />
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                </Card>
+            )}
+
+            {r.bad.count > 0 && (
+                <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+                    <ReviewGroupList
+                        title="Bad, by category"
+                        groups={r.byCategory}
+                        onOpen={onOpen}
+                        icon={(k) => categoryIcon(k === 'NONE' ? null : k)}
+                    />
+                    <ReviewGroupList title="Bad, by place" groups={r.byMerchant} onOpen={onOpen} />
+                    <ReviewGroupList
+                        title="Bad, by kind of spend"
+                        groups={r.byKind}
+                        onOpen={onOpen}
+                    />
+                    <ReviewGroupList
+                        title="Bad, by tag"
+                        groups={r.byTag}
+                        onOpen={onOpen}
+                        icon={(k) => TAGS[k as Tag].icon}
+                    />
+                </div>
+            )}
+
+            <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+                {r.bad.count > 0 && (
+                    <Card hover={false}>
+                        <div className="mb-1 flex items-baseline justify-between gap-3">
+                            <h3 className="text-[15px] font-semibold text-neutral-900">
+                                Every bad payment
+                            </h3>
+                            <span className="text-[13px] text-neutral-500">Biggest first</span>
+                        </div>
+                        <ul className="divide-y divide-neutral-100">
+                            {r.bad.items.map((t) => (
+                                <TransactionRow key={t.id} t={t} showDate />
+                            ))}
+                        </ul>
+                    </Card>
+                )}
+                {r.topGood.length > 0 && (
+                    <Card hover={false}>
+                        <div className="mb-1 flex items-baseline justify-between gap-3">
+                            <h3 className="text-[15px] font-semibold text-neutral-900">
+                                Money well spent
+                            </h3>
+                            <span className="text-[13px] text-neutral-500">
+                                Biggest good payments
+                            </span>
+                        </div>
+                        <ul className="divide-y divide-neutral-100">
+                            {r.topGood.map((t) => (
+                                <TransactionRow key={t.id} t={t} showDate />
+                            ))}
+                        </ul>
+                    </Card>
+                )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+                <Button variant="secondary" icon="fa-solid fa-pen" onClick={onBack}>
+                    Keep reviewing
+                </Button>
+                <Button variant="danger" icon="fa-solid fa-rotate-left" onClick={onClear}>
+                    Start over
+                </Button>
+                {made && (
+                    <span className="text-[13px] text-neutral-500">
+                        Report created {made} · updates as you change verdicts
+                    </span>
+                )}
+            </div>
+        </div>
     )
 }
 
@@ -1468,6 +2003,14 @@ function DetailBody({ d, eventOf }: { d: Detail; eventOf: (id: string) => Event 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 /** Finances → Statement: this month's spend, analysed live up to today. */
+const STATEMENT_TABS = ['Analysis', 'Transactions', 'Report'] as const
+type StatementTab = (typeof STATEMENT_TABS)[number]
+const TAB_PARAM: Record<StatementTab, string | null> = {
+    Analysis: null,
+    Transactions: 'transactions',
+    Report: 'report',
+}
+
 export default function Statement() {
     useMoneyHidden()
     // Dev only: ?mock=first-of-month (1 November, nothing spent) or ?mock=mid-month
@@ -1477,6 +2020,17 @@ export default function Statement() {
         const m = new URLSearchParams(window.location.search).get('mock')
         return m === 'first-of-month' || m === 'mid-month' ? m : null
     })
+    // Sub-tab lives in the URL (?view=transactions) so a refresh or back press keeps it.
+    const [params, setParams] = useSearchParams()
+    const urlTab: StatementTab =
+        STATEMENT_TABS.find((t) => TAB_PARAM[t] === params.get('view')) ?? 'Analysis'
+    const pickTab = (t: string) => {
+        const next = new URLSearchParams(params)
+        const v = TAB_PARAM[t as StatementTab]
+        if (v) next.set('view', v)
+        else next.delete('view')
+        setParams(next, { replace: true })
+    }
     const [today, setToday] = useState(() =>
         mock === 'first-of-month' ? '2026-11-01' : mock === 'mid-month' ? '2026-10-22' : todayKey()
     )
@@ -1484,6 +2038,59 @@ export default function Statement() {
     // null = follow the current month, so the page rolls over to a clean slate on the 1st.
     const [picked, setPicked] = useState<string | null>(null)
     const month = picked ?? currentMonth
+
+    // Good/bad review of the month's payments, saved per month to the account.
+    const [reviewing, setReviewing] = useState(false)
+    const [saved, setSaved] = useState<{ month: string; review: SavedReview }>(() => ({ month, review: loadReview(month) }))
+    // Switching month swaps in that month's saved review during render (no effect needed).
+    if (saved.month !== month) setSaved({ month, review: loadReview(month) })
+    const review = saved.month === month ? saved.review : loadReview(month)
+    // The account copy is the truth (so it syncs across devices); this browser's copy shows instantly meanwhile.
+    const pending = useRef<{ month: string; review: SavedReview } | null>(null)
+    const edits = useRef(0)
+    const updateReview = (change: (r: SavedReview) => SavedReview) => {
+        edits.current += 1
+        setSaved((prev) => {
+            const next = change(prev.month === month ? prev.review : loadReview(month))
+            saveReview(month, next)
+            pending.current = { month, review: next }
+            return { month, review: next }
+        })
+    }
+    const flushReview = useCallback(() => {
+        const p = pending.current
+        if (!p) return
+        pending.current = null
+        putSpendReview(p.month, p.review).catch(() => {
+            // Keep it for the next change or month switch to retry.
+            if (!pending.current) pending.current = p
+        })
+    }, [])
+    useEffect(() => {
+        const t = setTimeout(flushReview, 600)
+        return () => clearTimeout(t)
+    }, [saved, flushReview])
+    // Leaving the month (or the page) sends anything still waiting.
+    useEffect(() => flushReview, [month, flushReview])
+    useEffect(() => {
+        let live = true
+        const startedAt = edits.current
+        getSpendReview(month)
+            .then((r) => {
+                // A change made while this was loading wins over what the server had.
+                if (!live || edits.current !== startedAt) return
+                const review: SavedReview = { bad: r.bad, reportAt: r.reportAt }
+                saveReview(month, review)
+                setSaved({ month, review })
+            })
+            .catch(() => {})
+        return () => {
+            live = false
+        }
+    }, [month])
+    const badSet = useMemo(() => new Set(review.bad), [review.bad])
+    const tab: StatementTab = urlTab === 'Report' && !review.reportAt ? 'Transactions' : urlTab
+    const tabs = STATEMENT_TABS.filter((t) => t !== 'Report' || review.reportAt)
 
     const [data, setData] = useState<StatementData | null>(null)
     const [configured, setConfigured] = useState(true)
@@ -1625,6 +2232,17 @@ export default function Statement() {
         }
     }, [month, currentMonth, picked, load, mock])
 
+    // Payment ↔ event matches the user unticked, from the account (any month).
+    const [unlinked, setUnlinked] = useState<Set<string>>(new Set())
+    useEffect(() => {
+        let live = true
+        listEventUnlinks()
+            .then((rows) => live && setUnlinked(new Set(rows.map((r) => unlinkKey(r.itemId, r.eventKey)))))
+            .catch(() => {})
+        return () => {
+            live = false
+        }
+    }, [])
     const view = useMemo(() => {
         if (!data || data.month !== month) return null
         // Tag both months, then give drinks their own category (Starling files them as eating out).
@@ -1633,7 +2251,7 @@ export default function Statement() {
         const s = buildMonthStatement(month, items, items, today)
         const prevName = formatMonthKey(s.prev.month).split(' ')[0]
         // Matched across both months, so upcoming plans can lean on last month's too.
-        const matched = matchSpendToEvents(items, data.events)
+        const matched = matchSpendToEvents(items, data.events, unlinked)
         // The month before last, tagged and refined the same way, for trends.
         const olderKey = shiftMonth(month, -2)
         const olderRaw = history?.months.find((h) => h.month === olderKey)?.items.filter((t) => t.direction !== 'IN')
@@ -1672,9 +2290,29 @@ export default function Statement() {
             everyday: s.total - planned,
             upcoming: s.isCurrent ? upcomingPlans(data.events, matched, today, `${month}-${String(s.daysInMonth).padStart(2, '0')}`) : [],
             byItem: matched.byItem,
+            off: matched.off,
             items,
         }
-    }, [data, month, today, history])
+    }, [data, month, today, history, unlinked])
+
+    const eventLinks = useMemo<EventLinks>(() => {
+        const flip = (k: string, linked: boolean) =>
+            setUnlinked((prev) => {
+                const next = new Set(prev)
+                if (linked) next.delete(k)
+                else next.add(k)
+                return next
+            })
+        return {
+            isOff: (itemId) => !!view?.off.has(itemId),
+            toggle: (itemId, e) => {
+                const k = unlinkKey(itemId, eventKey(e))
+                const relink = unlinked.has(k)
+                flip(k, relink)
+                setEventUnlink(itemId, eventKey(e), relink).catch(() => flip(k, !relink))
+            },
+        }
+    }, [view, unlinked])
 
     // The goal all month long, and the week's budget that follows from it.
     const progress = useMemo(() => {
@@ -1740,78 +2378,128 @@ export default function Statement() {
     return (
         <CalendarsContext.Provider value={calendars}>
             <TagsContext.Provider value={view?.tags ?? EMPTY_TAGS}>
-                <Hero
-                    s={s}
-                    kinds={view?.kinds ?? []}
-                    status={
-                        isCurrent
-                            ? `Live${updatedAt ? ` · updated ${updatedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}`
-                            : 'A finished month, for looking back'
-                    }
-                    nav={{
-                        label: formatMonthKey(month),
-                        onPrev: () => setPicked(shiftMonth(month, -1)),
-                        onNext: () => {
-                            const next = shiftMonth(month, 1)
-                            setPicked(next === currentMonth ? null : next)
-                        },
-                        nextDisabled: isCurrent,
-                    }}
-                />
+                <EventLinksContext.Provider value={eventLinks}>
+                    <MonthHeader
+                        status={
+                            isCurrent
+                                ? `Live${updatedAt ? ` · updated ${updatedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}`
+                                : 'A finished month, for looking back'
+                        }
+                        nav={{
+                            label: formatMonthKey(month),
+                            onPrev: () => setPicked(shiftMonth(month, -1)),
+                            onNext: () => {
+                                const next = shiftMonth(month, 1)
+                                setPicked(next === currentMonth ? null : next)
+                            },
+                            nextDisabled: isCurrent,
+                        }}
+                    />
+                    <Tabs tabs={tabs} value={tab} onChange={pickTab} className="mb-6" />
+                    {tab === 'Analysis' && s && (
+                        <Hero s={s} kinds={view?.kinds ?? []} monthLabel={formatMonthKey(month)} />
+                    )}
 
-                {error && !view ? (
-                    <EmptyState icon="fa-solid fa-triangle-exclamation" title="Couldn't reach Starling" description={error} />
-                ) : !view || !s ? (
-                    <div className="grid place-items-center py-16">
-                        <Spinner />
-                    </div>
-                ) : s.count === 0 ? (
-                    <>
-                        {goalEl && <div className="mb-6">{goalEl}</div>}
-                        {billsEl}
-                        {lessonsEl}
-                        {!s.isCurrent && (
-                            <EmptyState icon="fa-regular fa-calendar" title="Nothing spent" description="Nothing went out this month." />
-                        )}
-                        {s.isCurrent && (
-                            <div className="mb-6">
-                                <Plans spent={[]} upcoming={view.upcoming} planned={0} everyday={0} onOpen={(title, items) => open(title, items)} />
-                            </div>
-                        )}
-                    </>
-                ) : (
-                    <>
-                        {goalEl && <div className="mb-6">{goalEl}</div>}
-                        {billsEl}
-                        {lessonsEl}
-                        {week && <WeekCard week={week} onOpen={open} />}
-                        <DohSection doh={view.doh} onOpen={open} />
-                        <Insights insights={view.insights} onOpen={open} />
-                        <div className="mb-6 grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
-                            <Breakdown s={s} onOpen={open} />
-                            <Plans
-                                spent={view.spent}
-                                upcoming={view.upcoming}
-                                planned={view.planned}
-                                everyday={view.everyday}
-                                onOpen={(title, items) => open(title, items)}
+                    {error && !view ? (
+                        <EmptyState icon="fa-solid fa-triangle-exclamation" title="Couldn't reach Starling" description={error} />
+                    ) : !view || !s ? (
+                        <div className="grid place-items-center py-16">
+                            <Spinner />
+                        </div>
+                    ) : tab === 'Transactions' ? (
+                        s.count === 0 ? (
+                            <EmptyState
+                                icon="fa-regular fa-calendar"
+                                title="Nothing spent"
+                                description="No payments this month yet."
                             />
-                        </div>
-                        <div id="statement-transactions" className="scroll-mt-6">
-                            <Transactions key={s.month} s={s} eventOf={eventOf} />
-                        </div>
-                    </>
-                )}
+                        ) : (
+                            <div id="statement-transactions" className="scroll-mt-6">
+                                <Transactions
+                                    key={s.month}
+                                    s={s}
+                                    eventOf={eventOf}
+                                    review={{
+                                        on: reviewing,
+                                        setOn: setReviewing,
+                                        bad: badSet,
+                                        setVerdict: (id, v) =>
+                                            updateReview((r) => ({
+                                                ...r,
+                                                bad: v === 'bad' ? [...r.bad.filter((x) => x !== id), id] : r.bad.filter((x) => x !== id),
+                                            })),
+                                        reportMade: !!review.reportAt,
+                                        onCreateReport: () => {
+                                            updateReview((r) => ({ ...r, reportAt: new Date().toISOString() }))
+                                            pickTab('Report')
+                                            window.scrollTo({ top: 0, behavior: 'smooth' })
+                                        },
+                                    }}
+                                />
+                            </div>
+                        )
+                    ) : tab === 'Report' ? (
+                        <ReviewReportView
+                            s={s}
+                            bad={badSet}
+                            tags={view.tags}
+                            reportAt={review.reportAt}
+                            onOpen={open}
+                            onBack={() => {
+                                setReviewing(true)
+                                pickTab('Transactions')
+                            }}
+                            onClear={() => {
+                                updateReview(() => ({ bad: [], reportAt: null }))
+                                setReviewing(false)
+                                pickTab('Transactions')
+                            }}
+                        />
+                    ) : s.count === 0 ? (
+                        <>
+                            {goalEl && <div className="mb-6">{goalEl}</div>}
+                            {billsEl}
+                            {lessonsEl}
+                            {!s.isCurrent && (
+                                <EmptyState icon="fa-regular fa-calendar" title="Nothing spent" description="Nothing went out this month." />
+                            )}
+                            {s.isCurrent && (
+                                <div className="mb-6">
+                                    <Plans spent={[]} upcoming={view.upcoming} planned={0} everyday={0} onOpen={(title, items) => open(title, items)} />
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            {goalEl && <div className="mb-6">{goalEl}</div>}
+                            {billsEl}
+                            {lessonsEl}
+                            {week && <WeekCard week={week} onOpen={open} />}
+                            <DohSection doh={view.doh} onOpen={open} />
+                            <Insights insights={view.insights} onOpen={open} />
+                            <div className="mb-6 grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+                                <Breakdown s={s} onOpen={open} />
+                                <Plans
+                                    spent={view.spent}
+                                    upcoming={view.upcoming}
+                                    planned={view.planned}
+                                    everyday={view.everyday}
+                                    onOpen={(title, items) => open(title, items)}
+                                />
+                            </div>
+                        </>
+                    )}
 
-                <Drawer
-                    open={!!detail}
-                    onClose={() => setDetail(null)}
-                    title={detail?.title}
-                    badge={detail ? plural(detail.items.length, 'payment') : undefined}
-                    size="lg"
-                >
-                    {detail && <DetailBody d={detail} eventOf={eventOf} />}
-                </Drawer>
+                    <Drawer
+                        open={!!detail}
+                        onClose={() => setDetail(null)}
+                        title={detail?.title}
+                        badge={detail ? plural(detail.items.length, 'payment') : undefined}
+                        size="lg"
+                    >
+                        {detail && <DetailBody d={detail} eventOf={eventOf} />}
+                    </Drawer>
+                </EventLinksContext.Provider>
             </TagsContext.Provider>
         </CalendarsContext.Provider>
     )

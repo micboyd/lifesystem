@@ -507,3 +507,40 @@ export async function getStarlingHistory(months = 12): Promise<StarlingHistory> 
     const res = await api.get<ApiResponse<StarlingHistory>>('/finances/starling/history', { params: { months } })
     return res.data.data
 }
+
+// ── Statement good/bad review ────────────────────────────────────────────────
+
+export interface SpendReviewDto {
+    month: string
+    bad: string[]
+    reportAt: string | null
+}
+
+/** One month's good/bad review; empty (no bad ids, no report) when none saved. */
+export async function getSpendReview(month: string): Promise<SpendReviewDto> {
+    const res = await api.get<ApiResponse<SpendReviewDto>>(`/finances/spend-reviews/${month}`)
+    return res.data.data
+}
+
+/** Replace a month's review. Sending it empty deletes it. */
+export async function putSpendReview(month: string, review: { bad: string[]; reportAt: string | null }): Promise<SpendReviewDto> {
+    const res = await api.put<ApiResponse<SpendReviewDto>>(`/finances/spend-reviews/${month}`, review)
+    return res.data.data
+}
+
+// ── Payment ↔ calendar event matches the user unticked ───────────────────────
+
+export interface EventUnlinkDto {
+    itemId: string
+    eventKey: string
+}
+
+export async function listEventUnlinks(): Promise<EventUnlinkDto[]> {
+    const res = await api.get<ApiResponse<EventUnlinkDto[]>>('/finances/event-unlinks')
+    return res.data.data
+}
+
+/** linked: false unticks the match; true puts it back. */
+export async function setEventUnlink(itemId: string, eventKey: string, linked: boolean): Promise<void> {
+    await api.post('/finances/event-unlinks', { itemId, eventKey, linked })
+}

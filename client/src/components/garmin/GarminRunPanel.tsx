@@ -25,10 +25,10 @@ import {
     clock,
     connectUrl,
     isLoop,
-    lapRows,
     paceScore,
     paceText,
     runDistance,
+    runRows,
     series,
     startTime,
     zoneShares,
@@ -249,7 +249,7 @@ function RunView({
         }
     }, [sessionId, entry._id, run.track.length])
 
-    const rows = useMemo(() => lapRows(run.planned, run.laps), [run.planned, run.laps])
+    const { rows, split } = useMemo(() => runRows(run), [run])
     const score = paceScore(rows)
     const zones = useMemo(() => zoneShares(run), [run])
     const charts = useMemo(
@@ -326,6 +326,11 @@ function RunView({
                             </p>
                         )}
                     </div>
+                    {split && (
+                        <p className="-mt-1 text-[13px] text-neutral-500">
+                            The watch saved its own laps, so this is the run cut by the plan's times.
+                        </p>
+                    )}
                     <ol className="flex flex-col divide-y divide-neutral-100">
                         {rows.map((r) => (
                             <li key={r.key} className="flex min-w-0 items-start justify-between gap-3 py-2">

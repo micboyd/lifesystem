@@ -53,6 +53,8 @@ import {
     updateSubItem,
     deleteSubItem,
 } from '../controllers/financeSubItemController'
+import { getSpendReview, putSpendReview } from '../controllers/spendReviewController'
+import { listEventUnlinks, setEventUnlink } from '../controllers/eventUnlinkController'
 import { requireAuth } from '../middleware/auth'
 
 const router = Router()
@@ -99,6 +101,10 @@ router.get('/starling/history', getStarlingHistory)
 router.get('/starling/exclusions', listStarlingExclusions)
 router.post('/starling/exclusions/archive', archiveStarlingExclusions)
 router.post('/starling/exclusions/:id/recover', recoverStarlingExclusion)
+router.get('/spend-reviews/:month', getSpendReview)
+router.put('/spend-reviews/:month', putSpendReview)
+router.get('/event-unlinks', listEventUnlinks)
+router.post('/event-unlinks', setEventUnlink)
 
 // Budget top-ups (extra money added to a budget, forward-only from the day it's added)
 router.get('/budget-topups', listBudgetTopUps)

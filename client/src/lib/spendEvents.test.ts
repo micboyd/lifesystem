@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { matchSpendToEvents, upcomingPlans } from './spendEvents'
+import { eventKey, unlinkKey, matchSpendToEvents, upcomingPlans } from './spendEvents'
 import type { Event, StarlingSpendItem } from '../types'
 
 let n = 0
@@ -69,6 +69,19 @@ describe('matchSpendToEvents', () => {
         )
         expect(m.events[0].total).toBe(25)
         expect(m.everyday).toBe(80)
+    })
+
+    it('keeps an unticked match visible but out of the plan total', () => {
+        const night = ev('Gig', '2026-10-20', { time: '20:00' })
+        const items = [tx('2026-10-20T21:00:00', 30, 'EATING_OUT', 'Bar'), tx('2026-10-20T22:00:00', 10, 'EATING_OUT', 'Chippy')]
+        const first = matchSpendToEvents(items, [night])
+        const unticked = items[1].id
+        const m = matchSpendToEvents(items, [night], new Set([unlinkKey(unticked, eventKey(night))]))
+        expect(first.events[0].total).toBe(40)
+        expect(m.events[0].total).toBe(30)
+        expect(m.everyday).toBe(10)
+        expect(m.off.has(unticked)).toBe(true)
+        expect(m.byItem.get(unticked)?.title).toBe('Gig')
     })
 
     it('counts a 1am taxi as part of the night before', () => {

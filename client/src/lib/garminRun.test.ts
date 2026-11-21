@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activityType, clock, isLoop, lapRows, paceScore, paceText, runDistance, series, zoneShares } from './garminRun'
+import { activityType, clock, isLoop, lapRows, lapsAreNotSteps, paceScore, runRows, splitByPlan, paceText, runDistance, series, zoneShares } from './garminRun'
 import type { GarminRunLap, PlannedStep } from '../services/garmin'
 
 const lap = (over: Partial<GarminRunLap>): GarminRunLap => ({
@@ -63,6 +63,59 @@ describe('lapRows', () => {
 
     it('has no score without pace targets', () => {
         expect(paceScore(lapRows([], [lap({})]))).toBeNull()
+    })
+})
+
+const timed = (type: PlannedStep['type'], seconds: number): PlannedStep => ({ type, label: type, end: { kind: 'time', seconds } })
+
+/** A steady run: one sample every 10 s at `speed` m/s, HR = 100 + minute. */
+const steady = (seconds: number, speed: number) => {
+    const t: number[] = []
+    const d: number[] = []
+    const hr: number[] = []
+    for (let s = 0; s <= seconds; s += 10) {
+        t.push(s)
+        d.push(s * speed)
+        hr.push(100 + Math.floor(s / 60))
+    }
+    return { t, d, hr }
+}
+
+describe('laps that are not the steps', () => {
+    // The 2026-11-20 treadmill session: 7 steps, watch saved 1 km auto-laps.
+    const plan = [timed('warmup', 300), timed('run', 300), timed('walk', 90), timed('run', 300), timed('walk', 90), timed('run', 300), timed('cooldown', 240)]
+    const autoLaps = [lap({ distanceM: 1000 }), lap({ distanceM: 1000 }), lap({ distanceM: 1000 }), lap({ distanceM: 245 })]
+
+    it('spots whole-km auto-laps and miscounts, but trusts step-tagged laps', () => {
+        expect(lapsAreNotSteps(plan, autoLaps)).toBe(true)
+        expect(lapsAreNotSteps(plan.slice(0, 2), [lap({ distanceM: 820 }), lap({ distanceM: 1300 })])).toBe(false)
+        expect(lapsAreNotSteps(plan, autoLaps.map((l, i) => ({ ...l, stepIndex: i })))).toBe(false)
+        expect(lapsAreNotSteps([], autoLaps)).toBe(false)
+    })
+
+    it('cuts the run at each planned step time', () => {
+        const { rows, split } = runRows({ planned: plan, laps: autoLaps, chart: steady(1620, 2) })
+        expect(split).toBe(true)
+        expect(rows).toHaveLength(7)
+        expect(rows.every((r) => r.lap)).toBe(true)
+        expect(rows.map((r) => Math.round(r.lap!.durationS!))).toEqual([300, 300, 90, 300, 90, 300, 240])
+        expect(Math.round(rows[2].lap!.distanceM!)).toBe(180)
+        expect(rows[0].lap!.avgHr).toBeCloseTo(102, 0)
+    })
+
+    it('cuts distance steps by distance, keeps time left over, and leaves unreached steps empty', () => {
+        const dist: PlannedStep = { type: 'run', label: 'run', end: { kind: 'distance', metres: 400 } }
+        const over = splitByPlan([timed('warmup', 60), dist], steady(600, 2))!
+        expect(over.map((l) => Math.round(l.durationS!))).toEqual([60, 200, 340])
+        const short = runRows({ planned: [timed('warmup', 300), timed('run', 300), timed('walk', 90)], laps: [lap({})], chart: steady(400, 2) })
+        expect(short.rows[1].lap!.durationS).toBe(100)
+        expect(short.rows[2].lap).toBeNull()
+    })
+
+    it('falls back to the laps when a step ends on the lap button or there is no data', () => {
+        const button: PlannedStep = { type: 'run', label: 'run', end: { kind: 'lapButton' } }
+        expect(splitByPlan([button], steady(600, 2))).toBeNull()
+        expect(runRows({ planned: plan, laps: autoLaps, chart: {} }).split).toBe(false)
     })
 })
 

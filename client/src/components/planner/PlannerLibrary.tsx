@@ -110,12 +110,12 @@ export default function PlannerLibrary<K extends string, P extends string>({
             )}
 
             <div className="mt-4 flex items-center justify-between gap-3 border-y border-[#dcdcdc] py-3">
-                <span className="text-neutral-600">Click adds to</span>
+                <span className="shrink-0 whitespace-nowrap text-neutral-600">Click adds to</span>
                 <Select
                     value={part}
                     onChange={(v) => onPart(v as P)}
                     options={parts.map((p) => ({ value: p.value, label: `${target} · ${p.label}` }))}
-                    className="w-48"
+                    className="min-w-0 flex-1"
                 />
             </div>
 

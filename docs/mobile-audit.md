@@ -1,8 +1,13 @@
 # Mobile audit — overnight 2026-11-20
 
+## Summary (COMPLETE 2026-11-21)
+Every screen, tab, sub-tab and shared overlay was checked at 375px (and 320px for all routes). Main changes: phones get swipeable section tabs instead of a tall stacked list; charts draw at their real width (`useBoxWidth`); 35 breakpoint-only grids got a `grid-cols-1` base (fixes 320px overflow); compact day-nav date pickers; dropdown/time/date popovers stay on screen; tap targets in TimePicker/DatePicker/Toast are 40px on phones; tables, toolbars and drawer footers fit; the Planner week strip is visible again. Nothing committed.
+- `tsc --noEmit`: clean.
+- `npm test`: 1041 pass, 2 fail in `src/lib/yourDay.test.ts` (`estimateWorkoutMinutes` reads `workout.warmUp.length` on a fixture with no `warmUp`). These files weren't touched by the audit and have no uncommitted changes, so the failures are older than it. Left for you to look at.
+
 Goal: every screen, tab, sub-tab, drawer and popover looks and works perfectly at phone width (375px, also 320px and 390–430px).
 Method: open each view in the browser pane at 375×812 against the dev server on :5173, measure horizontal overflow with JS, screenshot, fix, re-check.
-Last updated: 2026-11-21 07:45 (status: IN PROGRESS — all items ticked; running tests + typecheck)
+Last updated: 2026-11-21 07:50 (status: COMPLETE)
 
 ## Rules for any session continuing this
 - Never start a dev server. Use the one on http://localhost:5173 (preview_start {url}).

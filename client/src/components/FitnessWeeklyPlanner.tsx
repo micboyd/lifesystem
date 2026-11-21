@@ -292,6 +292,23 @@ function shortDayLabel(date: string): string {
     return `${wd} ${day} ${MONTHS[month].slice(0, 3)}`
 }
 
+// ─── Calendar on the day ──────────────────────────────────────────────────────
+
+/**
+ * What a day's calendar pill says: when the day is taken ("All day" once every
+ * slot is covered, by one event or several) and by what. Null with nothing on.
+ */
+function calendarPill(events: Event[], date: string): { when: string; what: string; full: boolean } | null {
+    if (events.length === 0) return null
+    const parts = FITNESS_PLAN_PARTS.filter((p) => events.some((e) => eventCoversSlot(e, date, p)))
+    const full = parts.length === FITNESS_PLAN_PARTS.length
+    const when = full
+        ? 'All day'
+        : parts.map((p, i) => (i === 0 ? PART_META[p].label : PART_META[p].label.toLowerCase())).join(' & ')
+    const what = events.length === 1 ? events[0].title : `${events.length} events`
+    return { when, what, full }
+}
+
 // ─── Calendar clashes ─────────────────────────────────────────────────────────
 
 /**
@@ -363,10 +380,11 @@ function resolutionSlots(
 /** A short "when" label for an event on `date` — "All day", a clock time, or the slots it spans. */
 function eventWhenLabel(event: Event, date: string): string {
     if (event.allDay || event.startPart === 'na') return 'All day'
-    const parts = (['morning', 'afternoon', 'evening'] as FitnessPlanPart[])
-        .filter((p) => eventCoversSlot(event, date, p))
-        .map((p) => PART_META[p].label)
-        .join(', ')
+    const covered = (['morning', 'afternoon', 'evening'] as FitnessPlanPart[]).filter((p) =>
+        eventCoversSlot(event, date, p)
+    )
+    // A multi-day event's middle days cover every slot: that's the whole day.
+    const parts = covered.length === 3 ? 'All day' : covered.map((p) => PART_META[p].label).join(', ')
     return event.time ? `${parts} · ${event.time}` : parts
 }
 
@@ -1327,6 +1345,8 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                             onRowMenu={openRowMenu}
                             onSlotMenu={openSlotMenu}
                             onReorder={handleReorder}
+                            calendarByDate={calendarByDate}
+                            onShowEvents={setEventsDate}
                         />
                         <MinutesByDay weekStart={range.start} entries={entries} isDone={(e) => isDone(e) || ticking.has(e._id)} />
                     </>
@@ -2671,7 +2691,7 @@ function DayCard({
     const skippedCount = entries.filter((e) => e.skipped && !isDone(e)).length
     const toDo = total - skippedCount
     const rest = total === 0
-    const calendarCount = calendarEvents.length
+    const calendar = calendarPill(calendarEvents, date)
     const tone = note ? FLAG_TONE[note.color] : null
 
     // Minutes across the day: sessions carry a duration; workouts use the same
@@ -2750,17 +2770,6 @@ function DayCard({
 
     const actions = (
         <>
-            {/* Something on the calendar in one of the day's slots — a heads-up
-                whether or not it clashes with anything planned. */}
-            {calendarCount > 0 && (
-                <DayAlertButton
-                    tone="sky"
-                    icon="fa-regular fa-calendar"
-                    count={calendarCount}
-                    label={`${calendarCount} calendar event${calendarCount === 1 ? '' : 's'} on ${weekday} — view`}
-                    onClick={onShowEvents}
-                />
-            )}
             {clashCount > 0 && (
                 <DayAlertButton
                     tone="amber"
@@ -2809,6 +2818,22 @@ function DayCard({
                         </button>
                     )}
                 </DayTitle>
+                {/* What's on the calendar that day — a heads-up whether or not it
+                    clashes with anything planned. Solid when the whole day is taken. */}
+                {calendar && (
+                    <button
+                        type="button"
+                        onClick={onShowEvents}
+                        aria-label={`On the calendar ${weekday}: ${calendar.when}, ${calendar.what} — view`}
+                        className={`inline-flex max-w-full self-start items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold transition-opacity hover:opacity-80 ${
+                            calendar.full ? 'bg-sky-600 text-white' : 'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200'
+                        }`}
+                    >
+                        <i className="fa-regular fa-calendar text-[9px]" aria-hidden="true" />
+                        <span className="shrink-0">{calendar.when}</span>
+                        <span className="truncate font-medium opacity-80">· {calendar.what}</span>
+                    </button>
+                )}
                 {summary}
             </header>
 
@@ -4027,11 +4052,16 @@ function PartsGrid({
     onRowMenu,
     onSlotMenu,
     onReorder,
+    calendarByDate,
+    onShowEvents,
 }: {
     weekStart: string
     today: string
     entries: FitnessPlanEntry[]
     isDone: (entry: FitnessPlanEntry) => boolean
+    /** What's on the calendar each day, for the pill under each day's heading. */
+    calendarByDate: Map<string, Event[]>
+    onShowEvents: (date: string) => void
     clashesByDate: Map<string, Clash[]>
     overloadsByDate: Map<string, SlotOverload[]>
     libraryDrag: LibraryDrag<FitnessPlanKind> | null
@@ -4104,6 +4134,7 @@ function PartsGrid({
                                     ? 'Done'
                                     : `${doneN} of ${live.length}${skippedN ? ` · ${skippedN} skipped` : ''}`
                         const d = new Date(`${date}T00:00:00`)
+                        const calendar = calendarPill(calendarByDate.get(date) ?? [], date)
                         return (
                             <span
                                 role="columnheader"
@@ -4126,6 +4157,22 @@ function PartsGrid({
                                     className="mt-2.5"
                                 />
                                 <span className={`mt-1.5 block text-[12px] ${isToday ? 'text-neutral-300' : 'text-neutral-600'}`}>{summary}</span>
+                                {calendar && (
+                                    <button
+                                        type="button"
+                                        onClick={() => onShowEvents(date)}
+                                        title={`${calendar.when} · ${calendar.what}`}
+                                        aria-label={`On the calendar: ${calendar.when}, ${calendar.what} — view`}
+                                        className={`mt-2 flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold transition-opacity hover:opacity-80 ${
+                                            calendar.full
+                                                ? 'bg-sky-600 text-white'
+                                                : 'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200'
+                                        }`}
+                                    >
+                                        <i className="fa-regular fa-calendar shrink-0 text-[9px]" aria-hidden="true" />
+                                        <span className="truncate">{calendar.full ? calendar.what : calendar.when}</span>
+                                    </button>
+                                )}
                             </span>
                         )
                     })}

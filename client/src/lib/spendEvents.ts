@@ -155,15 +155,25 @@ export interface EventSpend {
 export interface SpendByEvent {
     /** Events with spend against them, most expensive first. */
     events: EventSpend[]
-    /** Payment id → the event it was matched to. */
+    /** Payment id → the event it was matched to (unticked matches included, so they can be re-ticked). */
     byItem: Map<string, Event>
+    /** Payment ids whose match the user unticked: shown, but not counted as the plan's spend. */
+    off: Set<string>
     planned: number
     everyday: number
 }
 
 /** Match each payment to the most specific event on at the time, if any. */
-export function matchSpendToEvents(items: StarlingSpendItem[], events: Event[]): SpendByEvent {
+/** Key for one payment ↔ event match the user unticked. */
+export const unlinkKey = (itemId: string, eventKeyValue: string) => `${itemId}::${eventKeyValue}`
+
+export function matchSpendToEvents(
+    items: StarlingSpendItem[],
+    events: Event[],
+    unlinked: ReadonlySet<string> = new Set()
+): SpendByEvent {
     const byItem = new Map<string, Event>()
+    const off = new Set<string>()
     const groups = new Map<string, EventSpend>()
     let planned = 0
     let everyday = 0
@@ -183,9 +193,14 @@ export function matchSpendToEvents(items: StarlingSpendItem[], events: Event[]):
             everyday += t.amount
             continue
         }
-        planned += t.amount
         byItem.set(t.id, best.e)
         const key = eventKey(best.e)
+        if (unlinked.has(unlinkKey(t.id, key))) {
+            off.add(t.id)
+            everyday += t.amount
+            continue
+        }
+        planned += t.amount
         const g = groups.get(key) ?? { event: best.e, total: 0, items: [] }
         g.total = Math.round((g.total + t.amount) * 100) / 100
         g.items.push(t)
@@ -195,6 +210,7 @@ export function matchSpendToEvents(items: StarlingSpendItem[], events: Event[]):
     return {
         events: [...groups.values()].sort((a, b) => b.total - a.total),
         byItem,
+        off,
         planned: Math.round(planned * 100) / 100,
         everyday: Math.round(everyday * 100) / 100,
     }
