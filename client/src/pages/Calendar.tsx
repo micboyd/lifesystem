@@ -719,16 +719,18 @@ export default function Calendar() {
             </div>
 
             {/* Views: each month on its own white panel, on a pale grey page, so months read apart. */}
-            <div className="bg-[#f7f7f7] px-5 pb-20 pt-2 sm:px-10">
+            <div className="bg-[#f7f7f7] pb-20 pt-2 sm:px-10">
                 {view === 'Month' && loading && <MonthSkeleton />}
                 {view === 'Month' && !loading && (
                     <div className="flex flex-col gap-3">
+                        <div className="px-5 sm:px-0">
                         <MonthFlags
                             month={monthKeyOf(focusDate)}
                             notes={monthNotes}
                             onEdit={(note) => setNoteEdit({ note, month: note.startMonth })}
                             onAdd={(m) => setNoteEdit({ note: null, month: m })}
                         />
+                        </div>
                         <MonthView {...sharedProps} />
                     </div>
                 )}
@@ -1148,7 +1150,7 @@ function MonthBlock({
                 >
                     <thead>
                         <tr className="border-b border-hairline">
-                            <th className="sticky left-0 z-10 w-[104px] bg-white pb-3 pr-3 pt-2.5 text-left align-bottom text-[11px] font-medium uppercase tracking-[0.12em] text-neutral-600">
+                            <th className="sticky left-0 z-10 w-[78px] bg-white pb-3 pr-2 pt-2.5 sm:w-[104px] sm:pr-3 text-left align-bottom text-[11px] font-medium uppercase tracking-[0.12em] text-neutral-600">
                                 Part
                             </th>
                             {dayNums.map((day) => {
@@ -1209,7 +1211,7 @@ function MonthBlock({
                             >
                                 <th
                                     scope="row"
-                                    className="sticky left-0 z-10 whitespace-nowrap bg-white pr-3 text-left align-middle text-[13px] font-medium text-neutral-900"
+                                    className="sticky left-0 z-10 whitespace-nowrap bg-white pr-2 text-left align-middle text-[13px] font-medium text-neutral-900 sm:pr-3"
                                 >
                                     {period.label}
                                 </th>
@@ -1263,7 +1265,7 @@ function MonthBlock({
                             <tr className="border-b border-[#e4e4e4]">
                                 <th
                                     scope="row"
-                                    className="sticky left-0 z-10 whitespace-nowrap bg-white pr-3 text-left align-middle text-[13px] font-medium text-neutral-900"
+                                    className="sticky left-0 z-10 whitespace-nowrap bg-white pr-2 text-left align-middle text-[13px] font-medium text-neutral-900 sm:pr-3"
                                 >
                                     Other
                                 </th>
@@ -1319,7 +1321,7 @@ function MonthBlock({
                             <tr className="border-b border-[#e4e4e4] [&>*]:border-t [&>*]:border-t-neutral-300">
                                 <th
                                     scope="row"
-                                    className="sticky left-0 z-10 whitespace-nowrap bg-white pr-3 text-left align-middle text-[13px] font-medium text-neutral-900"
+                                    className="sticky left-0 z-10 whitespace-nowrap bg-white pr-2 text-left align-middle text-[13px] font-medium text-neutral-900 sm:pr-3"
                                 >
                                     Leave
                                 </th>

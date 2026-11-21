@@ -465,9 +465,10 @@ function MealViewDrawer({
             title={m?.name ?? 'Meal'}
             footer={
                 m && (
-                    <div className="flex w-full flex-wrap items-center justify-end gap-3">
-                        <Button variant="ghost" icon="fa-solid fa-trash-can" className="mr-auto" onClick={() => onDelete(m)}>
-                            Delete
+                    <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:gap-3">
+                        {/* Icon-only on phones, so all three fit on one line. */}
+                        <Button variant="ghost" icon="fa-solid fa-trash-can" className="mr-auto" aria-label="Delete" onClick={() => onDelete(m)}>
+                            <span className="hidden sm:inline">Delete</span>
                         </Button>
                         <Button variant="secondary" icon="fa-regular fa-copy" onClick={() => void onDuplicate(m)}>
                             Duplicate

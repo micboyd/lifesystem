@@ -166,7 +166,7 @@ export default function GarminTrendsPanel() {
                 />
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <TrendCard
                     measure={MEASURES[calories]}
                     days={days}
@@ -320,7 +320,7 @@ function Figure({ label, value, title }: { label: string; value: string; title?:
     return (
         <div className="min-w-0" title={title}>
             <dt className="truncate text-[13px] text-neutral-500">{label}</dt>
-            <dd className="nums truncate text-[17px] font-semibold tracking-tight text-neutral-900">{value}</dd>
+            <dd className="nums truncate text-[15px] font-semibold sm:text-[17px] tracking-tight text-neutral-900">{value}</dd>
         </div>
     )
 }

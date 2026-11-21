@@ -39,7 +39,7 @@ export default function Modal({
             <div
                 role="dialog"
                 aria-modal="true"
-                className={`relative z-10 flex max-h-[85vh] w-full flex-col overflow-hidden border border-neutral-900 bg-white ${sizeClasses[size]} ${className}`}
+                className={`relative z-10 flex max-h-[85dvh] w-full flex-col overflow-hidden border border-neutral-900 bg-white ${sizeClasses[size]} ${className}`}
             >
                 {title ? (
                     <OverlayHeader title={title} onClose={onClose} />

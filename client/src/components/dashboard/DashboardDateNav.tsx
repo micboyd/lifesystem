@@ -1,5 +1,13 @@
 import DatePicker, { type DatePickerValue } from '../DatePicker'
 import { addDays, todayKey } from '../../lib/calendar'
+import { useMediaQuery } from '../planner/WeekPlannerUI'
+
+/** "Fri 20 Nov" (with the year when it isn't this one): fits beside the arrows on a phone. */
+function shortLabel(date: string): string {
+    const d = new Date(`${date}T00:00:00`)
+    const sameYear = d.getFullYear() === new Date().getFullYear()
+    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }) })
+}
 
 interface Props {
     date: string
@@ -8,6 +16,7 @@ interface Props {
 
 export default function DashboardDateNav({ date, onChange }: Props) {
     const isToday = date === todayKey()
+    const narrow = !useMediaQuery('(min-width: 640px)')
 
     return (
         // One tidy full-width row on phones: left-packing these wrapped "Today"
@@ -25,6 +34,9 @@ export default function DashboardDateNav({ date, onChange }: Props) {
             <div className="min-w-0 flex-1 lg:w-auto lg:flex-none">
                 <DatePicker
                     value={date}
+                    clearable={false}
+                    compact={narrow}
+                    displayLabel={narrow ? shortLabel(date) : undefined}
                     onChange={(v: DatePickerValue) => {
                         if (typeof v === 'string' && v) onChange(v)
                     }}

@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { daysBetween } from '../lib/weightTrend'
+import { useBoxWidth } from './useBoxWidth'
 
 /**
  * One measurement over time, drawn the way the bodyweight chart already is: a
- * fixed viewBox scaled to its container, with the x-axis as real elapsed time
+ * viewBox as wide as its container, with the x-axis as real elapsed time
  * rather than point index — so a month without a reading reads as a month
  * without a reading, not as a steady run of them.
  *
@@ -11,7 +13,7 @@ import { daysBetween } from '../lib/weightTrend'
  * Nothing is interpolated to make the line look smoother than the measuring was.
  */
 
-const CHART_W = 720
+const DEFAULT_CHART_W = 720
 const CHART_H = 180
 const PAD_X = 8
 const PAD_Y = 14
@@ -46,6 +48,8 @@ export default function MetricChart({
      */
     format?: (value: number) => string
 }) {
+    const [box, setBox] = useState<HTMLDivElement | null>(null)
+    const CHART_W = useBoxWidth(box) || DEFAULT_CHART_W
     if (points.length < 2) {
         return (
             <p className="py-8 text-center text-sm text-neutral-500">
@@ -76,10 +80,11 @@ export default function MetricChart({
         series.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(p.date)},${y(p.value)}`).join(' ')
 
     return (
-        <div className="overflow-x-auto">
+        <div ref={setBox}>
             <svg
                 viewBox={`0 0 ${CHART_W} ${CHART_H}`}
-                className="h-44 w-full min-w-[20rem]"
+                height={CHART_H}
+                className="block w-full"
                 role="img"
                 aria-label={`${label} over time`}
             >

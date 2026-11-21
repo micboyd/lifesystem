@@ -52,6 +52,8 @@ interface DatePickerProps {
     displayLabel?: string
     /** Whether the trigger offers an "x" to empty the picker. */
     clearable?: boolean
+    /** Drop the calendar icon and chevron, for a trigger squeezed into a row of buttons on a phone. */
+    compact?: boolean
     className?: string
 }
 
@@ -177,6 +179,7 @@ export default function DatePicker({
     errorDates,
     displayLabel,
     clearable = true,
+    compact = false,
     className = '',
 }: DatePickerProps) {
     const isRange = mode === 'range'
@@ -586,12 +589,14 @@ export default function DatePicker({
                 disabled={disabled}
                 className={triggerClasses}
             >
-                <i
-                    className="fa-regular fa-calendar shrink-0 text-sm text-neutral-500"
-                    aria-hidden="true"
-                />
+                {!compact && (
+                    <i
+                        className="fa-regular fa-calendar shrink-0 text-sm text-neutral-500"
+                        aria-hidden="true"
+                    />
+                )}
                 <span
-                    className={`min-w-0 flex-1 truncate text-left ${hasValue ? 'font-semibold text-neutral-900' : 'font-normal text-neutral-500'}`}
+                    className={`min-w-0 flex-1 truncate ${compact ? 'text-center' : 'text-left'} ${hasValue ? 'font-semibold text-neutral-900' : 'font-normal text-neutral-500'}`}
                 >
                     {hasValue ? (displayLabel ?? triggerLabel) : placeholder}
                 </span>
@@ -604,7 +609,7 @@ export default function DatePicker({
                     >
                         <i className="fa-solid fa-xmark text-[11px]" aria-hidden="true" />
                     </span>
-                ) : (
+                ) : compact ? null : (
                     <i
                         className={`fa-solid fa-chevron-down shrink-0 text-[11px] text-neutral-300 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
                         aria-hidden="true"
@@ -628,7 +633,7 @@ export default function DatePicker({
                             type="button"
                             onClick={goPrev}
                             aria-label="Previous"
-                            className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-neutral-200 text-neutral-500 transition-colors duration-150 hover:border-neutral-300 hover:bg-neutral-50"
+                            className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-neutral-200 text-neutral-500 sm:h-8 sm:w-8 transition-colors duration-150 hover:border-neutral-300 hover:bg-neutral-50"
                         >
                             <i className="fa-solid fa-chevron-left text-xs" aria-hidden="true" />
                         </button>
@@ -644,7 +649,7 @@ export default function DatePicker({
                             type="button"
                             onClick={goNext}
                             aria-label="Next"
-                            className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-neutral-200 text-neutral-500 transition-colors duration-150 hover:border-neutral-300 hover:bg-neutral-50"
+                            className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-neutral-200 text-neutral-500 sm:h-8 sm:w-8 transition-colors duration-150 hover:border-neutral-300 hover:bg-neutral-50"
                         >
                             <i className="fa-solid fa-chevron-right text-xs" aria-hidden="true" />
                         </button>

@@ -39,8 +39,8 @@ export default function LibraryToolbar({
     const searching = search.trim() !== ''
     return (
         <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between gap-3">
-                <p className="min-w-0 truncate text-sm text-neutral-500">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-3">
+                <p className="whitespace-nowrap text-sm text-neutral-500">
                     {count != null && (
                         <>
                             <span className="font-semibold tabular-nums text-neutral-900">
@@ -51,7 +51,7 @@ export default function LibraryToolbar({
                         </>
                     )}
                 </p>
-                <div className="flex shrink-0 items-center gap-2.5">
+                <div className="flex max-w-full flex-wrap items-center gap-2 sm:gap-2.5">
                     {onImport && (
                         <Button
                             variant="secondary"

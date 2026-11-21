@@ -258,7 +258,7 @@ export default function CleaningWizard({
                 </section>
             )}
 
-            <footer className="sticky bottom-20 z-10 -mx-2 flex items-center justify-between gap-3 rounded-2xl bg-canvas/90 px-2 py-3 backdrop-blur lg:bottom-0">
+            <footer className="sticky bottom-0 z-10 -mx-2 flex items-center justify-between gap-3 bg-canvas/90 px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
                 <div>
                     {(stepIndex > 0 || onCancel) && (
                         <Button variant="ghost" icon={stepIndex === 0 ? undefined : 'fa-solid fa-arrow-left'} onClick={back}>
@@ -340,11 +340,12 @@ function RoomsStep({ rooms, onChange }: { rooms: CleaningRoom[]; onChange: (room
                     return (
                         <div
                             key={p.kind}
-                            className={`flex items-center gap-3 rounded-2xl p-3 transition-colors ${
+                            className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl p-3 transition-colors sm:flex-nowrap ${
                                 n ? 'bg-area-cleaning-bg ring-1 ring-area-cleaning/30' : 'bg-white ring-1 ring-neutral-900/[0.06]'
                             }`}
                         >
-                            <button type="button" onClick={() => add(p.kind)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                            {/* Phones: a picked room's −/+ drop to their own line so the name keeps its room. */}
+                            <button type="button" onClick={() => add(p.kind)} className={`flex min-w-0 flex-1 items-center gap-3 text-left ${n ? 'basis-full sm:basis-auto' : ''}`}>
                                 <span
                                     className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${
                                         n ? 'bg-area-cleaning text-white' : 'bg-neutral-100 text-neutral-600'
@@ -352,10 +353,10 @@ function RoomsStep({ rooms, onChange }: { rooms: CleaningRoom[]; onChange: (room
                                 >
                                     <i className={`fa-solid ${p.icon}`} aria-hidden="true" />
                                 </span>
-                                <span className="min-w-0 truncate text-[14px] font-medium text-neutral-900">{p.label}</span>
+                                <span className="min-w-0 text-[14px] font-medium leading-tight text-neutral-900 sm:truncate">{p.label}</span>
                             </button>
                             {n > 0 && (
-                                <div className="flex shrink-0 items-center gap-1">
+                                <div className="ml-auto flex shrink-0 items-center gap-1">
                                     <button
                                         type="button"
                                         onClick={() => removeOne(p.kind)}

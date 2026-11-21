@@ -77,7 +77,7 @@ export default function RecordsPanel({
 
     return (
         <div className="flex flex-col gap-6">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <StatTile
                     label="Overall"
                     value={PERFORMANCE_LABELS[summary.overall]}
@@ -131,7 +131,7 @@ export default function RecordsPanel({
                 </div>
             </Surface>
 
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <Surface className="flex flex-col gap-4">
                     <div>
                         <h3 className="text-[15px] font-semibold text-neutral-900">Personal bests beaten</h3>

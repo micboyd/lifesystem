@@ -200,7 +200,7 @@ export default function YourDayWidget({
         return (
             <section className="min-w-0" aria-label="Your day">
                 <p className="h-10 w-2/3 animate-pulse rounded-lg bg-neutral-100" />
-                <div className="mt-14 grid gap-x-16 gap-y-12 lg:grid-cols-12">
+                <div className="mt-14 grid grid-cols-1 gap-x-16 gap-y-12 lg:grid-cols-12">
                     <div className="lg:col-span-8">
                         <SectionLoading rows={6} />
                     </div>

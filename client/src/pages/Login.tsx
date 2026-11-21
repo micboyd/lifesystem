@@ -41,13 +41,13 @@ export default function Login() {
     }
 
     return (
-        <main className="flex min-h-screen items-center justify-center bg-neutral-50 px-6">
-            <div className="w-full max-w-sm rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm">
+        <main className="flex min-h-screen items-center justify-center bg-neutral-50 px-4 sm:px-6">
+            <div className="w-full max-w-sm rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm sm:p-8">
                 <div className="mb-6 text-center">
                     <h1 className="text-[34px] font-medium leading-[1.1] tracking-[-0.045em] text-neutral-950 sm:text-[44px]">
                         Welcome back
                     </h1>
-                    <p className="mt-2 max-w-2xl text-[18px] leading-[26px] tracking-[-0.01em] text-neutral-600">Sign in to your account</p>
+                    <p className="mt-2 max-w-2xl text-[16px] leading-[24px] sm:text-[18px] sm:leading-[26px] tracking-[-0.01em] text-neutral-600">Sign in to your account</p>
                 </div>
 
                 {error && (

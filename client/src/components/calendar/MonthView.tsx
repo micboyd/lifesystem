@@ -102,7 +102,7 @@ export default function MonthView({
                             className={[
                                 // Square days from lg up; phones keep a fixed height, as a
                                 // ~50px square couldn't fit a single event chip.
-                                'group/day min-h-28 min-w-0 cursor-pointer p-2 transition-colors hover:bg-neutral-50 lg:aspect-square lg:min-h-0 lg:overflow-hidden',
+                                'group/day min-h-28 min-w-0 cursor-pointer p-1 transition-colors hover:bg-neutral-50 sm:p-2 lg:aspect-square lg:min-h-0 lg:overflow-hidden',
                                 !isCurrentMonth ? 'bg-neutral-50/60' : '',
                                 isPast && isCurrentMonth ? 'bg-red-50/40' : '',
                             ].join(' ')}
@@ -172,14 +172,14 @@ export default function MonthView({
                                                 ev.stopPropagation()
                                                 onEventClick(e)
                                             }}
-                                            className={`flex w-full items-center gap-1 truncate px-1.5 py-0.5 text-left text-[11px] font-semibold transition-colors ${colors.bg} ${colors.text} ${colors.hover}`}
+                                            className={`flex w-full items-center gap-1 truncate px-1 py-0.5 text-left text-[11px] sm:px-1.5 font-semibold transition-colors ${colors.bg} ${colors.text} ${colors.hover}`}
                                         >
                                             <i
-                                                className={`${EVENT_TYPE_ICONS[e.eventType]} shrink-0 text-[9px] opacity-70`}
+                                                className={`${EVENT_TYPE_ICONS[e.eventType]} hidden shrink-0 text-[9px] opacity-70 sm:inline-block`}
                                                 aria-hidden="true"
                                             />
                                             {e.recurrence && (
-                                                <i className="fa-solid fa-repeat text-[8px] shrink-0 opacity-60" />
+                                                <i className="fa-solid fa-repeat hidden text-[8px] shrink-0 opacity-60 sm:inline-block" />
                                             )}
                                             <span className="truncate">{e.title}</span>
                                         </button>

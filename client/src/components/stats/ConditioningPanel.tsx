@@ -63,7 +63,7 @@ export default function ConditioningPanel({
                     <p className="mt-0.5 text-[13px] text-neutral-500">{rangeLabel}</p>
                 </div>
                 <p className="max-w-2xl text-sm text-neutral-500">{read.detail}</p>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <StatTile
                         label="Bodyweight trend"
                         value={
@@ -102,7 +102,7 @@ export default function ConditioningPanel({
                 />
             ) : (
                 <>
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                         <StatTile
                             label={`Sessions · ${rangeLabel.toLowerCase()}`}
                             value={String(summary.sessions)}

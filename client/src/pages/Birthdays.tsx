@@ -146,7 +146,7 @@ export default function Birthdays() {
                 </div>
             </header>
 
-            <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.4fr]">
                 {/* Add form */}
                 <Card>
                     <CardHeader>

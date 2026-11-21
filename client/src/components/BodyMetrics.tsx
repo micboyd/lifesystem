@@ -10,6 +10,7 @@ import EmptyState from './EmptyState'
 import ConfirmModal from './ConfirmModal'
 import Drawer from './Drawer'
 import BodyPhotos from './BodyPhotos'
+import { useBoxWidth } from './useBoxWidth'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { todayKey, parseDateKey, MONTHS } from '../lib/calendar'
@@ -492,7 +493,8 @@ function WeighInDrawer({
 
 // ─── Chart ──────────────────────────────────────────────────────────────────────
 
-const CHART_W = 720
+
+const DEFAULT_CHART_W = 720
 const CHART_H = 200
 const PAD_X = 8
 const PAD_Y = 12
@@ -512,6 +514,11 @@ function TrendChart({
     /** The running Plan's line, drawn over the stretch of the chart it covers. */
     plan?: PlanLine
 }) {
+    // Draw at the box's real width, so on a phone the chart fills its height and
+    // the labels stay legible instead of the whole 720-wide drawing shrinking.
+    const [box, setBox] = useState<HTMLDivElement | null>(null)
+    const measured = useBoxWidth(box)
+    const CHART_W = measured || DEFAULT_CHART_W
     if (points.length < 2) {
         return (
             <p className="py-10 text-center text-sm text-neutral-500">
@@ -548,10 +555,11 @@ function TrendChart({
         .join(' ')
 
     return (
-        <div className="overflow-x-auto">
+        <div ref={setBox}>
             <svg
                 viewBox={`0 0 ${CHART_W} ${CHART_H}`}
-                className="h-48 w-full min-w-[20rem]"
+                height={CHART_H}
+                className="block w-full"
                 role="img"
                 aria-label="Bodyweight trend over time"
             >

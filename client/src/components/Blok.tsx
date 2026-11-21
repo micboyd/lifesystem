@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { revealActive } from './Tabs'
 
 /**
  * AdminLife 3 building blocks, straight from the design system boards: the
@@ -23,11 +24,16 @@ export function ModuleBar({
     tabs?: { label: string; to?: string; onClick?: () => void; active: boolean }[]
     actions?: ReactNode
 }) {
+    const navRef = useRef<HTMLElement>(null)
+    const active = tabs?.find((t) => t.active)?.label
+    useEffect(() => {
+        revealActive(navRef.current, navRef.current?.querySelector<HTMLElement>('[aria-current="page"]') ?? null)
+    }, [active])
     return (
         <div className="flex min-h-16 flex-wrap items-center gap-x-8 gap-y-3 border-b border-hairline px-5 sm:px-10">
             <span className="text-[17px] font-medium">{title}</span>
             {tabs && tabs.length > 0 && (
-                <nav aria-label={title} className="-mb-px flex gap-7 self-stretch overflow-x-auto scrollbar-none">
+                <nav ref={navRef} aria-label={title} className="-mb-px flex gap-7 self-stretch overflow-x-auto scrollbar-none">
                     {tabs.map((t) => {
                         const cls = `flex shrink-0 items-center whitespace-nowrap ${
                             t.active ? 'text-neutral-900 shadow-[inset_0_-2px_0_#111111]' : 'text-neutral-600 hover:text-neutral-900'
@@ -44,7 +50,7 @@ export function ModuleBar({
                     })}
                 </nav>
             )}
-            {actions && <div className="ml-auto flex flex-wrap gap-2 py-3">{actions}</div>}
+            {actions && <div className="ml-auto flex min-w-0 max-w-full flex-wrap gap-2 py-3">{actions}</div>}
         </div>
     )
 }
@@ -162,10 +168,10 @@ export function FigureStrip({ figures, size = 36 }: { figures: Figure[]; size?: 
                 <div key={f.label} className="border-b border-hairline pb-5 pr-5 pt-[18px]">
                     <dt className="text-[13px] text-neutral-600">{f.label}</dt>
                     <dd
-                        className={`mt-1.5 leading-none tracking-[-0.03em] ${size === 36 ? 'text-[30px] sm:text-[36px]' : 'text-[28px] sm:text-[32px]'}`}
+                        className={`mt-1.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-1 leading-none tracking-[-0.03em] ${size === 36 ? 'text-[30px] sm:text-[36px]' : 'text-[28px] sm:text-[32px]'}`}
                     >
                         {f.value}
-                        {f.unit && <span className="ml-1.5 text-[13px] tracking-normal text-neutral-600">{f.unit}</span>}
+                        {f.unit && <span className="whitespace-nowrap text-[13px] tracking-normal text-neutral-600">{f.unit}</span>}
                     </dd>
                     {f.pct !== undefined && f.color && <Bar pct={f.pct} color={f.color} className="mt-3.5" />}
                     {f.note && <dd className="mt-2.5 text-[13px] text-neutral-600">{f.note}</dd>}

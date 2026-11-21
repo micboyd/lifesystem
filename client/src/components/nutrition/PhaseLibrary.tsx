@@ -367,18 +367,20 @@ export default function PhaseLibrary({
                     A nutrition plan is a dated stretch of eating — a cut, a bulk or maintenance — with the
                     targets the planner and stats judge each day against.
                 </p>
-                <div className="flex gap-2">
+                {/* Export and Import go icon-only on phones so the row fits. */}
+                <div className="flex flex-wrap gap-2">
                     {phases.length > 0 && (
                         <Button
                             variant="secondary"
                             icon="fa-solid fa-file-export"
+                            aria-label="Export"
                             onClick={onExport}
                         >
-                            Export
+                            <span className="hidden sm:inline">Export</span>
                         </Button>
                     )}
-                    <Button variant="secondary" icon="fa-solid fa-file-import" onClick={onImport}>
-                        Import
+                    <Button variant="secondary" icon="fa-solid fa-file-import" aria-label="Import" onClick={onImport}>
+                        <span className="hidden sm:inline">Import</span>
                     </Button>
                     <Button icon="fa-solid fa-plus" onClick={startNew}>
                         New plan

@@ -99,7 +99,7 @@ export default function ExerciseProgressPanel({
                 className="sm:max-w-md"
             />
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <StatTile
                     label={metricMeta.label}
                     value={
@@ -172,7 +172,7 @@ export default function ExerciseProgressPanel({
                 )}
             </Surface>
 
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <Surface className="flex flex-col gap-3">
                     <h3 className="text-[15px] font-semibold text-neutral-900">Recent sessions</h3>
                     {history.length === 0 ? (

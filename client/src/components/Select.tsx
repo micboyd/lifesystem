@@ -92,7 +92,7 @@ export default function Select({
                         />
                     )}
                     <span
-                        className={`flex-1 text-left ${selectedOption ? 'text-neutral-900' : 'text-neutral-500'}`}
+                        className={`min-w-0 flex-1 truncate text-left ${selectedOption ? 'text-neutral-900' : 'text-neutral-500'}`}
                     >
                         {selectedOption ? selectedOption.label : placeholder}
                     </span>

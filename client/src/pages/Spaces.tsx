@@ -12,8 +12,10 @@ const fmt = formatAmount
 function SpaceCard({ space }: { space: StarlingSpace }) {
     const isSpending = space.type === 'spending'
     return (
-        <Card hover={false} className="flex flex-col gap-5">
-            <div className="flex items-center justify-between gap-3">
+        // Phones: one compact row — icon, name, balance. The type badge only
+        // repeats the section heading, so it waits for the wider card.
+        <Card hover={false} className="flex items-center gap-4 sm:flex-col sm:items-stretch sm:gap-5">
+            <div className="flex shrink-0 items-center justify-between gap-3">
                 <span
                     className={[
                         'grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm',
@@ -22,13 +24,13 @@ function SpaceCard({ space }: { space: StarlingSpace }) {
                 >
                     <i className={`fa-solid ${isSpending ? 'fa-credit-card' : 'fa-piggy-bank'}`} aria-hidden="true" />
                 </span>
-                <span className="shrink-0 rounded-full bg-neutral-100 px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
+                <span className="hidden shrink-0 rounded-full bg-neutral-100 px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600 sm:inline">
                     {isSpending ? 'Spending' : 'Savings'}
                 </span>
             </div>
-            <div className="min-w-0">
+            <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3 sm:block">
                 <p className="truncate text-base font-bold tracking-tight text-neutral-900">{space.name}</p>
-                <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight text-neutral-900">
+                <p className="shrink-0 text-lg font-bold tabular-nums tracking-tight text-neutral-900 sm:mt-1 sm:text-2xl">
                     £{fmt(space.balance)}
                 </p>
             </div>
@@ -133,7 +135,7 @@ export default function Spaces() {
                     <h2 className="mb-3 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Spending spaces
                     </h2>
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
                         {spending.map((s) => (
                             <SpaceCard key={s.id} space={s} />
                         ))}
@@ -146,7 +148,7 @@ export default function Spaces() {
                     <h2 className="mb-3 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Savings goals
                     </h2>
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
                         {savings.map((s) => (
                             <SpaceCard key={s.id} space={s} />
                         ))}

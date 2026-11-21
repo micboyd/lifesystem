@@ -165,7 +165,7 @@ export default function TargetPlanner({
         <>
             {/* Hero — what your plans need each month vs what the sheet saves */}
             <section className="mb-8 border-b border-hairline pb-8">
-                <div className="grid gap-10 lg:grid-cols-[1fr_1.4fr] lg:items-start">
+                <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_1.4fr] lg:items-start">
                     <div className="flex min-w-0 flex-col gap-6">
                         <BigFigure
                             label="Your plans need"
@@ -227,7 +227,7 @@ export default function TargetPlanner({
                 </div>
             </section>
 
-            <div className="grid items-start gap-10 lg:grid-cols-[1.5fr_1fr]">
+            <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-[1.5fr_1fr]">
                 {/* Plans */}
                 <section className="min-w-0">
                     <div className="mb-3 flex items-center justify-between gap-3">

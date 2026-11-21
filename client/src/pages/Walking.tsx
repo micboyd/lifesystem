@@ -223,7 +223,7 @@ export default function Walking() {
             </section>
 
             {stepDays.length > 0 && (
-                <section aria-label="Steps" className="mt-16 grid gap-14 lg:grid-cols-2">
+                <section aria-label="Steps" className="mt-16 grid grid-cols-1 gap-14 lg:grid-cols-2">
                     <StepsByDay days={stepDays} today={todayKey()} goal={stepGoal} />
                     <LastTwelveWeeks days={stepDays} today={todayKey()} goal={stepGoal || 10000} />
                 </section>
@@ -458,7 +458,7 @@ function PartGroup({
                 ev.preventDefault()
                 onDropItem(id)
             }}
-            className="relative isolate grid border-b border-hairline sm:grid-cols-[minmax(150px,200px)_1fr]"
+            className="relative isolate grid grid-cols-1 border-b border-hairline sm:grid-cols-[minmax(150px,200px)_minmax(0,1fr)]"
         >
             {/* The drop highlight reaches past the slot's edges so the text inside keeps its line with the list. */}
             <span
@@ -494,7 +494,7 @@ function PartGroup({
                         }`}
                     >
                         <i className="fa-solid fa-plus text-[10px]" aria-hidden="true" />
-                        Add a {part} walk
+                        Add {part === 'afternoon' || part === 'evening' ? 'an' : 'a'} {part} walk
                     </button>
                 </li>
             </ul>

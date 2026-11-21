@@ -107,7 +107,7 @@ export default function SettingsCard() {
                     {/* Wake up / Bed time */}
                     <div>
                         <p className="mb-3 text-sm font-medium text-neutral-700">Your day</p>
-                        <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <Field label="Wake up">
                                 <TimePicker
                                     value={wakeTime}
@@ -132,7 +132,7 @@ export default function SettingsCard() {
                         <p className="mb-3 text-[11px] text-neutral-500">
                             Sits within your wake and bed times.
                         </p>
-                        <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <Field label="Start">
                                 <TimePicker
                                     value={workStart}
@@ -152,7 +152,7 @@ export default function SettingsCard() {
                                 />
                             </Field>
                         </div>
-                        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <Field label="Lunch from">
                                 <TimePicker
                                     value={lunchStart}

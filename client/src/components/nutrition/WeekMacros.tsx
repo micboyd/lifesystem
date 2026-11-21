@@ -51,7 +51,7 @@ export function WeekMacrosPanel({ week }: { week: WeekMacros | null }) {
 
     return (
         <div className="flex flex-col gap-3 rounded-xl border border-neutral-200 p-4">
-            <div className="grid gap-4 sm:grid-cols-2 sm:gap-x-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-x-6">
                 {ROWS.map(({ key, label, unit }) => {
                     const track = week.onTrack[key]
                     const target = week.weekTarget[key]

@@ -84,12 +84,20 @@ export default function RoomJobsEditor({
                                 <ul className="flex flex-col divide-y divide-neutral-100 rounded-xl border border-hairline bg-white">
                                     {g.tasks.map((task) => (
                                     <li key={task.key} className="flex flex-wrap items-center gap-2 px-3 py-2.5 sm:flex-nowrap">
-                                        <input
+                                        {/* A one-line textarea that grows, so long job names wrap on a phone instead of being cut off. */}
+                                        <textarea
                                             aria-label="Job"
+                                            rows={1}
                                             value={task.name}
-                                            onChange={(e) => patch(task.key, { name: e.target.value })}
+                                            onChange={(e) => patch(task.key, { name: e.target.value.replace(/\n/g, ' ') })}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault()
+                                                    e.currentTarget.blur()
+                                                }
+                                            }}
                                             maxLength={120}
-                                            className="h-11 min-w-0 basis-full rounded-lg border border-transparent bg-transparent px-2 text-[15px] text-neutral-900 outline-none hover:border-neutral-200 focus:border-neutral-900 sm:flex-1 sm:basis-auto"
+                                            className="min-h-11 min-w-0 basis-full resize-none rounded-lg border border-transparent bg-transparent px-2 py-2.5 text-[15px] leading-snug text-neutral-900 outline-none [field-sizing:content] hover:border-neutral-200 focus:border-neutral-900 sm:flex-1 sm:basis-auto"
                                         />
                                         <MinutesField value={task.minutes} onChange={(minutes) => patch(task.key, { minutes })} />
                                         <Select

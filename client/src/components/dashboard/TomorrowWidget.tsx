@@ -273,7 +273,7 @@ function TomorrowBrief({
                             <h2 className="text-xl font-semibold tracking-[-0.015em] sm:text-2xl">
                                 {isPreDawn ? 'Day ahead' : 'Time to sleep'}
                             </h2>
-                            <p className="mt-0.5 truncate text-[13px] text-neutral-500">
+                            <p className="mt-0.5 text-[13px] text-neutral-500 sm:truncate">
                                 {isPreDawn ? 'Today' : 'Tomorrow'} · {formatDateLong(date)}
                             </p>
                         </div>
@@ -289,7 +289,7 @@ function TomorrowBrief({
 
                 {/* Warnings lead — they change what "prepared" means. */}
                 {warnings.length > 0 && (
-                    <div className="grid gap-2 md:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                         {warnings.map((w) => (
                             <div key={w.id} className="flex items-start gap-3 rounded-xl bg-surface-muted px-4 py-3.5 ring-1 ring-inset ring-hairline">
                                 <i className={`${w.icon} mt-0.5 shrink-0 text-sm ${SEVERITY_ICON_STYLES[w.severity]}`} aria-hidden="true" />
@@ -303,7 +303,7 @@ function TomorrowBrief({
                 )}
 
                 {/* Weather · Get ready · What's on — side by side on wide screens. */}
-                <div className="grid gap-8 lg:grid-cols-3 lg:gap-0 lg:divide-x lg:divide-hairline">
+                <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:gap-0 lg:divide-x lg:divide-hairline">
                     <div className="lg:pr-8">
                         <BannerLabel>Weather</BannerLabel>
                         {day && info ? (
@@ -325,7 +325,7 @@ function TomorrowBrief({
                                     </div>
                                 </div>
                                 {facts.length > 0 && (
-                                    <dl className="grid grid-cols-3 gap-2">
+                                    <dl className={`grid gap-2 ${facts.length === 4 ? 'grid-cols-2' : 'grid-cols-3'}`}>
                                         {facts.map((f) => (
                                             <div key={f.label} className="rounded-xl bg-surface-muted px-3 py-2">
                                                 <dt className="text-[11px] text-neutral-500">{f.label}</dt>

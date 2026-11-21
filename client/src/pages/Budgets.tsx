@@ -1956,7 +1956,7 @@ export default function Budgets() {
                     description="On the Monthly tab, hover a row and click the bookmark icon to add it here."
                 />
             ) : (
-                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
                     {budgetedRows.map((row) => {
                         const group = groups.find((g) => g._id === row.group)
                         if (!group) return null

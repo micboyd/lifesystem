@@ -319,7 +319,7 @@ function Hero({
 
             {s && vs && (
                 <>
-                    <div className="mt-7 grid gap-8 lg:grid-cols-[1fr_1.2fr]">
+                    <div className="mt-7 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_1.2fr]">
                         <div className="flex min-w-0 flex-col gap-5">
                             <div>
                                 <p className={HERO_OVERLINE}>{s.isCurrent ? 'Spent so far' : 'Spent in total'}</p>
@@ -448,7 +448,7 @@ function Insights({ insights, onOpen }: { insights: Insight[]; onOpen: (title: s
                 </p>
             </div>
             {insights.length > 0 && (
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {shown.map((i) => (
                         <InsightCard
                             key={i.id}
@@ -511,7 +511,8 @@ function DohSection({ doh, onOpen }: { doh: Doh; onOpen: (title: string, items: 
                             onClick={() => onOpen(l.subject, l.items)}
                             className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-neutral-50"
                         >
-                            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-coral-50 text-[13px] text-coral-600">
+                            {/* Phones drop the icon and the repeated amount (the title already says it), so the words get the width. */}
+                            <span className="hidden h-9 w-9 shrink-0 place-items-center rounded-xl bg-coral-50 text-[13px] text-coral-600 sm:grid">
                                 <i className={`fa-solid ${l.icon}`} aria-hidden="true" />
                             </span>
                             <div className="min-w-0 flex-1">
@@ -520,7 +521,7 @@ function DohSection({ doh, onOpen }: { doh: Doh; onOpen: (title: string, items: 
                                 </p>
                                 <p className="text-[13px] leading-snug text-neutral-500">{l.why}</p>
                             </div>
-                            <div className="shrink-0 text-right">
+                            <div className="hidden shrink-0 text-right sm:block">
                                 <M v={l.saved} className="block text-[15px] font-medium text-coral-700" />
                                 <span className="text-[11px] text-neutral-500">could’ve kept</span>
                             </div>
@@ -764,7 +765,7 @@ function Lessons({ a, prevName, onOpen }: { a: MonthAhead; prevName: string; onO
     return (
         <section className="mb-6 rounded-[20px] bg-neutral-100 p-4 sm:p-5">
             <p className={`mb-3 px-1 ${OVERLINE}`}>Lessons from {prevName}</p>
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <div className="rounded-xl bg-white p-4">
                     <p className="text-[13px] text-neutral-500">{prevName} in total</p>
                     <M v={a.lastMonth.total} d={0} className="mt-1 block text-[26px] font-medium leading-tight tracking-[-0.03em] text-neutral-950" />
@@ -1312,7 +1313,7 @@ function WeekCard({ week, onOpen }: { week: WeekReview; onOpen: (title: string, 
                 </button>
             </div>
 
-            <div className="mt-4 grid gap-6 lg:grid-cols-[1.1fr_1fr]">
+            <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_1fr]">
                 <div>
                     <div className="flex items-baseline gap-2">
                         <M v={week.spent} d={0} className="text-[40px] font-medium leading-none tracking-[-0.04em] text-neutral-950" />
@@ -1786,7 +1787,7 @@ export default function Statement() {
                         {week && <WeekCard week={week} onOpen={open} />}
                         <DohSection doh={view.doh} onOpen={open} />
                         <Insights insights={view.insights} onOpen={open} />
-                        <div className="mb-6 grid items-start gap-6 lg:grid-cols-2">
+                        <div className="mb-6 grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
                             <Breakdown s={s} onOpen={open} />
                             <Plans
                                 spent={view.spent}

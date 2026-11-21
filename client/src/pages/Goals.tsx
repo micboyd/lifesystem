@@ -268,7 +268,7 @@ export default function Goals() {
                     {/* Today at a glance */}
                     <div className="mb-6 grid grid-cols-3 gap-3">
                         <Stat label="Today" value={`${doneToday}/${activeHabits.length}`} sub="habits done" />
-                        <Stat label="Best streak" value={`${bestStreak}d`} sub="running" />
+                        <Stat label="Streak" value={`${bestStreak}d`} sub="best running" />
                         <Stat label="Goals" value={String(activeGoals.length)} sub="in progress" />
                     </div>
 

@@ -161,32 +161,33 @@ function MonthDrawer({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="grid h-9 w-9 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                        aria-label="Close"
+                        className="grid h-11 w-11 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700 sm:h-9 sm:w-9"
                     >
                         <i className="fa-solid fa-xmark" aria-hidden="true" />
                     </button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto overflow-x-auto">
-                    <table className="w-full min-w-[26rem]">
+                    <table className="w-full sm:min-w-[26rem]">
                         <thead className="sticky top-0 bg-white">
                             <tr className="border-b border-neutral-100 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                <th className="py-4 pl-4 pr-4 text-left sm:pl-8">Month</th>
-                                <th className="px-4 py-4 text-right">Contributions</th>
-                                <th className="px-4 py-4 text-right">Interest</th>
+                                <th className="py-4 pl-4 pr-2 text-left sm:pl-8 sm:pr-4">Month</th>
+                                <th className="px-2 py-4 text-right sm:px-4">Put in</th>
+                                <th className="px-2 py-4 text-right sm:px-4">Interest</th>
                                 <th className="py-4 pl-4 pr-4 text-right sm:pr-12">Balance</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-neutral-50">
                             {months.map((m) => (
                                 <tr key={m.month} className="hover:bg-neutral-50">
-                                    <td className="py-4 pl-4 pr-4 text-sm font-semibold text-neutral-900 sm:pl-8">
+                                    <td className="py-4 pl-4 pr-2 text-sm font-semibold text-neutral-900 sm:pl-8 sm:pr-4">
                                         {label(m.month)}
                                     </td>
-                                    <td className="px-4 py-4 text-right text-sm tabular-nums text-neutral-600">
+                                    <td className="px-2 py-4 text-right text-sm tabular-nums text-neutral-600 sm:px-4">
                                         £{fmt(m.contributions, 0)}
                                     </td>
-                                    <td className={`px-4 py-4 text-right text-sm tabular-nums ${m.interestEarned > 0 ? 'text-emerald-600' : 'text-neutral-300'}`}>
+                                    <td className={`px-2 py-4 text-right text-sm tabular-nums sm:px-4 ${m.interestEarned > 0 ? 'text-emerald-600' : 'text-neutral-300'}`}>
                                         {m.interestEarned > 0 ? '+' : ''}£{fmt(m.interestEarned, 0)}
                                     </td>
                                     <td className="py-4 pl-4 pr-4 text-right text-sm font-bold tabular-nums text-neutral-900 sm:pr-12">
@@ -537,7 +538,7 @@ function LiveSavingsSection({ groups, rows }: { groups: FinanceGroup[]; rows: Fi
                     <Spinner />
                 </div>
             ) : (
-                <div className="mt-8 grid items-start gap-10 lg:grid-cols-[1fr_1.2fr]">
+                <div className="mt-8 grid grid-cols-1 items-start gap-10 lg:grid-cols-[1fr_1.2fr]">
                     <div className="flex flex-col gap-8">
                         <BigFigure
                             label="You should have saved"
@@ -816,7 +817,7 @@ export default function SavingsForecast() {
                         <>
                             {/* Hero — where your savings land, then how they get there */}
                             <section className="mb-8 border-b border-hairline pb-8">
-                                <div className="grid gap-10 lg:grid-cols-[1fr_1.4fr] lg:items-end">
+                                <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_1.4fr] lg:items-end">
                                     <div className="flex min-w-0 flex-col gap-6">
                                         <BigFigure
                                             label={`In ${horizon} ${horizon === 1 ? 'year' : 'years'}`}
@@ -850,7 +851,7 @@ export default function SavingsForecast() {
                                 </div>
                             </section>
 
-                            <div className="grid items-start gap-10 lg:grid-cols-[1.5fr_1fr]">
+                            <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-[1.5fr_1fr]">
                                 {/* Year-by-year table */}
                                 <section className="min-w-0">
                                     <h2 className={`mb-3 ${OVERLINE}`}>Year by year</h2>
@@ -863,12 +864,12 @@ export default function SavingsForecast() {
                                         </p>
                                     )}
                                     <div className="overflow-x-auto border-t border-hairline">
-                                        <table className="w-full min-w-[380px]">
+                                        <table className="w-full sm:min-w-[380px]">
                                             <thead>
                                                 <tr className={`border-b border-neutral-100 ${OVERLINE}`}>
                                                     <th className="py-3 pr-3 text-left font-medium">Year</th>
-                                                    <th className="px-3 py-3 text-right font-medium">Put in</th>
-                                                    <th className="px-3 py-3 text-right font-medium">Interest</th>
+                                                    <th className="px-2 py-3 sm:px-3 text-right font-medium">Put in</th>
+                                                    <th className="px-2 py-3 sm:px-3 text-right font-medium">Interest</th>
                                                     <th className="py-3 pl-3 text-right font-medium">Balance</th>
                                                 </tr>
                                             </thead>
@@ -890,10 +891,10 @@ export default function SavingsForecast() {
                                                                     Year {row.year}
                                                                 </span>
                                                             </td>
-                                                            <td className="px-3 py-3 text-right text-sm text-neutral-600">
+                                                            <td className="px-2 py-3 sm:px-3 text-right text-sm text-neutral-600">
                                                                 <Money v={row.contributions} />
                                                             </td>
-                                                            <td className={`px-3 py-3 text-right text-sm ${row.interestEarned > 0 ? 'text-emerald-600' : 'text-neutral-500'}`}>
+                                                            <td className={`px-2 py-3 sm:px-3 text-right text-sm ${row.interestEarned > 0 ? 'text-emerald-600' : 'text-neutral-500'}`}>
                                                                 <Money v={row.interestEarned} sign />
                                                             </td>
                                                             <td className={`py-3 pl-3 text-right text-sm ${isMilestone ? 'font-semibold text-neutral-950' : 'font-medium text-neutral-900'}`}>

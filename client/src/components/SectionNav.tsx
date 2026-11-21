@@ -1,4 +1,6 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useMediaQuery } from './planner/WeekPlannerUI'
+import { revealActive } from './Tabs'
 import { Link } from 'react-router-dom'
 
 /** One section of a module: a page of its own, reached by link or by switching state. */
@@ -138,6 +140,8 @@ export function SectionRail({ label, sections, folded = false }: { label: string
 
 /** Below 1100px the sections stack at the top of the page: the same names on a thin rule, the current one barred. */
 export function SectionTabs({ label, sections }: { label: string; sections: Section[] }) {
+    const phone = !useMediaQuery('(min-width: 640px)')
+    if (phone) return <SectionScroller label={label} sections={sections} />
     return (
         <nav aria-label={label} className="px-5 pt-6 sm:px-10">
             <ul className="border-l border-[#d9d9d9] text-[15px] leading-5">
@@ -149,6 +153,37 @@ export function SectionTabs({ label, sections }: { label: string; sections: Sect
                                 s.active
                                     ? '-ml-px border-l-2 border-[#111111] pl-3.5 text-[#111111]'
                                     : 'pl-[15px] text-[#666666] hover:text-[#111111]'
+                            }`}
+                        >
+                            {s.label}
+                        </SectionLink>
+                    </li>
+                ))}
+            </ul>
+        </nav>
+    )
+}
+
+/**
+ * Phones: the sections as one swipeable row of tabs under a hairline, the current
+ * one underlined — the stacked list cost a third of the screen on every visit.
+ */
+function SectionScroller({ label, sections }: { label: string; sections: Section[] }) {
+    const rowRef = useRef<HTMLUListElement>(null)
+    const activeRef = useRef<HTMLLIElement>(null)
+    const active = sections.find((s) => s.active)?.label
+    useEffect(() => {
+        revealActive(rowRef.current, activeRef.current)
+    }, [active])
+    return (
+        <nav aria-label={label} className="border-b border-hairline">
+            <ul ref={rowRef} className="scrollbar-none flex gap-6 overflow-x-auto px-5 text-[15px] leading-5">
+                {sections.map((s) => (
+                    <li key={s.label} ref={s.active ? activeRef : undefined} className="shrink-0">
+                        <SectionLink
+                            section={s}
+                            className={`flex h-12 items-center whitespace-nowrap ${
+                                s.active ? 'text-[#111111] shadow-[inset_0_-2px_0_#111111]' : 'text-[#666666] hover:text-[#111111]'
                             }`}
                         >
                             {s.label}

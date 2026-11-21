@@ -75,6 +75,10 @@ export default function DropdownMenu({
             const height = menu.offsetHeight
 
             let left = align === 'right' ? rect.right - width : rect.left
+            // On a phone the trigger often sits on the other side from desktop:
+            // open the other way round rather than sliding off it.
+            if (align === 'right' && left < margin) left = rect.left
+            if (align === 'left' && left + width > window.innerWidth - margin) left = rect.right - width
             left = Math.min(left, window.innerWidth - margin - width)
             left = Math.max(left, margin)
 

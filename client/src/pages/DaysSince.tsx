@@ -206,14 +206,14 @@ export default function DaysSince() {
 
     return (
         <Container as="main" className="py-10">
-            <header className="mb-8 flex flex-wrap items-center gap-3">
+            <header className="mb-8 flex flex-wrap items-start gap-3 sm:items-center">
                 <Link
                     to="/profile"
-                    className="grid h-9 w-9 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-900"
+                    className="-ml-2 grid h-11 w-11 shrink-0 place-items-center rounded-xl sm:ml-0 sm:h-9 sm:w-9 text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-900"
                 >
                     <i className="fa-solid fa-arrow-left text-sm" aria-hidden="true" />
                 </Link>
-                <div className="flex-1">
+                <div className="min-w-0 flex-1 basis-60">
                     <h1 className="text-[34px] font-medium leading-[1.1] tracking-[-0.045em] text-neutral-950 sm:text-[44px]">Days Since</h1>
                     <p className="mt-2 max-w-2xl text-[18px] leading-[26px] tracking-[-0.01em] text-neutral-600">
                         Count the days since you started something good — or stopped something bad.
@@ -244,7 +244,7 @@ export default function DaysSince() {
                     />
                 </Card>
             ) : (
-                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
                     {sorted.map((item) => {
                         const days = daysBetween(item.startDate, today)
                         const c = DAYS_SINCE_COLOR_CLASSES[item.color]

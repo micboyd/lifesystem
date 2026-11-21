@@ -10,7 +10,8 @@ interface PaginationProps {
     className?: string
 }
 
-const SLOT = 'grid h-11 min-w-11 place-items-center text-sm transition-colors duration-150 lg:h-10 lg:min-w-10'
+// The narrowest phones (320px) need slightly slimmer slots for seven to fit in a row.
+const SLOT = 'grid h-11 min-w-11 place-items-center text-sm transition-colors duration-150 max-[359px]:min-w-9 lg:h-10 lg:min-w-10'
 
 export default function Pagination({
     page,

@@ -856,7 +856,7 @@ export function PlanDetail({ plan }: { plan: TrainingPlan }) {
                         },
                         {
                             icon: 'fa-solid fa-calendar-check',
-                            label: 'On planner',
+                            label: 'Planned',
                             value: plan.appliedEntries > 0 ? plan.appliedEntries : 'Not yet',
                         },
                     ]}

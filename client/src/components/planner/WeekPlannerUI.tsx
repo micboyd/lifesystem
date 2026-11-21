@@ -175,7 +175,9 @@ export function useDaySlider(selected: string, onSwipe: (dir: -1 | 1) => void) {
  * needs telling.
  */
 export type HeroTone = 'dark' | 'soft'
-const HeroToneContext = createContext<HeroTone>('dark')
+// Soft by default: the redesign dropped the dark panel, and pieces used outside a HeroShell
+// (the planners' day strips) were left with white type on a white page.
+const HeroToneContext = createContext<HeroTone>('soft')
 const useSoftHero = () => useContext(HeroToneContext) === 'soft'
 
 /** The panel behind a hero, for planners that lay out their own top. */

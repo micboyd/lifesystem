@@ -80,7 +80,7 @@ export default function Toast({
                     type="button"
                     onClick={onClose}
                     aria-label="Dismiss"
-                    className="grid h-7 w-7 shrink-0 place-items-center rounded-[10px] text-neutral-500 transition-colors duration-150 hover:bg-neutral-100 hover:text-neutral-900"
+                    className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] text-neutral-500 sm:h-7 sm:w-7 transition-colors duration-150 hover:bg-neutral-100 hover:text-neutral-900"
                 >
                     <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
                 </button>

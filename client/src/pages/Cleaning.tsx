@@ -313,7 +313,7 @@ export default function Cleaning() {
                         Safety notes
                         <i className="fa-solid fa-chevron-down ml-1 text-[11px] text-neutral-400 transition-transform group-open:rotate-180" aria-hidden="true" />
                     </summary>
-                    <ul className="mt-3 grid gap-x-8 gap-y-2 text-[13px] leading-snug text-neutral-700 lg:grid-cols-2">
+                    <ul className="mt-3 grid grid-cols-1 gap-x-8 gap-y-2 text-[13px] leading-snug text-neutral-700 lg:grid-cols-2">
                         {SAFETY_NOTES.map((note) => (
                             <li key={note} className="flex gap-2">
                                 <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-neutral-400" />

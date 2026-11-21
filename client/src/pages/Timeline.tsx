@@ -827,7 +827,7 @@ function Cell({ label, value, muted = false }: { label: string; value: string; m
     return (
         <div className="min-w-0">
             <p className="truncate text-[11px] text-neutral-500 sm:hidden">{label}</p>
-            <p className={`nums text-[14px] font-medium ${muted ? 'text-neutral-500' : 'text-neutral-900'}`}>{value}</p>
+            <p className={`nums text-[13px] font-medium sm:text-[14px] ${muted ? 'text-neutral-500' : 'text-neutral-900'}`}>{value}</p>
         </div>
     )
 }

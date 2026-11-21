@@ -629,18 +629,21 @@ function SubLine({
             <button
                 type="button"
                 onClick={() => onOpen(item)}
-                className="flex min-w-0 flex-1 items-center gap-3 px-1.5 py-1.5 text-left"
+                className="flex min-w-0 flex-1 flex-col gap-0.5 px-1.5 py-1.5 text-left sm:flex-row sm:items-center sm:gap-3"
             >
+                {/* Phones: time over title, so the title isn't squeezed to a few letters. */}
                 <span
-                    className={`w-[5.75rem] shrink-0 text-[13px] nums ${running ? 'font-semibold text-coral-600' : 'text-neutral-500'}`}
+                    className={`text-[12px] nums sm:w-[5.75rem] sm:shrink-0 sm:text-[13px] ${running ? 'font-semibold text-coral-600' : 'text-neutral-500'}`}
                 >
                     {item.startTime} – {item.endTime}
                 </span>
-                <Marker item={item} />
-                <span className="min-w-0 truncate text-[14px] font-medium text-neutral-900">
-                    {item.title}
+                <span className="flex min-w-0 items-center gap-2 sm:contents">
+                    <Marker item={item} />
+                    <span className="min-w-0 truncate text-[14px] font-medium text-neutral-900">
+                        {item.title}
+                    </span>
+                    <Warning warnings={warnings} />
                 </span>
-                <Warning warnings={warnings} />
             </button>
             {item.joinUrl && <JoinButton href={item.joinUrl} />}
         </div>

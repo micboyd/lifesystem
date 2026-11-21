@@ -53,7 +53,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 without the toasts fighting each other for it. */}
             <div
                 aria-live="polite"
-                className="pointer-events-none fixed inset-x-0 bottom-0 z-[200] flex flex-col items-center gap-2 p-4 sm:p-6"
+                className="pointer-events-none fixed inset-x-0 bottom-0 z-[200] flex flex-col items-center gap-2 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6"
             >
                 {toasts.map((t) => (
                     <Toast

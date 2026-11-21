@@ -346,7 +346,7 @@ export default function TimePicker({
     ].join(' ')
 
     const spinnerBtn =
-        'grid h-7 w-7 place-items-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700 active:bg-neutral-200'
+        'grid h-10 w-10 place-items-center rounded-lg text-neutral-500 sm:h-7 sm:w-7 transition-colors hover:bg-neutral-100 hover:text-neutral-700 active:bg-neutral-200'
 
     const digitDisplay =
         'h-12 w-14 border border-neutral-400 text-center text-2xl font-medium nums text-neutral-900 transition-colors hover:border-neutral-900'
@@ -376,7 +376,7 @@ export default function TimePicker({
                         onClick={clearValue}
                         role="button"
                         aria-label="Clear"
-                        className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-neutral-200 hover:text-neutral-600"
+                        className="-mr-1.5 grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-300 sm:mr-0 sm:h-5 sm:w-5 transition-colors hover:bg-neutral-200 hover:text-neutral-600"
                     >
                         <i className="fa-solid fa-xmark text-[11px]" aria-hidden="true" />
                     </span>
@@ -533,7 +533,7 @@ export default function TimePicker({
                                             type="button"
                                             onClick={() => selectQuickTime(t)}
                                             className={[
-                                                'rounded-lg py-1.5 text-xs font-medium transition-colors',
+                                                'rounded-lg py-2.5 text-xs font-medium transition-colors sm:py-1.5',
                                                 selected
                                                     ? 'bg-neutral-950 font-semibold text-white'
                                                     : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900',
@@ -552,7 +552,7 @@ export default function TimePicker({
                         <button
                             type="button"
                             onClick={selectNow}
-                            className="inline-flex items-center gap-1.5 rounded-[10px] px-3 h-8 text-xs font-medium text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                            className="inline-flex items-center gap-1.5 rounded-[10px] px-3 h-10 sm:h-8 text-xs font-medium text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                         >
                             <i className="fa-solid fa-clock text-[11px]" aria-hidden="true" />
                             Now
@@ -560,7 +560,7 @@ export default function TimePicker({
                         <button
                             type="button"
                             onClick={() => setOpen(false)}
-                            className="rounded-full px-3 py-1.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                            className="rounded-full px-3 py-2.5 sm:py-1.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                         >
                             Done
                         </button>

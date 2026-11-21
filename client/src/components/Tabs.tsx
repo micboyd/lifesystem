@@ -1,4 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+
+/** Slide a tab row sideways so its current tab is in view, without moving the page. */
+export function revealActive(row: HTMLElement | null, active: HTMLElement | null) {
+    if (!row || !active || row.scrollWidth <= row.clientWidth) return
+    const left = active.getBoundingClientRect().left - row.getBoundingClientRect().left + row.scrollLeft
+    if (left < row.scrollLeft || left + active.offsetWidth > row.scrollLeft + row.clientWidth) {
+        row.scrollLeft = Math.max(0, left - (row.clientWidth - active.offsetWidth) / 2)
+    }
+}
 
 interface TabsProps {
     tabs: string[]
@@ -12,6 +21,10 @@ export default function Tabs({ tabs, value, defaultTab, onChange, className = ''
     const isControlled = value !== undefined
     const [internal, setInternal] = useState(defaultTab ?? tabs[0])
     const active = isControlled ? value : internal
+    const rowRef = useRef<HTMLDivElement>(null)
+    useEffect(() => {
+        revealActive(rowRef.current, rowRef.current?.querySelector<HTMLElement>('[aria-selected="true"]') ?? null)
+    }, [active])
 
     function select(tab: string) {
         if (!isControlled) setInternal(tab)
@@ -21,6 +34,7 @@ export default function Tabs({ tabs, value, defaultTab, onChange, className = ''
     // Open and editorial: plain text links on a hairline, the current one underlined.
     return (
         <div
+            ref={rowRef}
             role="tablist"
             className={`flex max-w-full gap-6 overflow-x-auto scrollbar-none border-b border-hairline ${className}`}
         >
