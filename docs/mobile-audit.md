@@ -98,3 +98,21 @@ Last updated: 2026-11-21 07:50 (status: COMPLETE)
   - Forecast: plan delete button 28px → 40px on phones + aria-label.
   - Clean already: Daily log, Spaces, Breakdown, Monthly row drawer, Statement payments drawer, Budgets transactions drawer.
 
+
+## Fitness in-gym pass 2026-11-22
+
+Focus: the screens used on a phone mid-workout — planner day, item drawer, strength logger, conditioning logger. Planning/builder screens left as desktop-first (they already pass the overflow sweep).
+
+Checked at 375px with real data:
+- **Strength logger** — already good: 48px kg/reps inputs with `decimal`/`numeric` keypads, 16px text (no iOS zoom), big set ticks, Back/Next pinned. No changes beyond wake lock.
+- **Planner item drawer / overview** — clean, nothing to change.
+- **Conditioning logger** — the weak spot. The rep you're on scrolled off-screen, so mid-run you had to hunt for the row; the only fixed control was Wrap up.
+
+Changes:
+- Conditioning logger: a **Now bar** pinned above the footer — phase + "Rep 1 of 2" + part name, the rep's numbers ("Walk · 3 min · 5.0 km/h"), its recovery, and a 56px **Done** button that ticks the rep (or completes a part with no reps). Wrap up shrinks to a small outline button until everything is done, then goes back to primary.
+- **Screen stays awake** while either logger is open (`components/useWakeLock.ts`, re-acquired when the page comes back; no-op where unsupported).
+- Planner on phones: the selected day now comes **straight under the week strip**; the week totals drop below it (`order-last sm:order-none`). Tablet/desktop order unchanged.
+- Tap targets: round counter +1 / undo 36 → 44px; part Undo 28 → 40px; part Done 44 → 48px.
+- Minutes: session lengths were showing "50.85 min" and phase spans "5–47.9 min". Lengths are now whole minutes (`minutesLabel`), spans use clock marks when they aren't whole ("5:00–47:51 min").
+
+Not browser-tested: pressing Done in the Now bar (it would have written a real log). The handler is the same one the existing rep rows and part Done buttons use.

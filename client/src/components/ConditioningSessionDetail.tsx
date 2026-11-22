@@ -14,7 +14,7 @@ import {
     type ItemState,
 } from './session/SessionUI'
 import { CompleteButton, PaceBanner, SlotChip } from './SessionPace'
-import { driftLabel, driftTone, hasSlot, slotLabel, timeOfDay, type Slot } from '../lib/sessionPace'
+import { driftLabel, driftTone, hasSlot, minutesLabel, slotLabel, timeOfDay, type Slot } from '../lib/sessionPace'
 import { SESSION_PHASES } from '../types'
 import type { ConditioningSession, ConditioningCategory, SessionPart } from '../types'
 import { flattenPhases } from '../lib/phases'
@@ -125,7 +125,7 @@ export default function ConditioningSessionDetail({
                         {
                             icon: 'fa-regular fa-clock',
                             label: 'Duration',
-                            value: `${session.duration} min`,
+                            value: minutesLabel(session.duration),
                         },
                         {
                             icon: 'fa-solid fa-list-ol',
@@ -401,7 +401,7 @@ function LogPart({
                     <button
                         type="button"
                         onClick={onUndo}
-                        className="shrink-0 rounded-lg px-2 py-1.5 text-xs font-semibold text-neutral-500 transition-colors hover:bg-white hover:text-neutral-800"
+                        className="-my-2 h-10 shrink-0 rounded-lg px-3 text-xs font-semibold text-neutral-500 transition-colors hover:bg-white hover:text-neutral-800"
                     >
                         Undo
                     </button>
@@ -435,7 +435,7 @@ function LogPart({
                         <button
                             type="button"
                             onClick={onComplete}
-                            className={`h-11 w-full rounded-lg text-sm font-semibold transition-colors ${
+                            className={`h-12 w-full rounded-lg text-sm font-semibold transition-colors ${
                                 current
                                     ? 'bg-neutral-900 text-white hover:bg-neutral-800 active:bg-neutral-700'
                                     : 'border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'

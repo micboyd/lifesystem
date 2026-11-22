@@ -50,6 +50,7 @@ import type {
     SessionPhase,
 } from '../types'
 import { allInPhases, emptyPhases, mapPhases } from '../lib/phases'
+import { minutesLabel } from '../lib/sessionPace'
 
 // ─── Import template ──────────────────────────────────────────────────────────
 
@@ -605,7 +606,7 @@ function SessionCard({
                 <div className="min-w-0">
                     <p className="truncate font-semibold text-neutral-900">{session.name}</p>
                     <p className="mt-0.5 text-xs text-neutral-500">
-                        {session.duration} min
+                        {minutesLabel(session.duration)}
                         {partCount > 0
                             ? ` · ${partCount} ${partCount === 1 ? 'part' : 'parts'}`
                             : ''}

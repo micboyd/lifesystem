@@ -52,7 +52,7 @@ import {
 } from '../services/garmin'
 import GarminRunPanel from './garmin/GarminRunPanel'
 import { runDistance } from '../lib/garminRun'
-import { clearTaps, EMPTY_TAPS } from '../lib/sessionPace'
+import { clearTaps, EMPTY_TAPS, minutesLabel } from '../lib/sessionPace'
 import { clearDraft } from '../lib/workoutLogDraft'
 import { seedFromLog } from '../lib/workoutLogEdit'
 import { useToast } from '../context/ToastContext'
@@ -111,6 +111,7 @@ import {
     scrollToDay,
     relativeWeekLabel,
     useDaySlider,
+    DayPeek,
     useMediaQuery,
     BOARD_GRID,
     LARGE_QUERY,
@@ -1166,7 +1167,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 kind: 'conditioning' as const,
                 id: c._id,
                 name: c.name,
-                meta: [c.duration ? `${c.duration} min` : null, c.category].filter(Boolean).join(' · '),
+                meta: [c.duration ? minutesLabel(c.duration) : null, c.category].filter(Boolean).join(' · '),
                 dot: KIND_TONE.conditioning.block,
                 aside: ago(`conditioning:${c._id}`),
             })),
@@ -1282,15 +1283,19 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 />
             )}
 
+            {/* On a phone the day you're on comes first — the week's totals are
+                for planning, so they drop below it. */}
             {!(libLoading || loading) && (
-                <WeekTotals
-                    entries={entries}
-                    isDone={isDone}
-                    logs={weekLogs}
-                    weights={weights}
-                    weekEnd={range.end}
-                    today={today}
-                />
+                <div className="order-last sm:order-none">
+                    <WeekTotals
+                        entries={entries}
+                        isDone={isDone}
+                        logs={weekLogs}
+                        weights={weights}
+                        weekEnd={range.end}
+                        today={today}
+                    />
+                </div>
             )}
 
             {clipboard && (
@@ -2362,8 +2367,9 @@ function WeekView({
 
     // Swipe left/right on a phone to move a day — crossing Sunday or Monday
     // carries on into the next or previous week.
-    const { sliderProps, dayClass } = useDaySlider(selected, (dir) =>
-        onSelect(addDays(selected, dir))
+    const { sliderProps, dayClass, peeks } = useDaySlider(selected, (dir) =>
+        onSelect(addDays(selected, dir)),
+        days
     )
 
     // A slot's items (any day) in display (order) sequence.
@@ -2465,6 +2471,8 @@ function WeekView({
                     onShowEvents={() => onShowEvents(date)}
                 />
             ))}
+            {!board &&
+                peeks.map((d) => <DayPeek key={`peek-${d}`} date={d} className={dayClass(d)} />)}
             {!board && <SwipeHint />}
         </div>
     )
@@ -2557,7 +2565,7 @@ function WeekTotals({
                         unit: `of ${fmt(condPlanned)} min`,
                         pct: condPlanned > 0 ? (condDone / condPlanned) * 100 : 0,
                         color: '#56698c',
-                        note: condPlanned > 0 ? `${Math.max(0, condPlanned - condDone)} min still planned` : 'None planned',
+                        note: condPlanned > 0 ? `${Math.round(Math.max(0, condPlanned - condDone))} min still planned` : 'None planned',
                     },
                     {
                         label: 'Body weight',
@@ -2980,7 +2988,7 @@ function plannedMeta(entry: FitnessPlanEntry): string {
             .join(' · ')
     }
     if (entry.kind === 'conditioning' && entry.session)
-        return `${entry.session.category} · ${entry.session.duration} min`
+        return `${entry.session.category} · ${minutesLabel(entry.session.duration)}`
     return KIND_META[entry.kind].label
 }
 
@@ -3286,7 +3294,7 @@ function AddDrawer({
                                               <PickRow
                                                   key={s._id}
                                                   title={s.name}
-                                                  detail={`${s.category} · ${s.duration} min`}
+                                                  detail={`${s.category} · ${minutesLabel(s.duration)}`}
                                                   icon="fa-solid fa-plus"
                                                   disabled={busy}
                                                   onClick={() => add(s._id)}
@@ -3727,7 +3735,7 @@ function stepTicksKey(entry: FitnessPlanEntry | null): string | null {
 function PlannedMeta({ entry, done }: { entry: FitnessPlanEntry; done: boolean }) {
     const what =
         entry.kind === 'conditioning' && entry.session
-            ? [entry.session.category, `${entry.session.duration} min`]
+            ? [entry.session.category, minutesLabel(entry.session.duration)]
             : [KIND_META[entry.kind].label]
     return (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">

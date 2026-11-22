@@ -23,6 +23,7 @@ import {
     scrollToDay,
     relativeWeekLabel,
     useDaySlider,
+    DayPeek,
     useMediaQuery,
     BOARD_GRID,
     LARGE_QUERY,
@@ -1075,7 +1076,7 @@ function WeekView({
         after: boolean
     } | null>(null)
 
-    const { sliderProps, dayClass } = useDaySlider(selected, (dir) => onSelect(addDays(selected, dir)))
+    const { sliderProps, dayClass, peeks } = useDaySlider(selected, (dir) => onSelect(addDays(selected, dir)), days)
 
     const slotItems = (date: string, slot: MealType) =>
         entries.filter((e) => e.date === date && e.slot === slot && !e.extra).sort((a, b) => a.order - b.order)
@@ -1150,6 +1151,8 @@ function WeekView({
                     onAwaySlot={(slot) => onAwaySlot(date, slot)}
                 />
             ))}
+            {!board &&
+                peeks.map((d) => <DayPeek key={`peek-${d}`} date={d} className={dayClass(d)} />)}
             {!board && <SwipeHint />}
         </div>
     )

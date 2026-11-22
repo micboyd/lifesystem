@@ -12,6 +12,8 @@ import LiveRouteMap, { type LiveProgress } from './route/LiveRouteMap'
 import { listRoutes, type RunRoute } from '../services/routes'
 import { routeStepMarkers, sessionDistance } from '../lib/routeDistance'
 import { useToast } from '../context/ToastContext'
+import { useWakeLock } from './useWakeLock'
+import { effortFacts } from '../lib/sessionReps'
 import { todayKey } from '../lib/calendar'
 import { flattenPhases } from '../lib/phases'
 import {
@@ -22,7 +24,7 @@ import {
     timeOfDay,
     type DriftTone,
 } from '../lib/sessionPace'
-import type { ConditioningSession } from '../types'
+import type { ConditioningSession, RepEffort } from '../types'
 
 const PHASE_NAME: Record<string, string> = {
     warmUp: 'Warm-up',
@@ -103,6 +105,8 @@ export default function ConditioningLogDrawer({
         onCreated: (logId) => onLogged?.(logId, date),
     })
     const steps = useStepTicks(view ? view.stepsKey : null)
+    // In the gym the phone sits on the treadmill or the floor: keep it awake.
+    useWakeLock(!!target)
 
     // The planned entry's chosen route, shown live at the top while logging today.
     const [route, setRoute] = useState<{ entryId: string; route: RunRoute } | null>(null)
@@ -158,6 +162,39 @@ export default function ConditioningLogDrawer({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [liveRoute, session, logger.taps])
 
+    // What you're on right now, pinned above the footer so it's one thumb-tap
+    // away however far the page has scrolled.
+    const now = useMemo((): NowItem | null => {
+        if (!session) return null
+        const parts = flattenPhases(session)
+        const i = parts.findIndex((_, k) => logger.taps.completedAt[k] == null)
+        if (i < 0) return null
+        const { phase, item } = parts[i]
+        const rounds = item.rounds ?? 0
+        const done = Math.min(logger.taps.counts[i] ?? 0, rounds)
+        const label = item.roundLabel?.trim() ? item.roundLabel.trim().replace(/s$/, '') : 'Rep'
+        const where = [
+            PHASE_NAME[phase] ?? phase,
+            rounds > 1
+                ? `${label.charAt(0).toUpperCase()}${label.slice(1)} ${done + 1} of ${rounds}`
+                : `Part ${i + 1} of ${parts.length}`,
+        ].join(' · ')
+        const rep = rounds > 0 && item.reps?.length === rounds ? item.reps[done] : undefined
+        const what = rep
+            ? effortLine(rep)
+            : rounds > 0
+              ? item.roundDetails?.[done]?.trim() || item.name
+              : item.name
+        return {
+            where,
+            what,
+            then: rep?.rest ? effortLine(rep.rest) : undefined,
+            part: rep || (rounds > 0 && item.roundDetails?.[done]) ? item.name : undefined,
+            onDone: () => (rounds > 0 ? count(i, done + 1) : logger.complete(i)),
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [session, logger.taps])
+
     useEffect(() => {
         top.current?.scrollIntoView({ block: 'start' })
     }, [step])
@@ -184,6 +221,8 @@ export default function ConditioningLogDrawer({
             size="2xl"
             title={session?.name ?? 'Log session'}
             footer={
+                <div className="flex w-full flex-col gap-3">
+                {step === 'log' && now && <NowBar now={now} />}
                 <div className="flex w-full items-center gap-3">
                     <div className="mr-auto min-w-0">
                         <SaveStatus state={logger.saveState} savedAt={logger.savedAt} />
@@ -207,7 +246,11 @@ export default function ConditioningLogDrawer({
                             </Button>
                         </>
                     ) : (
-                        <Button onClick={() => setStep('wrap')}>
+                        <Button
+                            variant={now ? 'ghost' : 'primary'}
+                            size={now ? 'sm' : 'md'}
+                            onClick={() => setStep('wrap')}
+                        >
                             Wrap up
                             <i
                                 className="fa-solid fa-arrow-right ml-2 text-xs"
@@ -215,6 +258,7 @@ export default function ConditioningLogDrawer({
                             />
                         </Button>
                     )}
+                </div>
                 </div>
             }
         >
@@ -263,6 +307,56 @@ export default function ConditioningLogDrawer({
                 </div>
             )}
         </Drawer>
+    )
+}
+
+// ─── Now bar ────────────────────────────────────────────────────────────────────
+
+interface NowItem {
+    /** "Warm-up · Rep 1 of 2", or "Main · Part 2 of 3". */
+    where: string
+    /** The rep (or part) to do: "Walk · 3 min · 5.0 km/h". */
+    what: string
+    /** Its recovery, when it has one. */
+    then?: string
+    /** The part's name, when `what` is a rep inside it. */
+    part?: string
+    onDone: () => void
+}
+
+/** An effort on one line: its name, then its numbers. */
+function effortLine(e: RepEffort): string {
+    return [e.do, ...effortFacts(e).map((f) => f.text)].join(' · ')
+}
+
+/**
+ * The rep you're on and one big Done — pinned at the bottom of the logger, so
+ * mid-run on a phone it's a single tap without hunting for the row.
+ */
+function NowBar({ now }: { now: NowItem }) {
+    return (
+        <div className="flex items-center gap-3" aria-live="polite">
+            <div className="min-w-0 flex-1">
+                <p className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-neutral-500">
+                    {now.where}
+                    {now.part && <span className="font-medium normal-case tracking-normal"> · {now.part}</span>}
+                </p>
+                <p className="mt-0.5 line-clamp-2 text-[15px] font-semibold leading-snug text-neutral-900">
+                    {now.what}
+                </p>
+                {now.then && (
+                    <p className="mt-0.5 truncate text-xs text-neutral-500">then {now.then}</p>
+                )}
+            </div>
+            <button
+                type="button"
+                onClick={now.onDone}
+                className="inline-flex h-14 shrink-0 items-center gap-2 bg-neutral-900 px-6 text-sm font-semibold uppercase tracking-[0.1em] text-white transition-colors hover:bg-black active:bg-neutral-700"
+            >
+                <i className="fa-solid fa-check" aria-hidden="true" />
+                Done
+            </button>
+        </div>
     )
 }
 

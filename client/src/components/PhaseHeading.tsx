@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { SESSION_PHASE_LABELS, type SessionPhase } from '../types'
+import { slotLabel } from '../lib/sessionPace'
 
 /**
  * How each phase of a session looks, everywhere it's shown: a colour and an
@@ -32,8 +33,8 @@ export function phaseSpan(items: { startMin?: number; endMin?: number }[]): stri
     const starts = items.map((i) => i.startMin).filter((n): n is number => n !== undefined)
     const ends = items.map((i) => i.endMin).filter((n): n is number => n !== undefined)
     if (!starts.length || !ends.length) return undefined
-    const fmt = (n: number) => String(Math.round(n * 10) / 10)
-    return `${fmt(Math.min(...starts))}–${fmt(Math.max(...ends))} min`
+    // Whole minutes as "5–48 min"; anything finer as clock marks, "5:00–47:51".
+    return `${slotLabel({ startMin: Math.min(...starts), endMin: Math.max(...ends) })} min`
 }
 
 /**

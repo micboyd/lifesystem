@@ -90,7 +90,7 @@ export default function RoundCounter({
                             aria-label="Undo one"
                             onClick={() => onChange?.(Math.max(0, done - 1))}
                             disabled={done === 0}
-                            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30"
+                            className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30"
                         >
                             <i className="fa-solid fa-rotate-left text-xs" aria-hidden="true" />
                         </button>
@@ -98,7 +98,7 @@ export default function RoundCounter({
                             type="button"
                             onClick={() => onChange?.(Math.min(target, done + 1))}
                             disabled={complete}
-                            className="h-9 shrink-0 rounded-lg border border-neutral-300 bg-white px-3 text-sm font-semibold text-neutral-800 transition-colors hover:bg-neutral-50 active:bg-neutral-100 disabled:opacity-40"
+                            className="h-11 shrink-0 rounded-lg border border-neutral-300 bg-white px-4 text-sm font-semibold text-neutral-800 transition-colors hover:bg-neutral-50 active:bg-neutral-100 disabled:opacity-40"
                         >
                             +1 {one}
                         </button>
@@ -146,7 +146,7 @@ export default function RoundCounter({
                     </>
                 )
                 const row = `flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
-                    isNext ? 'bg-white ring-1 ring-neutral-900/70' : isDone ? 'bg-transparent' : 'bg-neutral-50'
+                    isDone ? 'bg-transparent' : 'bg-neutral-50'
                 }`
                 return (
                     <li key={i}>

@@ -85,6 +85,36 @@ export function RepBody({ rep }: { rep: SessionRep }) {
 }
 
 /**
+ * When each piece of a folded group starts — "Run 5:00 · Walk 10:00 · Run 11:30"
+ * — so the switch times inside "2×" stay visible. Only when every piece is timed.
+ */
+function SwitchTimes({ rep, times, start }: { rep: SessionRep; times: number; start: number }) {
+    if (!rep.seconds) return null
+    const rest = rep.rest
+    if (rest && !rest.seconds) return null
+    const marks: { label: string; at: number }[] = []
+    let t = start
+    for (let i = 0; i < times; i++) {
+        marks.push({ label: rep.do, at: t })
+        t += rep.seconds
+        if (rest?.seconds) {
+            marks.push({ label: rest.do, at: t })
+            t += rest.seconds
+        }
+    }
+    return (
+        <p className="flex flex-wrap gap-x-1.5 text-xs leading-snug text-neutral-500">
+            {marks.map((m, i) => (
+                <span key={i} className="whitespace-nowrap">
+                    {m.label} <span className="tabular-nums text-neutral-700">{clock(m.at)}</span>
+                    {i < marks.length - 1 && <span className="pl-1.5 text-neutral-300">·</span>}
+                </span>
+            ))}
+        </p>
+    )
+}
+
+/**
  * A section's reps as a plan to read: identical reps folded into one row
  * ("6×"), each with its clock window when the reps are timed.
  */
@@ -117,7 +147,12 @@ export function RepList({ part }: { part: SessionPart }) {
                                 {n + 1}
                             </span>
                         ) : null}
-                        <RepBody rep={g.rep} />
+                        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                            <RepBody rep={g.rep} />
+                            {g.times > 1 && start !== undefined && (
+                                <SwitchTimes rep={g.rep} times={g.times} start={start} />
+                            )}
+                        </div>
                         {start !== undefined && end !== undefined && end > start && (
                             <span className="shrink-0 pt-0.5 text-xs tabular-nums text-neutral-500">
                                 {clock(start)}–{clock(end)}

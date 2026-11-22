@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useWakeLock } from './useWakeLock'
 import { BringChips } from './BringList'
 import { PhaseChip } from './PhaseHeading'
 import Drawer from './Drawer'
@@ -772,6 +773,9 @@ export default function WorkoutLogWeightsDrawer({
     const lastSets = current ? lastSetsFor(history, current.name, logId) : null
     const currentEx = current ? resolved.get(current.exerciseId) : undefined
     const equipment = (currentEx && resolveTags(currentEx).equipment) || ''
+
+    // Logging in the gym: keep the phone's screen on while the logger is open.
+    useWakeLock(!!workout)
 
     return (
         <Drawer

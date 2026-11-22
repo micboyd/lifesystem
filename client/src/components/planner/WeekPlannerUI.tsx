@@ -2,14 +2,14 @@ import {
     createContext,
     useContext,
     useEffect,
+    useLayoutEffect,
     useRef,
     useState,
     useSyncExternalStore,
     type CSSProperties,
     type ReactNode,
-    type TouchEvent,
 } from 'react'
-import { parseDateKey, WEEKDAYS_LONG, MONTHS } from '../../lib/calendar'
+import { addDays, parseDateKey, WEEKDAYS_LONG, MONTHS } from '../../lib/calendar'
 
 /**
  * The building blocks shared by the week planners (Fitness and Nutrition): a
@@ -72,99 +72,232 @@ export function relativeWeekLabel(weekStart: string, todayMonday: string): strin
     return diff > 0 ? `In ${diff} weeks` : `${-diff} weeks ago`
 }
 
-/** How long a day takes to slide across on a phone — matches `.day-slide-*` in index.css. */
-const SLIDE_MS = 300
+/** Gap (px) between a phone's day and its neighbours while they're dragged across. */
+const PEEK_GAP = 16
 
-/** How far (px) a finger has to drag a day before letting go moves to the next one. */
-const SWIPE_COMMIT = 60
+/** How far (share of the width) a slow drag has to go before letting go moves day. */
+const COMMIT_SHARE = 0.28
+
+/** A flick this fast (px/ms) changes day however short it was… */
+const FLICK_SPEED = 0.35
+/** …as long as it went at least this far (px). */
+const FLICK_MIN = 24
 
 const reducedMotion = () =>
     typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /**
- * A phone's one-day-at-a-time view as a carousel. The day follows the finger
- * while dragged; let go far enough and it carries on off-screen while the next
- * one slides in behind it — the same slide plays when a day is picked from the
- * strip, in the direction of travel. Wide screens show every day, so they get
- * none of it.
+ * A phone's one-day-at-a-time view as a carousel. The day before and the day
+ * after sit either side of the one on show and travel with the finger, so a
+ * drag pulls the next day into view rather than into empty space. Let go past
+ * about a quarter of the width — or flick — and it glides the rest of the way
+ * at the speed you threw it; otherwise it springs back. The hand-over to the
+ * new day happens in the same frame the slide ends, so nothing jumps.
  *
- * Spread `sliderProps` on the element holding the day cards and give each card
- * `dayClass(date)` for its visibility.
+ * Picking a day from the strip slides the new one in from the side it's on.
+ * Wide screens show every day, so they get none of it.
+ *
+ * The drag never goes through React: one CSS variable on the slider moves all
+ * three cards, so it keeps up with the finger.
+ *
+ * Spread `sliderProps` on the element holding the day cards, give each card
+ * `dayClass(date)`, and render a `DayPeek` for each of `peeks` — the
+ * neighbours that fall outside the loaded week.
  */
-export function useDaySlider(selected: string, onSwipe: (dir: -1 | 1) => void) {
-    const el = useRef<HTMLDivElement>(null)
-    const touch = useRef<{ x: number; y: number; axis: 'x' | 'y' | null } | null>(null)
-    // Where the finger left the day, so the slide-out picks up from there.
-    const releasedAt = useRef(0)
+export function useDaySlider(selected: string, onSwipe: (dir: -1 | 1) => void, days: string[] = []) {
+    const el = useRef<HTMLDivElement | null>(null)
+    // Held in state too, so the touch listeners attach whenever the slider mounts.
+    const [node, setNode] = useState<HTMLDivElement | null>(null)
+    const gesture = useRef<{
+        x: number
+        y: number
+        axis: 'x' | 'y' | null
+        dx: number
+        samples: { x: number; t: number }[]
+    } | null>(null)
+    // A day change our own swipe made — it's already in place, so no slide-in.
+    const swiped = useRef(false)
+    const settling = useRef<number | null>(null)
+    const latest = useRef(onSwipe)
+    latest.current = onSwipe
 
-    // The day leaving, and which way — `dir` 1 means moving forward in time.
-    const [slide, setSlide] = useState<{ from: string; dir: 1 | -1; fromX: number } | null>(null)
+    const prev = addDays(selected, -1)
+    const next = addDays(selected, 1)
+
+    // A day picked from the strip arrives from its side.
+    const [arrive, setArrive] = useState<{ date: string; dir: 1 | -1 } | null>(null)
     const [shown, setShown] = useState(selected)
     if (shown !== selected) {
         setShown(selected)
-        setSlide(
-            isWide() || reducedMotion()
+        setArrive(
+            swiped.current || isWide() || reducedMotion()
                 ? null
-                : { from: shown, dir: selected > shown ? 1 : -1, fromX: releasedAt.current }
+                : { date: selected, dir: selected > shown ? 1 : -1 }
         )
-        releasedAt.current = 0
     }
+
+    const setDx = (px: number) => el.current?.style.setProperty('--day-dx', `${px}px`)
+
+    // The new day is on show: drop the slide's offset before the browser paints,
+    // so the card that glided in is simply where it ends up.
+    useLayoutEffect(() => {
+        if (!swiped.current) return
+        swiped.current = false
+        el.current?.removeAttribute('data-settling')
+        setDx(0)
+    }, [selected])
+
     useEffect(() => {
-        if (!slide) return
-        const t = setTimeout(() => setSlide(null), SLIDE_MS)
+        if (!arrive) return
+        const t = setTimeout(() => setArrive(null), 320)
         return () => clearTimeout(t)
-    }, [slide])
+    }, [arrive])
 
-    const setDrag = (px: number) => el.current?.style.setProperty('--day-dx', `${px}px`)
+    useEffect(() => () => {
+        if (settling.current) clearTimeout(settling.current)
+    }, [])
 
-    const sliderProps = {
-        ref: el,
-        style: { '--day-from': `${slide?.fromX ?? 0}px` } as CSSProperties,
-        onTouchStart: (e: TouchEvent) => {
+    /** Glide to `to` px over a time that suits how far (and how fast) it's going, then run `done`. */
+    function settle(to: number, speed: number, done?: () => void) {
+        const node = el.current
+        if (!node) return
+        const from = gesture.current?.dx ?? 0
+        const dist = Math.abs(to - from)
+        // Carry the flick's speed on; never slower than a calm 320ms or snappier than 140ms.
+        const ms = Math.round(Math.min(320, Math.max(140, speed > 0.1 ? dist / speed : dist * 1.1)))
+        node.style.setProperty('--day-ms', `${ms}ms`)
+        node.setAttribute('data-settling', '')
+        setDx(to)
+        if (settling.current) clearTimeout(settling.current)
+        settling.current = window.setTimeout(() => {
+            settling.current = null
+            if (done) done()
+            else node.removeAttribute('data-settling')
+        }, ms)
+    }
+
+    // Native listeners: a sideways drag has to cancel the page's own scroll,
+    // which React's passive touch handlers can't do.
+    useEffect(() => {
+        if (!node) return
+
+        function start(e: globalThis.TouchEvent) {
+            if (isWide() || e.touches.length > 1 || settling.current) return
             const p = e.touches[0]
-            touch.current = { x: p.clientX, y: p.clientY, axis: null }
-        },
-        onTouchMove: (e: TouchEvent) => {
-            const t = touch.current
-            if (!t || isWide()) return
+            gesture.current = { x: p.clientX, y: p.clientY, axis: null, dx: 0, samples: [{ x: p.clientX, t: e.timeStamp }] }
+        }
+
+        function move(e: globalThis.TouchEvent) {
+            const g = gesture.current
+            if (!g) return
             const p = e.touches[0]
-            const dx = p.clientX - t.x
-            const dy = p.clientY - t.y
+            const dx = p.clientX - g.x
+            const dy = p.clientY - g.y
             // Lock to an axis once the finger has clearly picked one, so a
             // scroll down the day never wobbles it sideways.
-            if (!t.axis && Math.max(Math.abs(dx), Math.abs(dy)) > 8) {
-                t.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'
-                if (t.axis === 'x') el.current?.setAttribute('data-dragging', '')
+            if (!g.axis && Math.max(Math.abs(dx), Math.abs(dy)) > 6) {
+                g.axis = Math.abs(dx) > Math.abs(dy) * 1.1 ? 'x' : 'y'
+                if (g.axis === 'x') node!.setAttribute('data-dragging', '')
             }
-            if (t.axis === 'x') setDrag(dx)
+            if (g.axis !== 'x') return
+            if (e.cancelable) e.preventDefault()
+            g.dx = dx
+            g.samples.push({ x: p.clientX, t: e.timeStamp })
+            if (g.samples.length > 6) g.samples.shift()
+            setDx(dx)
+        }
+
+        function end() {
+            const g = gesture.current
+            node!.removeAttribute('data-dragging')
+            if (!g || g.axis !== 'x') {
+                gesture.current = null
+                return
+            }
+            // Speed over the last few moves, px/ms (signed).
+            const first = g.samples[0]
+            const last = g.samples[g.samples.length - 1]
+            const dt = last.t - first.t
+            const v = dt > 0 ? (last.x - first.x) / dt : 0
+            const width = node!.clientWidth
+            const flick = Math.abs(v) > FLICK_SPEED && Math.abs(g.dx) > FLICK_MIN && Math.sign(v) === Math.sign(g.dx)
+            const far = Math.abs(g.dx) > width * COMMIT_SHARE
+            if (flick || far) {
+                const dir: 1 | -1 = g.dx < 0 ? 1 : -1
+                settle(-dir * (width + PEEK_GAP), Math.abs(v), () => {
+                    swiped.current = true
+                    latest.current(dir)
+                    // If the day somehow didn't change, don't leave it parked off-screen.
+                    window.setTimeout(() => {
+                        if (!swiped.current) return
+                        swiped.current = false
+                        node!.removeAttribute('data-settling')
+                        setDx(0)
+                    }, 120)
+                })
+            } else {
+                settle(0, Math.abs(v))
+            }
+            gesture.current = null
+        }
+
+        node.addEventListener('touchstart', start, { passive: true })
+        node.addEventListener('touchmove', move, { passive: false })
+        node.addEventListener('touchend', end)
+        node.addEventListener('touchcancel', end)
+        return () => {
+            node.removeEventListener('touchstart', start)
+            node.removeEventListener('touchmove', move)
+            node.removeEventListener('touchend', end)
+            node.removeEventListener('touchcancel', end)
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [node])
+
+    const sliderProps = {
+        ref: (n: HTMLDivElement | null) => {
+            el.current = n
+            setNode(n)
         },
-        onTouchEnd: (e: TouchEvent) => {
-            const t = touch.current
-            touch.current = null
-            el.current?.removeAttribute('data-dragging')
-            setDrag(0)
-            if (!t || t.axis !== 'x' || isWide()) return
-            const dx = e.changedTouches[0].clientX - t.x
-            // Not far enough — the day springs back to centre.
-            if (Math.abs(dx) < SWIPE_COMMIT) return
-            releasedAt.current = dx
-            onSwipe(dx < 0 ? 1 : -1)
-        },
+        style: { '--day-gap': `${PEEK_GAP}px` } as CSSProperties,
     }
 
-    /** A day card's classes: the focused day (sliding in, if it just arrived), the one sliding out, or hidden. */
+    /** A day card's classes: the day on show, a neighbour waiting either side, or hidden. */
     function dayClass(date: string): string {
         if (date === selected) {
-            if (!slide) return 'flex day-slide-current'
-            return `flex day-slide-in-${slide.dir === 1 ? 'next' : 'prev'}`
+            if (arrive && arrive.date === date) return `flex day-arrive-${arrive.dir === 1 ? 'next' : 'prev'}`
+            return 'flex day-current'
         }
-        if (slide && date === slide.from) {
-            return `flex day-slide-out-${slide.dir === 1 ? 'next' : 'prev'}`
-        }
+        if (date === prev) return 'flex day-peek-prev'
+        if (date === next) return 'flex day-peek-next'
         return 'hidden md:flex'
     }
 
-    return { sliderProps, dayClass }
+    // Neighbours outside the loaded week still need something to drag into view.
+    const peeks = [prev, next].filter((d) => !days.includes(d))
+
+    return { sliderProps, dayClass, peeks }
+}
+
+/**
+ * Stand-in for a neighbouring day outside the loaded week — its date and a few
+ * quiet bars, so a swipe across Sunday or Monday still has a card to pull in.
+ */
+export function DayPeek({ date, className = '' }: { date: string; className?: string }) {
+    const { year, month, day } = parseDateKey(date)
+    const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()]
+    return (
+        <section aria-hidden="true" className={`flex-col gap-4 rounded-2xl bg-white p-4 ring-1 ring-neutral-900/[0.07] sm:p-5 ${className} md:hidden`}>
+            <p className="text-lg font-semibold tracking-[-0.015em] text-neutral-900">
+                {weekday} {day} <span className="text-sm font-normal text-neutral-500">{MONTHS[month]}</span>
+            </p>
+            <div className="flex flex-col gap-3">
+                <div className="h-10 rounded-lg bg-neutral-100" />
+                <div className="h-10 rounded-lg bg-neutral-100" />
+                <div className="h-10 rounded-lg bg-neutral-100" />
+            </div>
+        </section>
+    )
 }
 
 // ─── Hero ─────────────────────────────────────────────────────────────────────

@@ -27,6 +27,11 @@ export function clockLabel(min: number): string {
     return `${m}:${String(s).padStart(2, '0')}`
 }
 
+/** A session's length as whole minutes, "51 min" — never "50.85 min". */
+export function minutesLabel(min: number): string {
+    return `${Math.round(min)} min`
+}
+
 /** A slot as "15–30", falling back to "M:SS" marks when either isn't whole. */
 export function slotLabel(s: Required<Slot>): string {
     const whole = Number.isInteger(s.startMin) && Number.isInteger(s.endMin)
