@@ -8,6 +8,7 @@ import {
     deleteShoppingGroup,
     tickShopping,
     clearShopping,
+    setPrep,
 } from '../controllers/shoppingController'
 
 const router = Router()
@@ -20,5 +21,6 @@ router.patch('/groups/:id', updateShoppingGroup)
 router.delete('/groups/:id', deleteShoppingGroup)
 router.post('/tick', tickShopping)
 router.post('/clear', clearShopping)
+router.put('/prep', setPrep)
 
 export default router

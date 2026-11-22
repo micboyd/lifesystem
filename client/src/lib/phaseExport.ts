@@ -1,4 +1,5 @@
-import type { NutritionPhase } from '../types'
+import type { MenuItem, NutritionPhase } from '../types'
+import { MEAL_TYPES } from '../types'
 
 /**
  * One phase as the importer takes it, plus its target history.
@@ -34,8 +35,37 @@ function clean(value: unknown, top = false): unknown {
     return value === null || value === undefined ? undefined : value
 }
 
+const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const
+
+/**
+ * A meal week as the importer reads it: days, then slots, then meal names — one
+ * name, or a list when a slot holds several. Meals no longer in the Library are
+ * left out, since a name is all the importer can match on.
+ */
+export function menuExport(
+    menu: MenuItem[] | undefined,
+    mealName: (id: string) => string | undefined
+): Record<string, Record<string, string | string[]>> | undefined {
+    const out: Record<string, Record<string, string | string[]>> = {}
+    for (const [day, key] of DAY_KEYS.entries()) {
+        const slots: Record<string, string | string[]> = {}
+        for (const slot of MEAL_TYPES) {
+            const names = (menu ?? [])
+                .filter((m) => m.day === day && m.slot === slot)
+                .map((m) => mealName(m.meal))
+                .filter((n): n is string => !!n)
+            if (names.length) slots[slot] = names.length === 1 ? names[0] : names
+        }
+        if (Object.keys(slots).length) out[key] = slots
+    }
+    return Object.keys(out).length ? out : undefined
+}
+
 /** A phase rebuilt as an import entry. Key order follows the import template. */
-export function phaseExportItem(phase: NutritionPhase): PhaseExportItem {
+export function phaseExportItem(
+    phase: NutritionPhase,
+    mealName: (id: string) => string | undefined = () => undefined
+): PhaseExportItem {
     const ordered = {
         name: phase.name,
         startDate: phase.startDate,
@@ -49,6 +79,7 @@ export function phaseExportItem(phase: NutritionPhase): PhaseExportItem {
         adaptive: phase.adaptive,
         macroPolicy: phase.macroPolicy,
         strategy: phase.strategy,
+        menu: menuExport(phase.menu, mealName),
         adjustments: phase.adjustments,
     }
     // `targets` is required by the importer, so it survives even when empty.
@@ -56,10 +87,13 @@ export function phaseExportItem(phase: NutritionPhase): PhaseExportItem {
 }
 
 /** The chosen phases as one importable array, oldest first. */
-export function phaseExportDocument(phases: NutritionPhase[]): PhaseExportItem[] {
+export function phaseExportDocument(
+    phases: NutritionPhase[],
+    mealName?: (id: string) => string | undefined
+): PhaseExportItem[] {
     return [...phases]
         .sort((a, b) => a.startDate.localeCompare(b.startDate))
-        .map(phaseExportItem)
+        .map((p) => phaseExportItem(p, mealName))
 }
 
 /** "nutrition-plans-2026-10-25.json", or the phase's own name when only one is chosen. */

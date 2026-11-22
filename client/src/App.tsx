@@ -26,7 +26,9 @@ import Cleaning from './pages/Cleaning'
 import Consistency from './pages/Consistency'
 import Walking from './pages/Walking'
 import WalkPlanner from './pages/WalkPlanner'
-import ThinkingAheadPage from './pages/ThinkingAheadPage'
+import PrepPage from './pages/PrepPage'
+import PlanMenuPage from './pages/PlanMenuPage'
+import PlanBuilderPage from './pages/PlanBuilderPage'
 import PerfectDay from './pages/PerfectDay'
 import Notes from './pages/Notes'
 import Weather from './pages/Weather'
@@ -79,12 +81,42 @@ export default function App() {
                 }
             />
 
-            {/* Thinking ahead (Nutrition's batch-cook stepper) takes the whole screen too. */}
+            {/* Prep (Nutrition's days → shop → cook stepper) takes the whole screen too. */}
             <Route
-                path="/nutrition/thinking-ahead"
+                path="/nutrition/prep"
                 element={
                     <ProtectedRoute>
-                        <ThinkingAheadPage />
+                        <PrepPage />
+                    </ProtectedRoute>
+                }
+            />
+            <Route path="/nutrition/thinking-ahead" element={<Navigate to="/nutrition/prep" replace />} />
+
+            {/* Building a new nutrition plan, step by step, full screen. */}
+            <Route
+                path="/nutrition/plans/new"
+                element={
+                    <ProtectedRoute>
+                        <PlanBuilderPage />
+                    </ProtectedRoute>
+                }
+            />
+
+            <Route
+                path="/nutrition/plans/:id/edit"
+                element={
+                    <ProtectedRoute>
+                        <PlanBuilderPage />
+                    </ProtectedRoute>
+                }
+            />
+
+            {/* A nutrition plan's meal week, full screen. */}
+            <Route
+                path="/nutrition/plans/:id/menu"
+                element={
+                    <ProtectedRoute>
+                        <PlanMenuPage />
                     </ProtectedRoute>
                 }
             />

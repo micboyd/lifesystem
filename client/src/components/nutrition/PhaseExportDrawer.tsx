@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Drawer from '../Drawer'
 import Button from '../Button'
 import Checkbox from '../Checkbox'
@@ -7,7 +7,8 @@ import { useToast } from '../../context/ToastContext'
 import { formatDateShort, todayKey } from '../../lib/calendar'
 import { byClosest } from '../../lib/phaseOrder'
 import { phaseExportDocument, phaseExportFileName } from '../../lib/phaseExport'
-import { NUTRITION_PHASE_LABELS, type NutritionPhase } from '../../types'
+import { NUTRITION_PHASE_LABELS, type Meal, type NutritionPhase } from '../../types'
+import { listMeals } from '../../services/meals'
 
 /**
  * Tick the phases wanted and get them back as one JSON array, in the shape the
@@ -28,6 +29,15 @@ export default function PhaseExportDrawer({
     // usual ask — and closing clears this, so each opening starts from all again.
     const [unticked, setUnticked] = useState<Set<string>>(new Set())
     const [copied, setCopied] = useState(false)
+    // Meal weeks export by meal name, so the Library is read when the drawer opens.
+    const [meals, setMeals] = useState<Meal[]>([])
+    const needsMeals = open && phases.some((p) => (p.menu?.length ?? 0) > 0)
+    useEffect(() => {
+        if (!needsMeals) return
+        listMeals()
+            .then(setMeals)
+            .catch(() => setMeals([]))
+    }, [needsMeals])
 
     function close() {
         setUnticked(new Set())
@@ -37,8 +47,12 @@ export default function PhaseExportDrawer({
     const sorted = useMemo(() => byClosest(phases, todayKey()), [phases])
     const selected = useMemo(() => phases.filter((p) => !unticked.has(p._id)), [phases, unticked])
     const json = useMemo(
-        () => (selected.length ? JSON.stringify(phaseExportDocument(selected), null, 2) : null),
-        [selected]
+        () => {
+            if (!selected.length) return null
+            const names = new Map(meals.map((m) => [m._id, m.name]))
+            return JSON.stringify(phaseExportDocument(selected, (id) => names.get(id)), null, 2)
+        },
+        [selected, meals]
     )
     const allChosen = selected.length === phases.length
 

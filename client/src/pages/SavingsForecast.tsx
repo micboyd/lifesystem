@@ -384,7 +384,8 @@ function GroupSettingsCard({ group, monthlyContribution, activeDescription, onUp
                     <button
                         type="button"
                         onClick={() => setConfirming(true)}
-                        className="grid h-7 w-7 place-items-center rounded-[10px] text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-400"
+                        aria-label={`Delete ${group.name}`}
+                        className="grid h-10 w-10 place-items-center rounded-[10px] sm:h-7 sm:w-7 text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-400"
                     >
                         <i className="fa-solid fa-trash-can text-[11px]" aria-hidden="true" />
                     </button>

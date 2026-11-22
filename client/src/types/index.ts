@@ -209,8 +209,12 @@ export interface Meal {
     ingredients: MealIngredient[]
     /** A tray: cooked in one go and split into this many boxes. `macros` are one box's. */
     batchOf?: number | null
+    /** Cooked ahead and portioned into boxes (Prep's Cook step) rather than made fresh on the day. */
+    batchCook?: boolean
     /** A tray: what to weigh into each box, part by part. */
     box?: BoxPart[]
+    /** The recipe's steps, in order. */
+    method?: string[]
     notes?: string
     order: number
     createdAt: string
@@ -235,7 +239,9 @@ export interface BoxPart {
 export type MealInput = Pick<Meal, 'name' | 'types' | 'macros' | 'notes'> & {
     ingredients?: MealIngredient[]
     batchOf?: number | null
+    batchCook?: boolean
     box?: BoxPart[]
+    method?: string[]
 }
 
 export interface Exercise {
@@ -515,6 +521,8 @@ export interface MealPlanEntry {
      * event's title. No macros, never ticked; a meal added to the slot replaces it.
      */
     away?: boolean
+    /** The nutrition plan whose meal week put this here. */
+    plan?: string
     name: string
     macros: Macros
     status: EntryStatus
@@ -1620,8 +1628,25 @@ export interface NutritionPhase {
     adjustments?: PhaseAdjustment[]
     strategy?: TargetStrategy
     notes?: string
+    /** The plan's meal week, repeated across its dates. */
+    menu?: MenuItem[]
     createdAt: string
     updatedAt: string
+}
+
+/** One meal on a plan's repeating week: 0 = Monday … 6 = Sunday. */
+export interface MenuItem {
+    day: number
+    slot: MealType
+    /** The library meal's id. */
+    meal: string
+}
+
+/** What of a plan's meal week sits on the planner from today. */
+export interface MenuApplied {
+    count: number
+    from: string | null
+    to: string | null
 }
 
 export interface NutritionPhaseInput {
@@ -1669,6 +1694,14 @@ export interface ShoppingList {
     groups: ShoppingGroup[]
     /** Lines in the basket, by lower-cased name. */
     ticked: string[]
+    /** What Prep is cooking for: planner days, plus meals added by hand on top. */
+    prep?: PrepRange | null
+}
+
+export interface PrepRange {
+    from: string
+    to: string
+    extras: { meal: string; count: number }[]
 }
 
 export const TIMEBOX_CATEGORIES = ['work', 'personal', 'health', 'learning', 'social', 'travel'] as const

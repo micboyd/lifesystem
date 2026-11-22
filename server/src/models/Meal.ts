@@ -43,8 +43,15 @@ export interface IMeal extends Document {
     ingredients: IMealIngredient[]
     /** A tray: how many boxes one makes. Null for a single meal. */
     batchOf?: number | null
+    /**
+     * Cooked ahead and portioned into boxes (Prep's Cook step), rather than made
+     * fresh on the day. Either way it goes on the shopping list.
+     */
+    batchCook?: boolean
     /** A tray: what to weigh into each box, part by part. Empty for a single meal. */
     box: IBoxPart[]
+    /** The recipe's steps, in order. Written for the amounts in `ingredients`. */
+    method: string[]
     notes?: string
     order: number
     /** Set on meals added by a JSON import, so the last import can be undone. */
@@ -79,6 +86,7 @@ const mealSchema = new Schema<IMeal>(
             default: [],
         },
         batchOf: { type: Number, min: 2, max: MAX_BATCH, default: null },
+        batchCook: { type: Boolean, default: false },
         box: {
             type: [
                 new Schema<IBoxPart>(
@@ -92,6 +100,7 @@ const mealSchema = new Schema<IMeal>(
             ],
             default: [],
         },
+        method: { type: [String], default: [] },
         notes: { type: String, trim: true },
         order: { type: Number, default: 0 },
         importBatch: { type: String, default: null },

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { BRAND, NAV_GROUPS, NAV_ITEMS, type NavItem } from '../lib/workspace'
+import QuickCalendar from './QuickCalendar'
 
 /**
  * The app's navigation, AdminLife 3. One top bar everywhere: the wordmark, the
@@ -138,7 +139,7 @@ function useCommandKey(onOpen: () => void) {
 
 const ICON_BTN = 'grid h-11 w-11 place-items-center text-neutral-900'
 
-function TopBar({ wide, onMenu }: { wide: boolean; onMenu: () => void }) {
+function TopBar({ wide, onMenu, onQuickCalendar }: { wide: boolean; onMenu: () => void; onQuickCalendar: () => void }) {
     const { pathname } = useLocation()
     return (
         <header className="sticky top-0 z-40 border-b border-hairline bg-white pt-[env(safe-area-inset-top)]">
@@ -170,7 +171,12 @@ function TopBar({ wide, onMenu }: { wide: boolean; onMenu: () => void }) {
                         })}
                     </nav>
                 )}
-                <div className="ml-auto flex items-center gap-2">
+                <div className={`ml-auto flex items-center ${wide ? 'gap-2' : 'gap-0'}`}>
+                    {!isActive(pathname, '/calendar') && (
+                        <button type="button" onClick={onQuickCalendar} aria-label="Quick calendar" title="Quick calendar" className={ICON_BTN}>
+                            <i className="fa-regular fa-calendar text-[18px]" aria-hidden="true" />
+                        </button>
+                    )}
                     <button type="button" onClick={onMenu} aria-label="Open menu" className={ICON_BTN}>
                         <i className="fa-solid fa-bars text-[19px]" aria-hidden="true" />
                     </button>
@@ -182,7 +188,17 @@ function TopBar({ wide, onMenu }: { wide: boolean; onMenu: () => void }) {
 
 // ─── The menu: a full page of ruled rows ─────────────────────────────────────
 
-function Menu({ wide, onClose, onSearch }: { wide: boolean; onClose: () => void; onSearch: () => void }) {
+function Menu({
+    wide,
+    onClose,
+    onSearch,
+    onQuickCalendar,
+}: {
+    wide: boolean
+    onClose: () => void
+    onSearch: () => void
+    onQuickCalendar: () => void
+}) {
     const { pathname } = useLocation()
     const { user } = useAuth()
 
@@ -204,6 +220,17 @@ function Menu({ wide, onClose, onSearch }: { wide: boolean; onClose: () => void;
                     {BRAND.name}
                 </Link>
                 <div className="ml-auto flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            onClose()
+                            onQuickCalendar()
+                        }}
+                        className="flex h-11 items-center gap-2 border border-neutral-300 px-3.5 text-[13px] text-neutral-900 hover:border-neutral-900"
+                    >
+                        <i className="fa-regular fa-calendar text-[13px]" aria-hidden="true" />
+                        Quick calendar
+                    </button>
                     <button type="button" onClick={onClose} aria-label="Close menu" className={ICON_BTN}>
                         <i className="fa-solid fa-xmark text-[20px]" aria-hidden="true" />
                     </button>
@@ -297,11 +324,22 @@ export default function AppNav({ wide }: { wide: boolean }) {
     const [paletteOpen, setPaletteOpen] = useState(false)
     const [menuOn, setMenuOn] = useState<string | null>(null)
     const menuOpen = menuOn === pathname
+    // Like the menu, the quick calendar belongs to the page it was opened on.
+    const [quickOn, setQuickOn] = useState<string | null>(null)
+    const closeQuick = useCallback(() => setQuickOn(null), [])
     useCommandKey(() => setPaletteOpen(true))
     return (
         <>
-            <TopBar wide={wide} onMenu={() => setMenuOn(pathname)} />
-            {menuOpen && <Menu wide={wide} onClose={() => setMenuOn(null)} onSearch={() => setPaletteOpen(true)} />}
+            <TopBar wide={wide} onMenu={() => setMenuOn(pathname)} onQuickCalendar={() => setQuickOn(pathname)} />
+            {menuOpen && (
+                <Menu
+                    wide={wide}
+                    onClose={() => setMenuOn(null)}
+                    onSearch={() => setPaletteOpen(true)}
+                    onQuickCalendar={() => setQuickOn(pathname)}
+                />
+            )}
+            <QuickCalendar open={quickOn === pathname} onClose={closeQuick} />
             <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
         </>
     )

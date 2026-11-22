@@ -47,6 +47,16 @@ function toBox(raw: unknown): IBoxPart[] {
     })
 }
 
+/** A recipe's steps: a list of strings, or one block of text split on new lines. Blank steps and "1." numbering dropped. */
+function toMethod(raw: unknown): string[] {
+    const lines = Array.isArray(raw) ? raw : typeof raw === 'string' ? raw.split(/\r?\n/) : []
+    return lines
+        .filter((l): l is string => typeof l === 'string')
+        .map((l) => l.trim().replace(/^(?:step\s*)?\d+[.):]\s*/i, '').trim())
+        .filter(Boolean)
+        .slice(0, 50)
+}
+
 /** A tray's box count (2 to MAX_BATCH), or null for a single meal. */
 function toBatchOf(raw: unknown): number | null {
     const n = Math.round(toNumber(raw))
@@ -61,7 +71,9 @@ function readMeal(body: unknown):
           macros: IMacros
           ingredients: IMealIngredient[]
           batchOf: number | null
+          batchCook: boolean
           box: IBoxPart[]
+          method?: string[]
           notes?: string
       }
     | string {
@@ -74,7 +86,11 @@ function readMeal(body: unknown):
         macros: toMacros(b.macros),
         ingredients: toIngredients(b.ingredients),
         batchOf: toBatchOf(b.batchOf),
+        // A tray is batch-cooked unless it says otherwise.
+        batchCook: typeof b.batchCook === 'boolean' ? b.batchCook : !!toBatchOf(b.batchOf),
         box: toBatchOf(b.batchOf) ? toBox(b.box) : [],
+        // Left out (an older client, an import without one) keeps what's saved.
+        ...(b.method !== undefined ? { method: toMethod(b.method) } : {}),
         notes: typeof b.notes === 'string' ? b.notes.trim() || undefined : undefined,
     }
 }
@@ -204,6 +220,8 @@ export async function importMeals(req: AuthRequest, res: Response) {
             errors.push(`${named}: batchOf must be the number of boxes a tray makes`)
         if (item.box !== undefined && !Array.isArray(item.box))
             errors.push(`${named}: box must be a list like [{ "name": "Rice (cooked)", "grams": 250 }]`)
+        if (item.method !== undefined && !Array.isArray(item.method) && typeof item.method !== 'string')
+            errors.push(`${named}: method must be a list of steps like ["Cook the rice", "Fry the chicken"]`)
         const fields = readMeal(raw)
         if (typeof fields === 'string') {
             errors.push(`${label}: "name" is required`)

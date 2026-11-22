@@ -6,6 +6,7 @@ import Spinner from './Spinner'
 import Button from './Button'
 import Input from './Input'
 import LibraryToolbar from './LibraryToolbar'
+import { useLibraryView, useLibrarySort } from '../lib/librarySort'
 import Textarea from './Textarea'
 import Select from './Select'
 import Switch from './Switch'
@@ -151,7 +152,7 @@ function ExerciseLibrary({
     const [page, setPage] = useState(1)
 
     // Filter by name/description, then paginate the matches 9 at a time.
-    const filtered = useMemo(() => {
+    const searched = useMemo(() => {
         const q = search.trim().toLowerCase()
         if (!q) return exercises
         return exercises.filter(
@@ -159,6 +160,8 @@ function ExerciseLibrary({
                 e.name.toLowerCase().includes(q) || (e.description ?? '').toLowerCase().includes(q)
         )
     }, [exercises, search])
+    const view = useLibraryView('exercises', searched)
+    const filtered = view.shown
 
     const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
 
@@ -243,6 +246,21 @@ function ExerciseLibrary({
                 onImport={() => setImporting(true)}
                 newLabel="New exercise"
                 onNew={() => setDrawer({ mode: 'create' })}
+                sort={exercises.length ? view.sort : undefined}
+                onSort={
+                    exercises.length
+                        ? (v) => {
+                              view.onSort(v)
+                              setPage(1)
+                          }
+                        : undefined
+                }
+                newCount={view.newCount}
+                newOnly={view.newOnly}
+                onNewOnly={(v) => {
+                    view.onNewOnly(v)
+                    setPage(1)
+                }}
             />
 
             {exercises.length === 0 ? (
@@ -263,7 +281,7 @@ function ExerciseLibrary({
                 <EmptyState
                     icon="fa-solid fa-magnifying-glass"
                     title="No matches"
-                    description={`No exercises match “${search.trim()}”.`}
+                    description={search.trim() ? `No exercises match “${search.trim()}”.` : "Nothing added this week."}
                 />
             ) : (
                 <>
@@ -549,6 +567,9 @@ function WorkoutLibrary({
     const [search, setSearch] = useState('')
     const [debouncedSearch, setDebouncedSearch] = useState('')
     const [page, setPage] = useState(1)
+    const [sort, setSort] = useLibrarySort('workouts')
+    const [newOnly, setNewOnly] = useState(false)
+    const [newCount, setNewCount] = useState(0)
     // One server page of the library (20 workouts), plus the page count and the
     // matching total — the total tells "no workouts yet" apart from "no matches".
     const [lib, setLib] = useState<{ workouts: Workout[]; pages: number; total: number }>({
@@ -586,14 +607,15 @@ function WorkoutLibrary({
         // No spinner on refetch — the grid keeps the cards it has until the new
         // page lands, so paging and searching never flash. The first paint is
         // covered by `libLoading` starting true.
-        return listWorkoutsPage(page, debouncedSearch)
+        return listWorkoutsPage(page, debouncedSearch, { sort, newOnly })
             .then((r) => {
                 setLib({ workouts: r.workouts, pages: r.pages, total: r.total })
+                setNewCount(r.newCount)
                 // Deletes can leave `page` past the end — step back onto a real one.
                 if (page > r.pages) setPage(r.pages)
             })
             .finally(() => setLibLoading(false))
-    }, [page, debouncedSearch])
+    }, [page, debouncedSearch, sort, newOnly])
 
     useEffect(() => {
         reloadPage()
@@ -635,12 +657,13 @@ function WorkoutLibrary({
 
     async function handleAdd(fields: WorkoutInput) {
         const created = await createWorkout(fields)
-        const r = await listWorkoutsPage(page, debouncedSearch)
+        const r = await listWorkoutsPage(page, debouncedSearch, { sort, newOnly })
         setLib({ workouts: r.workouts, pages: r.pages, total: r.total })
+        setNewCount(r.newCount)
         // New workouts are appended to the end of the library, so once a page is
         // full the new one lands on the last page — follow it there rather than
         // leave the user looking at a page that seems unchanged.
-        if (!debouncedSearch && !r.workouts.some((w) => w._id === created._id)) setPage(r.pages)
+        if (!debouncedSearch && sort === 'library' && !r.workouts.some((w) => w._id === created._id)) setPage(r.pages)
     }
 
     async function handleSave(id: string, fields: WorkoutInput) {
@@ -677,13 +700,24 @@ function WorkoutLibrary({
                 importDisabled={openingImport}
                 newLabel="New workout"
                 onNew={() => setDrawer({ mode: 'create' })}
+                sort={sort}
+                onSort={(v) => {
+                    setSort(v)
+                    setPage(1)
+                }}
+                newCount={newCount}
+                newOnly={newOnly}
+                onNewOnly={(v) => {
+                    setNewOnly(v)
+                    setPage(1)
+                }}
             />
 
             {libLoading && lib.workouts.length === 0 ? (
                 <div className="grid place-items-center py-16">
                     <Spinner />
                 </div>
-            ) : lib.total === 0 && !debouncedSearch ? (
+            ) : lib.total === 0 && !debouncedSearch && !newOnly ? (
                 <EmptyState
                     icon="fa-solid fa-list-check"
                     title="No workouts yet"
@@ -701,7 +735,11 @@ function WorkoutLibrary({
                 <EmptyState
                     icon="fa-solid fa-magnifying-glass"
                     title="No matches"
-                    description={`No workouts match “${debouncedSearch}”.`}
+                    description={
+                        debouncedSearch
+                            ? `No workouts match “${debouncedSearch}”.`
+                            : 'Nothing added this week.'
+                    }
                 />
             ) : (
                 <>

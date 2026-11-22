@@ -152,9 +152,8 @@ describe('yourDay', () => {
         expect(d).toMatchObject({ done: 1, total: 2, perfect: false })
     })
 
-    it('asks for a plan when no meals are planned today or ahead, but not for a day gone', () => {
-        expect(ids(yourDay(inputs()))).toContain('plan-meals')
-        expect(ids(yourDay(inputs({ date: '2026-10-25' })))).not.toContain('plan-meals')
+    it('never adds a step asking to plan the day\'s meals', () => {
+        expect(ids(yourDay(inputs()))).not.toContain('plan-meals')
     })
 
     it('only adds a weigh-in for someone who weighs in', () => {
@@ -288,13 +287,12 @@ describe('yourDay with a perfect-day selection', () => {
         expect(ids(yourDay(inputs({ weightLogs: [weigh('2026-10-20')], selection: sel([3]) })))).not.toContain('weigh')
     })
 
-    it('can hide the rest-day note and the plan-meals nudge', () => {
+    it('can hide the rest-day note', () => {
         const d = yourDay(
             inputs({
                 selection: {
                     items: [
                         { key: 'rest', days: [] },
-                        { key: 'plan-meals', days: [] },
                     ],
                     skipFoods: [],
                 },

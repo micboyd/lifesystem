@@ -18,7 +18,7 @@ import { dailyIntake, MIN_LOGGED_SHARE, targetVerdict } from './energy'
 import { phaseFor, phaseTargetsOn, targetsFor } from './nutrition'
 import { activityModifier } from './nutritionTargets'
 import { KEY_LIFTS, liftTrend, sessionBests, type LiftKey, type SessionBest } from './strengthTrend'
-import { bodyFatSeries, daysBetween, settledWeight, trendSeries } from './weightTrend'
+import { bodyFatSeries, daysBetween, settledWeight, trendSeries, type TrendPoint } from './weightTrend'
 
 /**
  * The Timeline: where the plans could take you, week by week, until the last
@@ -184,6 +184,8 @@ export interface TimelineWeek {
     cardioSessions: number
     /** Planned daily calories (from the phase), averaged. Null outside any phase. */
     targetKcal: number | null
+    /** True once the goal is reached and the week is eaten at maintenance to hold it. */
+    holding: boolean
     /** Daily balance after adherence and calibration, averaged. */
     balanceKcal: number
     weight: Range
@@ -320,6 +322,8 @@ export interface Timeline {
     final: TimelineEnd
     /** Null until there are enough weigh-ins. */
     calibration: Calibration | null
+    /** Weigh-ins left out of calibration because nothing says what was eaten over them. */
+    unreadWeighIns: { observedRate: number; spanDays: number } | null
     /** Null until the watch has reported a week of finished days. */
     energy: MeasuredEnergy | null
     /** Stated against measured adherence; `used` is what every run but "all in" projects. */
@@ -402,6 +406,10 @@ interface Context {
     /** What a day off the plan has actually looked like, by phase kind (see offPlanShares). */
     offPlan: OffPlanShares
     water: (date: string) => number
+    /** Settings' body targets, the goal for a phase that names none of its own. */
+    bodyGoals?: BodyGoals
+    /** Eat at maintenance once a phase's goal is reached. Off when replaying the past. */
+    holdAtGoal: boolean
 }
 
 /** Every scheduled session by date, de-duplicated across overlapping plans. */
@@ -601,19 +609,66 @@ interface State {
     /** Strength index, 100 = today. */
     strength: number
     lifts: Map<LiftKey, number>
+    /** Phases whose goal has been reached: from then on they're eaten at maintenance. */
+    held: Set<string>
 }
 
 interface DayOut {
     burn: number
     target: number | null
     balance: number
+    holding: boolean
+}
+
+/**
+ * The goal a phase steers towards, read the way its direction runs: a cut aims
+ * down, a build up. The phase's own goal wins, else Settings' body targets.
+ * Body fat when one is named, else weight. Null for maintenance or no goal.
+ */
+function holdGoal(
+    phase: NutritionPhase,
+    bodyGoals: BodyGoals | undefined
+): { basis: 'bodyFat' | 'weight'; value: number } | null {
+    if (phase.kind === 'maintain') return null
+    const g = phase.goal
+    const own = g?.targetBodyFatPct || g?.targetWeightKg
+    const bf = own ? g?.targetBodyFatPct : bodyGoals?.targetBodyFat
+    const kg = own ? g?.targetWeightKg : bodyGoals?.targetWeight
+    // A build's goal is a weight; body fat rising to a target isn't one.
+    if (bf && phase.kind === 'cut') return { basis: 'bodyFat', value: bf }
+    if (kg) return { basis: 'weight', value: kg }
+    return null
+}
+
+/**
+ * Whether a phase has reached its goal on today's state. Once it has, the
+ * projection holds there for the rest of the phase: a plan aiming at 19% is
+ * not one that means to keep cutting to 9% because its end date is later.
+ */
+function goalReached(state: State, phase: NutritionPhase, ctx: Context, date: string, water0: number): boolean {
+    if (!ctx.holdAtGoal) return false
+    if (state.held.has(phase._id)) return true
+    const goal = holdGoal(phase, ctx.bodyGoals)
+    if (!goal) return false
+    const weight = state.fat + state.lean + ctx.water(date) - water0
+    const value = goal.basis === 'bodyFat' ? (state.fat / weight) * 100 : weight
+    const reached = phase.kind === 'cut' ? value <= goal.value : value >= goal.value
+    if (reached) state.held.add(phase._id)
+    return reached
 }
 
 /**
  * Advance the state one day. `day` counts from the run's first day, for the
  * beginner taper: novice gains are front-loaded and fade over the first year.
  */
-function step(state: State, date: string, day: number, ctx: Context, liftRates: Map<LiftKey, number>): DayOut {
+function step(
+    state: State,
+    date: string,
+    day: number,
+    ctx: Context,
+    liftRates: Map<LiftKey, number>,
+    water0: number
+): DayOut {
     const { profile, quiz } = ctx
     const weight = state.fat + state.lean
     const bmr = mifflinStJeor(weight, profile.heightCm, ageOn(profile.birthDate, date), profile.sex)
@@ -632,7 +687,13 @@ function step(state: State, date: string, day: number, ctx: Context, liftRates: 
     const phase = phaseFor(date, ctx.phases)
     let target: number | null = null
     let intake = burn
-    if (phase) {
+    const holding = !!phase && goalReached(state, phase, ctx, date, water0)
+    if (holding) {
+        // At the goal: eat to hold it. The calibration offset is a correction to
+        // the burn, so maintenance is the burn as corrected — no drift either way.
+        target = burn + ctx.offset
+        intake = burn - ctx.offset
+    } else if (phase) {
         target = targetOn(phase, date, burn, sessions) + ctx.intakeShift
         const a = ctx.nutritionAdherence
         // A day off the plan is never counted as better for the goal than a day on
@@ -700,7 +761,7 @@ function step(state: State, date: string, day: number, ctx: Context, liftRates: 
         state.lifts.set(lift, kg * (1 + (state.sinceStrength > 14 ? pct : blended) / 100))
     }
 
-    return { burn, target, balance }
+    return { burn, target, balance, holding }
 }
 
 function makeContext(
@@ -727,6 +788,8 @@ function makeContext(
         known: knownDays(inputs),
         offPlan: offPlanShares(inputs),
         water: makeWater(quiz, phases),
+        bodyGoals: inputs.bodyGoals,
+        holdAtGoal: true,
     }
 }
 
@@ -1023,7 +1086,8 @@ function eatingSince(phases: NutritionPhase[], today: string): string {
     }
 }
 
-export function calibrate(inputs: TimelineInputs, bodyFatPct: number, burnScale = 1): Calibration | null {
+/** The weigh-ins a calibration reads: the trend's first and last points and the days between. */
+function calibrationWindow(inputs: TimelineInputs): { first: TrendPoint; last: TrendPoint; span: number } | null {
     const { today, weightLogs } = inputs
     const from = addDays(today, -CALIBRATION_WINDOW_DAYS)
     const points = trendSeries(weightLogs).filter((p) => p.date <= today)
@@ -1034,8 +1098,45 @@ export function calibrate(inputs: TimelineInputs, bodyFatPct: number, burnScale 
     const last = window[window.length - 1]
     const span = daysBetween(first.date, last.date)
     if (span < MIN_CALIBRATION_DAYS || daysBetween(last.date, today) > 10) return null
+    return { first, last, span }
+}
 
-    const ctx = makeContext(inputs, 0, burnScale)
+/**
+ * Whether what was eaten over the window can be said at all: a Plan was
+ * running (its targets, by adherence), or the day has a full food log. With
+ * neither, the model can only assume intake matched the burn — so any move on
+ * the scale gets blamed on the burn, and that "correction" would then be
+ * stacked on top of a Plan's own deficit once it starts. Half the window is enough.
+ */
+function intakeKnown(inputs: TimelineInputs, known: Map<string, KnownDay>, start: string, span: number): boolean {
+    let days = 0
+    for (let d = 0; d < span; d++) {
+        const date = addDays(start, d)
+        if (phaseFor(date, inputs.phases) || known.has(date)) days++
+    }
+    return days * 2 >= span
+}
+
+/**
+ * Weigh-ins that would calibrate but can't, because nothing says what was eaten
+ * over them. Reported so the page can say why they aren't steering the projection.
+ */
+export function unreadWeighIns(inputs: TimelineInputs): { observedRate: number; spanDays: number } | null {
+    const w = calibrationWindow(inputs)
+    if (!w || intakeKnown(inputs, knownDays(inputs), w.first.date, w.span)) return null
+    const water = makeWater(inputs.quiz, inputs.phases)
+    const observed = w.last.trend - w.first.trend - (water(w.last.date) - water(w.first.date))
+    return { observedRate: (observed / w.span) * 7, spanDays: w.span }
+}
+
+export function calibrate(inputs: TimelineInputs, bodyFatPct: number, burnScale = 1): Calibration | null {
+    const w = calibrationWindow(inputs)
+    if (!w) return null
+    const { first, last, span } = w
+
+    // The past is replayed as the plan was eaten, goal or not.
+    const ctx = { ...makeContext(inputs, 0, burnScale), holdAtGoal: false }
+    if (!intakeKnown(inputs, ctx.known, first.date, span)) return null
     const fat = (first.trend * bodyFatPct) / 100
     const state: State = {
         fat,
@@ -1044,8 +1145,10 @@ export function calibrate(inputs: TimelineInputs, bodyFatPct: number, burnScale 
         sinceStrength: 0,
         strength: 100,
         lifts: new Map(),
+        held: new Set(),
     }
-    for (let d = 0; d < span; d++) step(state, addDays(first.date, d), d, ctx, new Map())
+    const water0 = ctx.water(first.date)
+    for (let d = 0; d < span; d++) step(state, addDays(first.date, d), d, ctx, new Map(), water0)
     const predicted = state.fat + state.lean - first.trend
     const observed = last.trend - first.trend - (ctx.water(last.date) - ctx.water(first.date))
 
@@ -1241,6 +1344,7 @@ export function buildTimeline(given: TimelineInputs): Timeline {
         scale,
         burnError,
         main.final,
+        main.weeks,
         adherence,
         goal
     )
@@ -1255,6 +1359,7 @@ export function buildTimeline(given: TimelineInputs): Timeline {
         weeks: main.weeks,
         final: main.final,
         calibration,
+        unreadWeighIns: calibration ? null : unreadWeighIns(measured),
         energy,
         adherence,
         perfect,
@@ -1362,6 +1467,7 @@ function suggest(
     scale: number,
     burnError: number,
     base: TimelineEnd,
+    baseWeeks: TimelineWeek[],
     adherence: Adherence,
     goal: Timeline['goal']
 ): { suggestions: Suggestion[]; combined: Suggestion | null } {
@@ -1459,6 +1565,10 @@ function suggest(
         const r = run(next, initial, end, makeContext(next, offset, scale, false, shift, burn), burnError, false)
         return { final: r.final, reaches: reachedOn(r.weeks) }
     }
+    // Past the goal every run holds at it, so finishing lower can't be the
+    // measure: getting there sooner is.
+    const baseReaches = reachedOn(baseWeeks)
+    const sooner = (reaches: string | null) => reaches !== null && (baseReaches === null || reaches < baseReaches)
     const gainOf = (f: TimelineEnd) =>
         measure === 'bodyFat' ? base.bodyFat.mid - f.bodyFat.mid : f.leanChange - base.leanChange
 
@@ -1467,8 +1577,8 @@ function suggest(
             const { final, reaches } = runWith(l.quiz ?? {}, l.shift ?? 0, l.burn ?? 0)
             return { key: l.key, title: l.title, detail: l.detail, final, gain: gainOf(final), measure, reaches }
         })
-        .filter((s) => s.gain >= (measure === 'bodyFat' ? 0.15 : 0.1))
-        .sort((a, b) => b.gain - a.gain)
+        .filter((s) => sooner(s.reaches) || s.gain >= (measure === 'bodyFat' ? 0.15 : 0.1))
+        .sort((a, b) => (a.reaches ?? '9999').localeCompare(b.reaches ?? '9999') || b.gain - a.gain)
 
     if (suggestions.length < 2) return { suggestions, combined: null }
     const chosen = levers.filter((l) => suggestions.some((s) => s.key === l.key))
@@ -1501,6 +1611,7 @@ function run(
         sinceStrength: daysSinceLastStrength(ctx, today),
         strength: 100,
         lifts: new Map(initial.lifts.map((l) => [l.lift, l.kg])),
+        held: new Set(),
     }
     const liftRates = observedLiftRates(
         inputs,
@@ -1519,7 +1630,7 @@ function run(
     // The current week began on the grid, maybe a few days ago; its snapshot is still
     // taken at its end, so it reads as the same week the past ones count in.
     let weekStart = addDays(gridStart, Math.floor(daysBetween(gridStart, today) / 7) * 7)
-    let week = { target: 0, targetDays: 0, balance: 0, days: 0, strength: 0, cardio: 0 }
+    let week = { target: 0, targetDays: 0, balance: 0, days: 0, strength: 0, cardio: 0, holding: 0 }
 
     const snapshot = (date: string): Snapshot => {
         const weight = state.fat + state.lean + ctx.water(date) - water0
@@ -1545,8 +1656,9 @@ function run(
 
     for (let d = 0; d < total; d++) {
         const date = addDays(today, d)
-        const out = step(state, date, d, ctx, liftRates)
+        const out = step(state, date, d, ctx, liftRates, water0)
         burnSum += out.burn
+        if (out.holding) week.holding += 1
         week.balance += out.balance
         week.days += 1
         if (out.target !== null) {
@@ -1572,12 +1684,13 @@ function run(
                 strengthSessions: week.strength,
                 cardioSessions: week.cardio,
                 targetKcal: week.targetDays ? Math.round(week.target / week.targetDays) : null,
+                holding: week.holding * 2 > week.days,
                 balanceKcal: Math.round(week.balance / week.days),
                 ...snap,
                 milestones: [],
             })
             weekStart = addDays(date, 1)
-            week = { target: 0, targetDays: 0, balance: 0, days: 0, strength: 0, cardio: 0 }
+            week = { target: 0, targetDays: 0, balance: 0, days: 0, strength: 0, cardio: 0, holding: 0 }
         }
     }
 

@@ -454,6 +454,18 @@ describe('calibration and the start of a Plan', () => {
         expect(calibrate({ ...inside, weightLogs: logs }, 22)).not.toBeNull()
     })
 
+    it('leaves weigh-ins alone when no plan ran and no food was logged', () => {
+        // Losing before a cut that hasn't started: what was eaten is unknown, so
+        // the loss can't be blamed on the burn and stacked onto the cut.
+        const base = inputs({ phases: [phase(addDays(TODAY, 9), addDays(TODAY, 190), 'cut', 2100)] })
+        const logs = Array.from({ length: 22 }, (_, i) => weigh(addDays(TODAY, i - 21), 94 - (2.2 * i) / 21, i === 21 ? 22 : undefined))
+        expect(calibrate({ ...base, weightLogs: logs }, 22)).toBeNull()
+        const t = buildTimeline({ ...base, weightLogs: logs })
+        expect(t.calibration).toBeNull()
+        expect(t.unreadWeighIns!.observedRate).toBeLessThan(-0.5)
+        expect(t.unreadWeighIns!.spanDays).toBe(21)
+    })
+
     it('counts back-to-back cuts as one way of eating', () => {
         const base = inputs({
             plans: [plan(addDays(TODAY, -26), 16)],
@@ -791,5 +803,38 @@ describe('the watch’s burn', () => {
         // 2,900 in, 3,000 out: about a tenth of a kilo a week.
         expect(heavy.predictedRate).toBeGreaterThan(-0.2)
         expect(heavy.predictedRate).toBeLessThan(0)
+    })
+})
+
+describe('holding at the goal', () => {
+    // A long cut aiming at 19%: once there, the rest of the phase is eaten at
+    // maintenance instead of cutting on to its end date.
+    const long = phase(TODAY, addDays(TODAY, 7 * 30 - 1), 'cut', 2100)
+    const run = (p: NutritionPhase, bodyGoals?: TimelineInputs['bodyGoals']) =>
+        buildTimeline(inputs({ phases: [p], plans: [plan(TODAY, 30)], weightLogs: [weigh(TODAY, 90, 22)], bodyGoals }))
+
+    it('stops at the phase goal and says it is holding', () => {
+        const free = run(long)
+        expect(free.final.bodyFat.mid).toBeLessThan(17)
+        const t = run({ ...long, goal: { targetBodyFatPct: 19 } })
+        expect(t.final.bodyFat.mid).toBeGreaterThan(18)
+        expect(t.final.bodyFat.mid).toBeLessThanOrEqual(19.1)
+        const first = t.weeks.findIndex((w) => w.holding)
+        expect(first).toBeGreaterThan(0)
+        expect(t.weeks.slice(first + 1).every((w) => w.holding)).toBe(true)
+        expect(t.weeks[0].holding).toBe(false)
+    })
+
+    it('uses Settings body targets when the phase names no goal', () => {
+        const t = run(long, { targetBodyFat: 19 })
+        expect(t.final.bodyFat.mid).toBeGreaterThan(18)
+        expect(t.weeks.some((w) => w.holding)).toBe(true)
+    })
+
+    it('still shows the levers, ranked by how soon they get there', () => {
+        const t = run({ ...long, goal: { targetBodyFatPct: 19 } })
+        expect(t.suggestions.length).toBeGreaterThan(0)
+        for (let i = 1; i < t.suggestions.length; i++)
+            expect(t.suggestions[i - 1].reaches! <= t.suggestions[i].reaches!).toBe(true)
     })
 })

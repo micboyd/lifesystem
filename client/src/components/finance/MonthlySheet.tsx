@@ -208,18 +208,23 @@ export function SheetRow({
                 aria-label={`${paidLabel}: ${row.name}`}
                 title={paidLabel}
                 onClick={onTogglePaid}
-                className={[
-                    'grid h-6 w-6 shrink-0 place-items-center rounded-full border-[1.5px] transition-colors',
-                    paid
-                        ? 'border-neutral-900 bg-neutral-900 text-white'
-                        : 'border-neutral-300 text-transparent hover:border-neutral-500',
-                ].join(' ')}
+                // 40px to tap, 24px to look at.
+                className="group -m-2 grid h-10 w-10 shrink-0 place-items-center"
             >
-                <i className="fa-solid fa-check text-[10px]" aria-hidden="true" />
-            </button>
-            <button type="button" onClick={onOpen} className="min-w-0 flex-1 py-1 text-left">
                 <span
-                    className={`block truncate text-[15px] ${paid ? 'text-neutral-500' : 'text-neutral-900'}`}
+                    className={[
+                        'grid h-6 w-6 place-items-center rounded-full border-[1.5px] transition-colors',
+                        paid
+                            ? 'border-neutral-900 bg-neutral-900 text-white'
+                            : 'border-neutral-300 text-transparent group-hover:border-neutral-500',
+                    ].join(' ')}
+                >
+                    <i className="fa-solid fa-check text-[10px]" aria-hidden="true" />
+                </span>
+            </button>
+            <button type="button" onClick={onOpen} className="min-w-0 flex-1 self-stretch py-1 text-left">
+                <span
+                    className={`line-clamp-2 block break-words text-[15px] ${paid ? 'text-neutral-500' : 'text-neutral-900'}`}
                 >
                     {row.name}
                 </span>
@@ -234,7 +239,7 @@ export function SheetRow({
                     </span>
                 )}
             </button>
-            <div className="w-28 shrink-0">
+            <div className="w-24 shrink-0 min-[360px]:w-28">
                 <AmountCell value={entry} placeholder={monthlyDefault} muted={paid} onSave={onSetEntry} />
             </div>
         </li>

@@ -54,7 +54,7 @@ export default function RecentSpends() {
                 <h2 id="recent-h" className="text-sm font-semibold text-neutral-900">
                     Recent spending
                 </h2>
-                <Link to="/finances/statement" className="text-[12px] font-medium text-neutral-500 hover:text-neutral-900">
+                <Link to="/finances/statement" className="-my-3 inline-flex min-h-10 items-center text-[12px] font-medium text-neutral-500 hover:text-neutral-900">
                     Statement
                 </Link>
             </div>

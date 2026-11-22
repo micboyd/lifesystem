@@ -59,15 +59,14 @@ export function PaceBanner({
         const firstIndex = slots.findIndex(hasSlot)
         const first = slots[firstIndex] as Required<Slot>
         return (
-            <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3">
-                <p className="text-sm font-semibold text-neutral-900">
-                    Tap <span className="text-coral-600">Completed</span> as you finish each item
-                </p>
-                <p className="mt-0.5 text-xs text-neutral-500">
-                    Each press is timed against the plan, so you&apos;ll see if you&apos;re on
-                    time. First up: {names[firstIndex]} ({slotLabel(first)} min).
-                </p>
-            </div>
+            <p className="flex items-start gap-2 text-sm text-neutral-500">
+                <i className="fa-regular fa-clock mt-1 text-xs text-neutral-400" aria-hidden="true" />
+                <span>
+                    Tick each rep as you finish it — your pace is checked against the plan. First
+                    up: <span className="font-medium text-neutral-800">{names[firstIndex]}</span> (
+                    {slotLabel(first)} min).
+                </span>
+            </p>
         )
     }
 

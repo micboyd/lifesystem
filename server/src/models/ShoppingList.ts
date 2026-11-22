@@ -29,6 +29,11 @@ export interface IShoppingList extends Document {
     groups: IShoppingGroup[]
     /** Lines in the basket, by lower-cased name. */
     ticked: string[]
+    /**
+     * What Prep is cooking for: planner days, plus meals added by hand on top.
+     * The meal groups are those days' meals (and the extras), counted.
+     */
+    prep?: { from: string; to: string; extras: { meal: Types.ObjectId; count: number }[] } | null
     createdAt: Date
     updatedAt: Date
 }
@@ -54,6 +59,20 @@ const shoppingListSchema = new Schema<IShoppingList>(
         user: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
         groups: { type: [groupSchema], default: [] },
         ticked: { type: [String], default: [] },
+        prep: {
+            type: new Schema(
+                {
+                    from: String,
+                    to: String,
+                    extras: {
+                        type: [new Schema({ meal: Schema.Types.ObjectId, count: Number }, { _id: false })],
+                        default: [],
+                    },
+                },
+                { _id: false }
+            ),
+            default: null,
+        },
     },
     { timestamps: true }
 )

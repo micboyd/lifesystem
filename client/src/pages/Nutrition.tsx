@@ -13,15 +13,15 @@ import { useAuth } from '../context/AuthContext'
 import { listMeals } from '../services/meals'
 import type { Meal } from '../types'
 
-const TABS = ['Planner', 'Thinking ahead', 'Library', 'Plans', 'Stats'] as const
+const TABS = ['Planner', 'Prep', 'Library', 'Plans', 'Stats'] as const
 type Tab = (typeof TABS)[number]
 
-/** Thinking ahead isn't a tab any more: it opens full screen. */
-const AHEAD = '/nutrition/thinking-ahead'
+/** Prep isn't a tab: it opens full screen. */
+const PREP = '/nutrition/prep'
 
 const TAB_ICONS: Record<Tab, string> = {
     Planner: 'fa-solid fa-table-cells',
-    'Thinking ahead': 'fa-solid fa-basket-shopping',
+    Prep: 'fa-solid fa-kitchen-set',
     Library: 'fa-solid fa-book-open',
     Plans: 'fa-solid fa-file-lines',
     Stats: 'fa-solid fa-chart-column',
@@ -61,7 +61,7 @@ export default function Nutrition() {
         <ModuleBar
             title="Nutrition"
             actions={
-                <BarButton solid arrow to={AHEAD}>
+                <BarButton solid arrow to={PREP}>
                     Shopping list
                 </BarButton>
             }
@@ -69,7 +69,7 @@ export default function Nutrition() {
         <ModuleLayout
             asideLabel="Meals"
             sectionsLabel="Nutrition sections"
-            sections={TABS.map((t) => ({ label: t, icon: TAB_ICONS[t], active: t === tab, onClick: () => (t === 'Thinking ahead' ? navigate(AHEAD) : setTab(t)) }))}
+            sections={TABS.map((t) => ({ label: t, icon: TAB_ICONS[t], active: t === tab, onClick: () => (t === 'Prep' ? navigate(PREP) : setTab(t)) }))}
         >
         <main className="px-5 pb-24 pt-10 sm:px-10">
             <div>
@@ -94,7 +94,7 @@ export default function Nutrition() {
                 ) : tab === 'Stats' ? (
                     <NutritionStats settingsGoals={user?.settings?.macroGoals} />
                 ) : (
-                    <PhasesTab openPhaseId={openPhaseId} onOpened={clearOpenPhase} />
+                    <PhasesTab openPhaseId={openPhaseId} onOpened={clearOpenPhase} onMealsChanged={reloadMeals} />
                 )}
             </div>
         </main>

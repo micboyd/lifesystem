@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Input from '../Input'
 import { ModuleAside } from '../ModuleLayout'
 import { ArrowButton, Bar, BarButton, Eyebrow, FigureStrip } from '../Blok'
@@ -6,6 +7,7 @@ import Spinner from '../Spinner'
 import Button from '../Button'
 import EmptyState from '../EmptyState'
 import Drawer from '../Drawer'
+import { MealDetail } from './MealLibrary'
 import ConfirmModal from '../ConfirmModal'
 import { type MenuEntry, type MenuItem } from '../DropdownMenu'
 import ContextMenu from '../ContextMenu'
@@ -71,8 +73,11 @@ import { listPlanEntries as listFitnessEntries } from '../../services/fitnessPla
 import { MEAL_TYPES } from '../../types'
 import { WeekMacrosButton, WeekMacrosPanel } from './WeekMacros'
 import { DayNumbers } from './DayNumbers'
+import WeekTargets from './WeekTargets'
 import { AddDrawer, type AddTarget } from './AddDrawer'
 import { QuickAddDrawer } from './QuickAddDrawer'
+import { DayEventPill, MealEventsSheet, SlotEventTag } from './MealEventParts'
+import { eventsInMealSlot, eventsOverMeals } from '../../lib/mealEvents'
 import { dayTotals, weekAverage, weekMacros } from '../../lib/dayTotals'
 import type {
     FitnessPlanEntry,
@@ -139,6 +144,13 @@ const isSkipped = (e: MealPlanEntry) => e.status === 'skipped'
 const isAwayNote = (e: MealPlanEntry) => !!e.away
 
 const isAwayIn = (e: MealPlanEntry, date: string, slot: MealType) => !!e.away && e.date === date && e.slot === slot
+/**
+ * An away note the calendar already explains: an event covers its slot. It's
+ * drawn as an empty slot with the event's tag — like the fitness planner — and
+ * stays underneath so the day's numbers still leave that meal out.
+ */
+const coveredAway = (e: MealPlanEntry, events: Event[]) =>
+    !!e.away && eventsInMealSlot(events, e.date, e.slot).length > 0
 
 /** The one-line summary under a planned meal's name. */
 function plannedMeta(entry: MealPlanEntry): string {
@@ -192,6 +204,14 @@ export default function NutritionPlanner({
     const [clearAll, setClearAll] = useState(false)
     // The week's macros panel, open under the chips.
     const [macrosOpen, setMacrosOpen] = useState(false)
+    // The week's targets + figures fold away under one header; shut by default.
+    const [weekOpen, setWeekOpen] = useState(false)
+    // A library meal opened from the side bar to see its details.
+    const [libView, setLibView] = useState<Meal | null>(null)
+    // The day whose calendar events are open in the sheet.
+    const [eventsDate, setEventsDate] = useState<string | null>(null)
+    // "Prep this week": the week's days still to come, in Prep.
+    const navigate = useNavigate()
 
     const today = todayKey()
     const toast = useToast()
@@ -534,6 +554,7 @@ export default function NutritionPlanner({
                 onStep={step}
                 onSelect={selectDay}
                 onPick={setAnchor}
+                onShop={range.end >= today ? () => navigate(`/nutrition/prep?from=${range.start > today ? range.start : today}&to=${range.end}`) : undefined}
                 board={board}
                 average={average}
                 eyebrow={(() => {
@@ -586,14 +607,35 @@ export default function NutritionPlanner({
                 <CopiedBanner name={copied.name} forgetLabel="Forget the copied meal" onForget={() => setCopied(null)} />
             )}
 
-            {!loading && board && (
-                <WeekFigures
-                    weekStart={range.start}
-                    today={today}
-                    entries={entries}
-                    weekDays={weekDays}
-                    outFor={(date) => energy.find((e) => e.date === date)?.caloriesOut ?? garminOut(energy.find((e) => e.date === date))}
-                />
+            {!loading && (
+                <section aria-label="This week's macros" className="border-t border-neutral-900">
+                    <button
+                        type="button"
+                        aria-expanded={weekOpen}
+                        onClick={() => setWeekOpen((o) => !o)}
+                        className="flex w-full items-center justify-between gap-4 py-3 text-left"
+                    >
+                        <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-neutral-600">This week’s macros</span>
+                        <i
+                            className={`fa-solid fa-chevron-down text-xs text-neutral-500 transition-transform duration-300 ${weekOpen ? 'rotate-180' : ''}`}
+                            aria-hidden="true"
+                        />
+                    </button>
+                    {weekOpen && (
+                        <div className="flex flex-col gap-6 pb-2">
+                            <WeekTargets weekDays={weekDays} />
+                            {board && (
+                                <WeekFigures
+                                    weekStart={range.start}
+                                    today={today}
+                                    entries={entries}
+                                    weekDays={weekDays}
+                                    outFor={(date) => energy.find((e) => e.date === date)?.caloriesOut ?? garminOut(energy.find((e) => e.date === date))}
+                                />
+                            )}
+                        </div>
+                    )}
+                </section>
             )}
 
             {!loading && !board && (
@@ -636,6 +678,9 @@ export default function NutritionPlanner({
                         onRowMenu={openRowMenu}
                         onSlotMenu={openSlotMenu}
                         onReorder={handleReorder}
+                        events={events}
+                        onShowEvents={setEventsDate}
+                        onAwaySlot={(date, slot) => setPicker({ date, slot, eaten: false, away: true })}
                     />
                 ) : (
                 <WeekView
@@ -660,6 +705,9 @@ export default function NutritionPlanner({
                     onRowMenu={openRowMenu}
                     onSlotMenu={openSlotMenu}
                     onAwayDay={(date) => setPicker({ date, slot: 'breakfast', eaten: false, awayDay: true })}
+                    events={events}
+                    onShowEvents={setEventsDate}
+                    onAwaySlot={(date, slot) => setPicker({ date, slot, eaten: false, away: true })}
                     onQuickAdd={setQuickDate}
                     onBackFromAway={(date) => void handleBackFromAway(date)}
                     onReorder={handleReorder}
@@ -691,6 +739,7 @@ export default function NutritionPlanner({
                         part={libSlot}
                         onPart={setLibSlot}
                         onAdd={(item) => void handleAdd(anchor, libSlot, item.id, false, anchor <= today)}
+                        onOpen={(item) => setLibView(meals.find((m) => m._id === item.id) ?? null)}
                         onDragStart={setLibDrag}
                         onDragEnd={() => setLibDrag(null)}
                     />
@@ -698,6 +747,23 @@ export default function NutritionPlanner({
                 )}
                 </div>
             )}
+
+            <LibraryMealDrawer
+                meal={libView}
+                target={`${shortDayLabel(anchor)} · ${CATEGORY[libSlot].label}`}
+                onClose={() => setLibView(null)}
+                onAdd={(m) => {
+                    void handleAdd(anchor, libSlot, m._id, false, anchor <= today)
+                    setLibView(null)
+                }}
+            />
+
+            <MealEventsSheet
+                date={eventsDate}
+                dayLabel={eventsDate ? shortDayLabel(eventsDate) : ''}
+                events={eventsDate ? eventsOverMeals(events, eventsDate) : []}
+                onClose={() => setEventsDate(null)}
+            />
 
             <AddDrawer
                 target={picker}
@@ -844,11 +910,14 @@ function NutritionWeekHero({
     onStep,
     onSelect,
     onPick,
+    onShop,
     board,
     average,
     menu,
     eyebrow,
 }: {
+    /** Opens Prep for the week's days still to come — none for a week that's over. */
+    onShop?: () => void
     /** The daily target, in words, for the line above the title. */
     eyebrow?: string
     /** The week's options: copy, paste, clear. */
@@ -894,6 +963,12 @@ function NutritionWeekHero({
                     {!isThisWeek && (
                         <BarButton onClick={() => onPick(today)} className="!border-neutral-300">
                             This week
+                        </BarButton>
+                    )}
+                    {onShop && (
+                        <BarButton onClick={onShop} className="!border-neutral-300">
+                            <i className="fa-solid fa-kitchen-set text-[12px]" aria-hidden />
+                            Prep this week
                         </BarButton>
                     )}
                     <ArrowButton dir="prev" label="Previous week" onClick={() => onStep(-1)} />
@@ -950,7 +1025,15 @@ function WeekView({
     onSaveOut,
     libraryDrag,
     onDropLibrary,
+    events,
+    onShowEvents,
+    onAwaySlot,
 }: {
+    /** The week's calendar events, shown against meal times. */
+    events: Event[]
+    onShowEvents: (date: string) => void
+    onAwaySlot: (date: string, slot: MealType) => void
+    /** Mark one slot away — from a calendar tag. */
     /** A meal being dragged in from the library, for a slot to take. */
     libraryDrag: LibraryDrag<MealType> | null
     onDropLibrary: (date: string, slot: MealType, item: LibraryDrag<MealType>) => void
@@ -1062,6 +1145,9 @@ function WeekView({
                     onDropEntry={handleDrop}
                     onClear={() => onClearDay(date)}
                     onSaveOut={(v) => onSaveOut(date, v)}
+                    events={events.filter((ev) => date >= ev.startDate && date <= ev.endDate)}
+                    onShowEvents={() => onShowEvents(date)}
+                    onAwaySlot={(slot) => onAwaySlot(date, slot)}
                 />
             ))}
             {!board && <SwipeHint />}
@@ -1097,7 +1183,14 @@ function DayCard({
     onDropEntry,
     onClear,
     onSaveOut,
+    events,
+    onShowEvents,
+    onAwaySlot,
 }: {
+    /** Calendar events touching the day. */
+    events: Event[]
+    onShowEvents: () => void
+    onAwaySlot: (slot: MealType) => void
     date: string
     compact?: boolean
     className?: string
@@ -1136,13 +1229,16 @@ function DayCard({
     const totals = dayTotals(entries, date, todayKey())
 
     const slotItems = (slot: MealType) => planned.filter((e) => e.slot === slot).sort((a, b) => a.order - b.order)
+    // What's drawn in a slot: covered away notes are left to the event tag.
+    const shownItems = (slot: MealType) => slotItems(slot).filter((e) => !coveredAway(e, events))
 
     // One set of numbers: the day against its target.
     const summary = <DayNumbers totals={totals} goals={goals} compact={compact} />
 
     const canClear = entries.some(anyMeal)
     // Every slot marked away: the day is off the plan, and out of the numbers.
-    const awayAllDay = MEAL_TYPES.every((s) => planned.some((e) => e.slot === s && e.away))
+    // (Away for calendar events is shown as tags on empty slots instead.)
+    const awayAllDay = MEAL_TYPES.every((s) => planned.some((e) => e.slot === s && e.away && !coveredAway(e, events)))
     const awayName = awayAllDay ? (planned.find((e) => e.away)?.name ?? 'Away') : null
     const dayMenu: MenuEntry[] = [
         awayAllDay
@@ -1180,6 +1276,8 @@ function DayCard({
         <DayCardShell id={dayCardId('meals', date)} isToday={isToday} compact={compact} className={className}>
             <header className="flex flex-col gap-3">
                 {titleRow}
+                {/* What's on the calendar over meal times — a heads-up whether or not a meal is planned. */}
+                {!awayAllDay && <DayEventPill events={events} date={date} weekday={weekday} onOpen={onShowEvents} />}
                 {awayAllDay ? (
                     <p className="text-[13px] text-neutral-500">Away all day — not counted</p>
                 ) : (
@@ -1213,7 +1311,7 @@ function DayCard({
                             key={slot}
                             compact={compact}
                             slot={slot}
-                            entries={slotItems(slot)}
+                            entries={shownItems(slot)}
                             onAdd={() => onAdd(slot)}
                             onOpen={onOpen}
                             onToggle={onToggle}
@@ -1227,6 +1325,18 @@ function DayCard({
                             onTarget={(refId, after) => onTarget(slot, refId, after)}
                             onClearTarget={() => onClearTarget(slot)}
                             onDropEntry={onDropEntry}
+                            tag={
+                                slot === 'snack' || shownItems(slot).some((e) => e.away) ? null : (
+                                    <SlotEventTag
+                                        events={eventsInMealSlot(events, date, slot)}
+                                        plannedHere={shownItems(slot).filter((e) => !e.away && e.status === 'planned').length}
+                                        slot={slot}
+                                        away={slotItems(slot).some((e) => e.away)}
+                                        onAway={() => onAwaySlot(slot)}
+                                        onShow={onShowEvents}
+                                    />
+                                )
+                            }
                         />
                     ))}
                     {extras.length > 0 && (
@@ -1271,7 +1381,10 @@ function SlotSection({
     onTarget,
     onClearTarget,
     onDropEntry,
+    tag,
 }: {
+    /** A calendar event over the slot. */
+    tag?: ReactNode
     compact?: boolean
     slot: MealType
     entries: MealPlanEntry[]
@@ -1306,6 +1419,7 @@ function SlotSection({
             onTarget={onTarget}
             onClearTarget={onClearTarget}
             onDrop={onDropEntry}
+            tag={tag}
         >
             {entries.map((e) => (
                 <PlannedRow
@@ -1812,8 +1926,49 @@ function PlannedContext({ entry }: { entry: MealPlanEntry }) {
 
 // ─── AdminLife 3: the week as a grid ──────────────────────────────────────────
 
+/** A library meal's details, opened from the side bar, with Add to the day and slot picked there. */
+function LibraryMealDrawer({
+    meal,
+    target,
+    onClose,
+    onAdd,
+}: {
+    meal: Meal | null
+    target: string
+    onClose: () => void
+    onAdd: (meal: Meal) => void
+}) {
+    // Keep the last meal while the drawer slides closed.
+    const [shown, setShown] = useState<Meal | null>(meal)
+    useEffect(() => {
+        if (meal) setShown(meal)
+    }, [meal])
+    return (
+        <Drawer
+            open={!!meal}
+            onClose={onClose}
+            size="xl"
+            title={shown?.name ?? 'Meal'}
+            footer={
+                shown && (
+                    <div className="flex w-full items-center justify-end gap-2 sm:gap-3">
+                        <Button variant="ghost" onClick={onClose}>
+                            Close
+                        </Button>
+                        <Button icon="fa-solid fa-plus" onClick={() => onAdd(shown)}>
+                            Add to {target}
+                        </Button>
+                    </div>
+                )
+            }
+        >
+            {shown && <MealDetail meal={shown} />}
+        </Drawer>
+    )
+}
+
 /** The grid's rows, in the order a day is eaten. */
-const GRID_SLOTS: MealType[] = ['breakfast', 'lunch', 'snack', 'dinner']
+const GRID_SLOTS: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack']
 const SLOT_TINT: Record<MealType, { planned: string; eaten: string }> = {
     breakfast: { planned: 'bg-meal-breakfast', eaten: 'bg-meal-breakfast-eaten' },
     lunch: { planned: 'bg-meal-lunch', eaten: 'bg-meal-lunch-eaten' },
@@ -1876,7 +2031,9 @@ function WeekFigures({
                             ? avgProtein >= target.protein
                                 ? 'On target'
                                 : `${fmt(Math.round(target.protein - avgProtein))} g under target`
-                            : 'No target set',
+                            : target?.protein
+                              ? `Target ${fmt(target.protein)} g`
+                              : 'No target set',
                 },
                 {
                     label: 'Meals planned',
@@ -1970,7 +2127,14 @@ function MealGrid({
     onRowMenu,
     onSlotMenu,
     onReorder,
+    events,
+    onShowEvents,
+    onAwaySlot,
 }: {
+    /** The week's calendar events, shown against meal times. */
+    events: Event[]
+    onShowEvents: (date: string) => void
+    onAwaySlot: (date: string, slot: MealType) => void
     weekStart: string
     today: string
     entries: MealPlanEntry[]
@@ -1994,8 +2158,11 @@ function MealGrid({
         ...GRID_SLOTS.map((slot) => ({ key: slot, label: CATEGORY[slot].label, slot, extra: false })),
         ...(hasExtras ? [{ key: 'extras', label: 'Extras', slot: 'snack' as MealType, extra: true }] : []),
     ]
-    const cellItems = (date: string, slot: MealType, extra: boolean) =>
+    const slotEntries = (date: string, slot: MealType, extra: boolean) =>
         entries.filter((e) => e.date === date && (extra ? e.extra : !e.extra && e.slot === slot)).sort((a, b) => a.order - b.order)
+    // What's drawn in a cell: covered away notes are left to the event tag.
+    const cellItems = (date: string, slot: MealType, extra: boolean) =>
+        slotEntries(date, slot, extra).filter((e) => !coveredAway(e, events))
 
     function drop() {
         const target = dropAt
@@ -2033,7 +2200,7 @@ function MealGrid({
         <div className="overflow-x-auto">
             <div role="table" aria-label="Meal plan" className="min-w-[880px]">
                 <div role="row" className="grid grid-cols-[96px_repeat(7,minmax(0,1fr))] border-b border-neutral-900">
-                    <span role="columnheader" className="self-end py-3 text-[11px] font-medium uppercase tracking-[0.12em] text-neutral-600">
+                    <span role="columnheader" className="self-center py-3 text-[11px] font-medium uppercase tracking-[0.12em] text-neutral-600">
                         Meal
                     </span>
                     {days.map((date) => {
@@ -2052,6 +2219,42 @@ function MealGrid({
                         )
                     })}
                 </div>
+                {weekDays.some((d) => d.goals?.calories) && (
+                    <div role="row" className="grid grid-cols-[96px_repeat(7,minmax(0,1fr))] border-b border-hairline bg-neutral-50">
+                        <span role="rowheader" className="self-center py-3 text-[11px] font-medium uppercase tracking-[0.12em] text-neutral-600">
+                            Target
+                        </span>
+                        {days.map((date, i) => {
+                            const g = weekDays[i].goals
+                            const parts = [
+                                g?.protein ? `P ${fmt(g.protein)}` : null,
+                                g?.carbs ? `C ${fmt(g.carbs)}` : null,
+                                g?.fat ? `F ${fmt(g.fat)}` : null,
+                            ].filter((p): p is string => !!p)
+                            return (
+                                <span role="cell" key={date} className="border-l border-[#eeeeee] px-2.5 py-3">
+                                    <span className="block text-[16px] tracking-[-0.015em] tabular-nums text-neutral-900">
+                                        {g?.calories ? `${kcal(g.calories)} kcal` : '—'}
+                                    </span>
+                                    {parts.length > 0 && (
+                                        <span className="mt-0.5 flex flex-wrap gap-x-2 text-[12px] tabular-nums text-neutral-600">
+                                            {parts.map((p) => (
+                                                <span key={p} className="whitespace-nowrap">
+                                                    {p}
+                                                </span>
+                                            ))}
+                                        </span>
+                                    )}
+                                </span>
+                            )
+                        })}
+                    </div>
+                )}
+                {/* The meal rows share one height — the tallest — so a busy Snacks row doesn't leave the others short. Extras keep their own. */}
+                <div
+                    className="grid"
+                    style={{ gridTemplateRows: `repeat(${GRID_SLOTS.length}, minmax(100px, 1fr))${hasExtras ? ' auto' : ''}` }}
+                >
                 {rows.map((row) => (
                     <div role="row" key={row.key} className="grid min-h-[100px] grid-cols-[96px_repeat(7,minmax(0,1fr))] border-b border-hairline">
                         <span role="rowheader" className="flex items-start gap-2 py-3.5 pr-2 text-[11px] font-medium uppercase tracking-[0.12em] text-neutral-600">
@@ -2081,6 +2284,18 @@ function MealGrid({
                                     }}
                                     className={`group/cell flex min-w-0 flex-col gap-1.5 border-l border-[#eeeeee] p-1.5 ${date === today ? 'bg-neutral-50' : ''}`}
                                 >
+                                    {!row.extra && row.slot !== 'snack' && !items.some((e) => e.away) && (
+                                        <span className="flex min-w-0">
+                                            <SlotEventTag
+                                                events={eventsInMealSlot(events, date, row.slot)}
+                                                plannedHere={items.filter((e) => !e.away && e.status === 'planned').length}
+                                                slot={row.slot}
+                                                away={slotEntries(date, row.slot, false).some((e) => e.away)}
+                                                onAway={() => onAwaySlot(date, row.slot)}
+                                                onShow={() => onShowEvents(date)}
+                                            />
+                                        </span>
+                                    )}
                                     {items.map((entry) => (
                                         <MealTile
                                             key={entry._id}
@@ -2113,6 +2328,7 @@ function MealGrid({
                         })}
                     </div>
                 ))}
+                </div>
                 {totalRows.map((r) => (
                     <div role="row" key={r.label} className="grid grid-cols-[96px_repeat(7,minmax(0,1fr))] border-b border-hairline">
                         <span role="rowheader" className="py-3 text-[11px] font-medium uppercase tracking-[0.12em] text-neutral-600">

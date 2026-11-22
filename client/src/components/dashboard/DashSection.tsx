@@ -168,8 +168,9 @@ export const AREA_TEXT: Record<AreaTone, string> = {
 }
 
 /**
- * One headline figure: a label, the number large in mono with its goal beside
- * it, and a 2px line underneath filled to the share done. No box.
+ * One headline figure as a tile: an icon and label, the number large with its
+ * goal beside it, a bar filled to the share done, and a plain line saying what
+ * the number means ("200 g to go"). Tinted so the four read as four things.
  */
 export function GlanceMetric({
     label,
@@ -177,6 +178,10 @@ export function GlanceMetric({
     goal,
     share,
     bar = 'bg-neutral-900',
+    icon,
+    iconTone = 'text-neutral-500',
+    note,
+    noteTone = 'text-neutral-600',
     to,
 }: {
     label: string
@@ -186,26 +191,47 @@ export function GlanceMetric({
     share: number
     /** The fill's colour class. */
     bar?: string
+    /** Font Awesome class shown beside the label. */
+    icon?: string
+    /** Text colour class for the icon. */
+    iconTone?: string
+    /** What the figure means, in words: "3 left", "Target hit". */
+    note?: string
+    noteTone?: string
     to?: string
 }) {
     const body = (
         <>
-            <span className="block text-[12px] text-neutral-600 group-hover:text-neutral-900">{label}</span>
-            <span className="mt-1.5 block truncate text-[28px] leading-[1.15] tracking-[-0.045em] tabular-nums text-neutral-950 sm:text-[32px]">
+            <span className="flex items-center gap-2 text-[13px] font-medium text-neutral-700">
+                {icon && <i className={`${icon} w-4 text-center text-[13px] ${iconTone}`} aria-hidden="true" />}
+                {label}
+                {to && (
+                    <i
+                        className="fa-solid fa-arrow-right ml-auto text-[10px] text-neutral-400 transition-transform group-hover:translate-x-0.5 group-hover:text-neutral-700"
+                        aria-hidden="true"
+                    />
+                )}
+            </span>
+            <span className="mt-3 block truncate text-[26px] leading-none tracking-[-0.045em] tabular-nums text-neutral-950 sm:text-[34px]">
                 {value}
-                {goal && <span className="text-[13px] tracking-normal text-neutral-500"> / {goal}</span>}
+                {goal && <span className="text-[12px] tracking-normal text-neutral-500 sm:text-[14px]"> / {goal}</span>}
             </span>
-            <span className="mt-2.5 block h-0.5 bg-hairline">
-                <span className={`block h-full ${bar} transition-[width] duration-500`} style={{ width: `${Math.min(100, Math.max(0, share * 100))}%` }} />
+            <span className="mt-3.5 block h-1.5 overflow-hidden rounded-full bg-neutral-200/70">
+                <span
+                    className={`block h-full rounded-full ${bar} transition-[width] duration-500`}
+                    style={{ width: `${Math.min(100, Math.max(0, share * 100))}%` }}
+                />
             </span>
+            {note && <span className={`mt-2.5 block truncate text-[13px] ${noteTone}`}>{note}</span>}
         </>
     )
+    const tile = 'group block min-w-0 rounded-2xl border border-hairline bg-white p-4 sm:p-5'
     return to ? (
-        <Link to={to} className="group block min-w-0">
+        <Link to={to} className={`${tile} transition-colors hover:border-neutral-300`}>
             {body}
         </Link>
     ) : (
-        <div className="min-w-0">{body}</div>
+        <div className={tile}>{body}</div>
     )
 }
 

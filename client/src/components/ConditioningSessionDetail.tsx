@@ -14,6 +14,7 @@ import {
     type ItemState,
 } from './session/SessionUI'
 import { CompleteButton, PaceBanner, SlotChip } from './SessionPace'
+import { driftLabel, driftTone, hasSlot, slotLabel, timeOfDay, type Slot } from '../lib/sessionPace'
 import { SESSION_PHASES } from '../types'
 import type { ConditioningSession, ConditioningCategory, SessionPart } from '../types'
 import { flattenPhases } from '../lib/phases'
@@ -118,7 +119,7 @@ export default function ConditioningSessionDetail({
 
             {(stats || session.purpose) && (
             <div className="flex flex-col gap-5">
-                {stats && (
+                {stats && !logging && (
                 <StatStrip
                     stats={[
                         {
@@ -163,6 +164,47 @@ export default function ConditioningSessionDetail({
             {SESSION_PHASES.map((phase) => {
                 const rows = indexed.filter((r) => r.phase === phase)
                 if (rows.length === 0) return null
+                if (logging)
+                    return (
+                        <section key={phase} className="flex flex-col gap-3">
+                            <PhaseHeading
+                                phase={phase}
+                                meta={phaseSpan(rows.map(({ item }) => item))}
+                            />
+                            <ol className="flex flex-col gap-2">
+                                {rows.map(({ item: part, index: i }) => (
+                                    <LogPart
+                                        key={i}
+                                        itemRef={(el) => {
+                                            items.current[i] = el
+                                        }}
+                                        part={part}
+                                        slot={slots[i]}
+                                        state={stateOf(i)}
+                                        count={counts[i] ?? 0}
+                                        completedAt={times[i]}
+                                        delta={pace.delta[i]}
+                                        ticks={stepTicks?.[i]}
+                                        onToggleStep={
+                                            onToggleStep ? (step) => onToggleStep(i, step) : undefined
+                                        }
+                                        onCount={(next) => {
+                                            // Unticking a rep reopens a finished part.
+                                            if (next < (counts[i] ?? 0) && times[i] !== null) onUndo?.(i)
+                                            onCount?.(i, next)
+                                        }}
+                                        onComplete={() => onComplete?.(i)}
+                                        onUndo={() => {
+                                            onUndo?.(i)
+                                            // Step back one rep so the part reopens on its last.
+                                            if (part.rounds && (counts[i] ?? 0) >= part.rounds)
+                                                onCount?.(i, part.rounds - 1)
+                                        }}
+                                    />
+                                ))}
+                            </ol>
+                        </section>
+                    )
                 if (overview)
                     return (
                         <section key={phase} className="flex flex-col gap-3">
@@ -250,6 +292,162 @@ export default function ConditioningSessionDetail({
                 </NoteBlock>
             )}
         </div>
+    )
+}
+
+/**
+ * One part while the session is being logged. A single action per part: tap
+ * each rep as you finish it (the last one finishes the part), or one Done
+ * button when the part has no reps. A finished part folds to one line with its
+ * time and pace, and Undo.
+ */
+function LogPart({
+    part,
+    slot,
+    state,
+    count,
+    completedAt,
+    delta,
+    ticks,
+    onToggleStep,
+    onCount,
+    onComplete,
+    onUndo,
+    itemRef,
+}: {
+    part: SessionPart
+    slot: Slot
+    state: ItemState
+    count: number
+    completedAt: number | null
+    delta: number | null | undefined
+    ticks?: number[]
+    onToggleStep?: (step: number) => void
+    onCount: (next: number) => void
+    onComplete: () => void
+    onUndo: () => void
+    itemRef: (el: HTMLLIElement | null) => void
+}) {
+    const done = state === 'done'
+    const current = state === 'next'
+    const rounds = part.rounds ?? 0
+    const label = (part.roundLabel?.trim() || 'rep').toLowerCase()
+    const unit = label.endsWith('s') ? label : `${label}s`
+    const meta = [
+        hasSlot(slot) ? `${slotLabel(slot)} min` : null,
+        rounds > 1 && !done ? `${Math.min(count, rounds)} of ${rounds} ${unit}` : null,
+    ]
+        .filter(Boolean)
+        .join(' · ')
+
+    return (
+        <li
+            ref={itemRef}
+            className={`scroll-mt-24 rounded-xl border transition-colors ${
+                done
+                    ? 'border-transparent bg-neutral-50'
+                    : current
+                      ? 'border-neutral-300 bg-white shadow-sm'
+                      : 'border-neutral-200 bg-white'
+            }`}
+        >
+            <div className="flex items-center gap-3 px-4 py-3">
+                <span
+                    className={`grid h-6 w-6 shrink-0 place-items-center rounded-full ${
+                        done
+                            ? 'bg-emerald-600 text-white'
+                            : current
+                              ? 'bg-neutral-900'
+                              : 'ring-1 ring-inset ring-neutral-300'
+                    }`}
+                    aria-hidden="true"
+                >
+                    {done ? (
+                        <i className="fa-solid fa-check text-[11px]" />
+                    ) : current ? (
+                        <span className="h-2 w-2 rounded-full bg-white" />
+                    ) : null}
+                </span>
+                <div className="min-w-0 flex-1">
+                    <p
+                        className={`truncate text-[15px] font-semibold leading-snug ${
+                            done ? 'text-neutral-500' : 'text-neutral-900'
+                        }`}
+                    >
+                        {part.name}
+                    </p>
+                    {done && completedAt !== null ? (
+                        <p className="mt-0.5 text-xs text-neutral-500">
+                            Done {timeOfDay(completedAt)}
+                            {delta != null && (
+                                <span
+                                    className={`ml-1.5 font-semibold ${
+                                        {
+                                            on: 'text-emerald-700',
+                                            behind: 'text-amber-700',
+                                            ahead: 'text-sky-700',
+                                        }[driftTone(delta)]
+                                    }`}
+                                >
+                                    · {driftLabel(delta)}
+                                </span>
+                            )}
+                        </p>
+                    ) : (
+                        meta && <p className="mt-0.5 text-xs tabular-nums text-neutral-500">{meta}</p>
+                    )}
+                </div>
+                {done && (
+                    <button
+                        type="button"
+                        onClick={onUndo}
+                        className="shrink-0 rounded-lg px-2 py-1.5 text-xs font-semibold text-neutral-500 transition-colors hover:bg-white hover:text-neutral-800"
+                    >
+                        Undo
+                    </button>
+                )}
+            </div>
+
+            {!done && (
+                <div className="flex flex-col gap-3 px-4 pb-4">
+                    {part.detail && (
+                        <p className="whitespace-pre-wrap text-sm leading-relaxed text-neutral-600">
+                            {part.detail}
+                        </p>
+                    )}
+                    <StepChecklist steps={part.steps} ticked={ticks} onToggle={onToggleStep} />
+                    {rounds > 0 ? (
+                        <RoundCounter
+                            target={rounds}
+                            label={part.roundLabel}
+                            details={part.roundDetails}
+                            reps={part.reps}
+                            seconds={part.roundSeconds}
+                            startAtSec={
+                                part.startAtSec ??
+                                (part.startMin !== undefined ? part.startMin * 60 : undefined)
+                            }
+                            done={count}
+                            onChange={onCount}
+                            active={current}
+                        />
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={onComplete}
+                            className={`h-11 w-full rounded-lg text-sm font-semibold transition-colors ${
+                                current
+                                    ? 'bg-neutral-900 text-white hover:bg-neutral-800 active:bg-neutral-700'
+                                    : 'border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
+                            }`}
+                        >
+                            <i className="fa-solid fa-check mr-2 text-xs" aria-hidden="true" />
+                            Done
+                        </button>
+                    )}
+                </div>
+            )}
+        </li>
     )
 }
 

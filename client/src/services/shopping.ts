@@ -1,5 +1,5 @@
 import api from './api'
-import type { ApiResponse, ShoppingList } from '../types'
+import type { ApiResponse, PrepRange, ShoppingList } from '../types'
 
 /** The nutrition shopping list. Every change answers with the whole list. */
 
@@ -22,5 +22,9 @@ export const deleteShoppingGroup = (id: string) => list(api.delete(`/shopping/gr
 
 /** A line into (or out of) the basket. */
 export const tickShopping = (name: string, done: boolean) => list(api.post('/shopping/tick', { name, done }))
+
+/** What Prep is cooking for, and the list's meals for it — the days' meals plus the extras, counted. */
+export const setPrep = (prep: PrepRange, meals: { id: string; count: number }[]) =>
+    list(api.put('/shopping/prep', { ...prep, meals }))
 
 export const clearShopping = (onlyDone: boolean) => list(api.post('/shopping/clear', { onlyDone }))

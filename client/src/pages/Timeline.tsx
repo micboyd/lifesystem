@@ -725,7 +725,9 @@ type Row = { kind: 'past'; start: string; week: PastWeek } | { kind: 'future'; s
 function weekMeta(week: PastWeek | TimelineWeek): string {
     const phase = week.phase ? PHASE_TONES[week.phase.kind] : null
     return [
-        phase ? `${phase.label}${week.targetKcal ? ` · ${kcal(week.targetKcal)} kcal` : ''}` : null,
+        phase
+            ? `${'holding' in week && week.holding ? 'Holding at goal' : phase.label}${week.targetKcal ? ` · ${kcal(week.targetKcal)} kcal` : ''}`
+            : null,
         week.strengthSessions ? `${week.strengthSessions} lift` : null,
         week.cardioSessions ? `${week.cardioSessions} cardio` : null,
     ]
@@ -869,7 +871,7 @@ function HowItWorks({ timeline }: { timeline: TimelineData }) {
                     ` ${energy.balanceDays} of those days have a full food log too, averaging ${kcal(Math.abs(balance))} kcal ${
                         balance > 0 ? 'over' : 'under'
                     } what you burned; they’re replayed as they happened.`}
-                {!calibration && ' A couple of weeks of weigh-ins will check the watch.'}
+                {!calibration && !timeline.unreadWeighIns && ' A couple of weeks of weigh-ins will check the watch.'}
             </>
         )
     }
@@ -880,6 +882,15 @@ function HowItWorks({ timeline }: { timeline: TimelineData }) {
                 Calibrated on {calibration.spanDays} days of weigh-ins: your trend is{' '}
                 {signed(calibration.observedRate, 2)} kg a week against {signed(calibration.predictedRate, 2)} predicted
                 {Math.abs(off) >= 20 ? `, so each day carries a ${signed(off)} kcal correction.` : ' — close enough to leave alone.'}
+            </>
+        )
+    } else if (timeline.unreadWeighIns) {
+        items.push(
+            <>
+                Your weigh-ins show {signed(timeline.unreadWeighIns.observedRate, 2)} kg a week over the last{' '}
+                {timeline.unreadWeighIns.spanDays} days, but no plan was running and no food was logged, so there’s
+                nothing to check them against — they don’t change the projection. Log your food, or give the plan a
+                couple of weeks, and they will.
             </>
         )
     } else if (energy) {

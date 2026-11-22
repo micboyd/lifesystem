@@ -141,6 +141,7 @@ export function PlanSlot({
     onClearTarget,
     onDrop,
     children,
+    tag,
 }: {
     compact?: boolean
     /** A dot or icon before the slot's name. */
@@ -158,6 +159,8 @@ export function PlanSlot({
     onDrop: () => void
     /** The slot's `PlanRow`s. */
     children?: ReactNode
+    /** A small tag beside the slot's name — a calendar event over it, say. */
+    tag?: ReactNode
 }) {
     const listRef = useRef<HTMLUListElement>(null)
     const addLabel = `Add to ${label.toLowerCase()}`
@@ -208,19 +211,20 @@ export function PlanSlot({
         return (
             <div
                 onContextMenu={slotMenu}
-                className={`border-t border-hairline first:border-t-0 ${compact ? 'py-1 first:pt-0 last:pb-0' : 'py-1.5 first:pt-0 last:pb-0'}`}
+                className={`flex items-center gap-2 border-t border-hairline first:border-t-0 ${compact ? 'py-1 first:pt-0 last:pb-0' : 'py-1.5 first:pt-0 last:pb-0'}`}
             >
                 <button
                     type="button"
                     onClick={onAdd}
                     aria-label={addLabel}
-                    className={`-mx-1.5 flex w-[calc(100%+0.75rem)] items-center gap-2 rounded-lg px-1.5 text-left text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900 ${
+                    className={`-mx-1.5 flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 text-left text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900 ${
                         compact ? 'min-h-8 text-[13px]' : 'min-h-10 text-sm sm:min-h-8 sm:text-[13px]'
                     }`}
                 >
                     <i className="fa-solid fa-plus w-3 shrink-0 text-center text-[10px]" aria-hidden="true" />
                     <span>{label}</span>
                 </button>
+                {tag && <span className="ml-auto flex min-w-0 shrink justify-end">{tag}</span>}
             </div>
         )
     }
@@ -237,9 +241,10 @@ export function PlanSlot({
             } ${drop ? '-mx-1.5 rounded-lg bg-coral-50 px-1.5 ring-[1.5px] ring-inset ring-coral-500' : ''}`}
         >
             <div className={`flex items-center justify-between gap-2 ${compact ? '' : 'sm:flex-col sm:items-start sm:pt-1.5'}`}>
-                <span className="flex items-center gap-2">
+                <span className="flex min-w-0 flex-wrap items-center gap-2">
                     {marker}
                     <span className="text-[13px] font-semibold text-neutral-800">{label}</span>
+                    {tag}
                 </span>
                 <button
                     type="button"

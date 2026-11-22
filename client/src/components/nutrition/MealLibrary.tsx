@@ -1,9 +1,12 @@
+import Switch from '../Switch'
+import { isBatch } from '../../lib/prep'
 import { useEffect, useMemo, useState } from 'react'
 import { Card } from '../Card'
 import Drawer from '../Drawer'
 import Button from '../Button'
 import Input from '../Input'
-import LibraryToolbar from '../LibraryToolbar'
+import LibraryToolbar, { LibraryFilters } from '../LibraryToolbar'
+import { LIBRARY_SORTS, isNew, sortLibrary, useLibrarySort, type LibrarySort } from '../../lib/librarySort'
 import Textarea from '../Textarea'
 import Select from '../Select'
 import EmptyState from '../EmptyState'
@@ -19,8 +22,7 @@ import { BoxParts, CATEGORY, MacroBar, MacroLegend, caloriesFromMacros, isHighPr
 import { fmt, kcal } from './format'
 import { ShopButton, type ShopKind } from './ShoppingList'
 import { BatchDrawer } from './BatchDrawer'
-import { Segmented } from '../planner/PlannerParts'
-import { ingredientAmount } from '../../lib/shopping'
+import { MAX_PORTIONS, basePortions, itemsLabel, scaleIngredients } from '../../lib/recipe'
 import { createMeal, deleteAllMeals, deleteMeal, importMeals, updateMeal } from '../../services/meals'
 import { MEAL_TYPES, type MacroGoals, type Macros, type BoxPart, type Meal, type MealIngredient, type MealInput, type MealType } from '../../types'
 
@@ -28,21 +30,20 @@ type Filter = MealType | 'all' | 'trays'
 
 /** A tray: cooked in one go and split into `batchOf` boxes. */
 const isTray = (m: Pick<Meal, 'batchOf'>) => (m.batchOf ?? 0) > 1
-type Sort = 'library' | 'protein' | 'lightest' | 'name'
+type Sort = LibrarySort | 'protein' | 'lightest'
 
 const SORTS: { value: Sort; label: string }[] = [
-    { value: 'library', label: 'Library order' },
+    ...LIBRARY_SORTS.slice(0, 3),
     { value: 'protein', label: 'Most protein' },
     { value: 'lightest', label: 'Lightest' },
-    { value: 'name', label: 'A–Z' },
+    ...LIBRARY_SORTS.slice(3),
 ]
+const isSort = (v: string) => SORTS.some((s) => s.value === v)
 
 function sortMeals(list: Meal[], sort: Sort): Meal[] {
-    const out = [...list]
-    if (sort === 'protein') out.sort((a, b) => b.macros.protein - a.macros.protein)
-    else if (sort === 'lightest') out.sort((a, b) => a.macros.calories - b.macros.calories)
-    else if (sort === 'name') out.sort((a, b) => a.name.localeCompare(b.name))
-    return out
+    if (sort === 'protein') return [...list].sort((a, b) => b.macros.protein - a.macros.protein)
+    if (sort === 'lightest') return [...list].sort((a, b) => a.macros.calories - b.macros.calories)
+    return sortLibrary(list, sort)
 }
 
 const PAGE_SIZE = 9
@@ -80,20 +81,23 @@ export default function MealLibrary({
     const [deleting, setDeleting] = useState<Meal | null>(null)
     const [search, setSearch] = useState('')
     const [filter, setFilter] = useState<Filter>('all')
-    const [sort, setSort] = useState<Sort>('library')
+    const [sort, setSort] = useLibrarySort<Sort>('meals', 'library', isSort)
+    const [newOnly, setNewOnly] = useState(false)
     const [page, setPage] = useState(1)
 
+    const newCount = useMemo(() => meals.filter((m) => isNew(m)).length, [meals])
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase()
         return sortMeals(
             meals.filter(
                 (m) =>
                     (filter === 'all' || (filter === 'trays' ? isTray(m) : m.types.includes(filter))) &&
+                    (!newOnly || isNew(m)) &&
                     (!q || m.name.toLowerCase().includes(q) || (m.notes ?? '').toLowerCase().includes(q))
             ),
             sort
         )
-    }, [meals, search, filter, sort])
+    }, [meals, search, filter, sort, newOnly])
 
     const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
     // A new search or a shrinking list can leave `page` past the end — pull it back.
@@ -122,7 +126,9 @@ export default function MealLibrary({
             macros: meal.macros,
             ingredients: meal.ingredients,
             batchOf: meal.batchOf,
+            batchCook: isBatch(meal),
             box: meal.box,
+            method: meal.method,
             notes: meal.notes,
         })
         await onChanged()
@@ -198,6 +204,11 @@ export default function MealLibrary({
                                 }
                                 items={[
                                     {
+                                        label: 'Export as JSON',
+                                        icon: 'fa-solid fa-file-export',
+                                        onClick: () => downloadMealsJson(meals),
+                                    },
+                                    {
                                         label: 'Delete all meals',
                                         icon: 'fa-solid fa-trash-can',
                                         danger: true,
@@ -226,12 +237,21 @@ export default function MealLibrary({
                                     : []),
                             ]}
                         />
-                        <Select
-                            value={sort}
-                            onChange={(v) => setSort(v as Sort)}
-                            options={SORTS}
-                            className="w-full sm:w-44"
-                        />
+                        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                            <LibraryFilters newCount={newCount} newOnly={newOnly} onNewOnly={(v) => {
+                                setNewOnly(v)
+                                setPage(1)
+                            }} />
+                            <Select
+                                value={sort}
+                                onChange={(v) => {
+                                    setSort(v as Sort)
+                                    setPage(1)
+                                }}
+                                options={SORTS}
+                                className="w-full sm:w-44"
+                            />
+                        </div>
                     </div>
                 )}
             </LibraryToolbar>
@@ -350,6 +370,16 @@ function TypeChip({ type }: { type: MealType }) {
     )
 }
 
+/** Cooked ahead and boxed up in Prep — shown when it isn't already a tray. */
+function BatchChip() {
+    return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+            <i className="fa-solid fa-kitchen-set text-[10px]" aria-hidden="true" />
+            Batch cook
+        </span>
+    )
+}
+
 /** "Tray · 5 boxes". */
 function TrayChip({ boxes }: { boxes: number }) {
     return (
@@ -413,9 +443,10 @@ function MealCard({
                 />
             </div>
 
-            {(meal.types.length > 0 || isHighProtein(macros) || isTray(meal)) && (
+            {(meal.types.length > 0 || isHighProtein(macros) || isTray(meal) || isBatch(meal)) && (
                 <div className="flex flex-wrap gap-1.5">
                     {isTray(meal) && <TrayChip boxes={meal.batchOf!} />}
+                    {isBatch(meal) && !isTray(meal) && <BatchChip />}
                     {meal.types.map((t) => (
                         <TypeChip key={t} type={t} />
                     ))}
@@ -485,17 +516,21 @@ function MealViewDrawer({
     )
 }
 
-/** A meal's chips, numbers, macro split and notes. A tray's ingredients switch between one box and the whole tray. */
-function MealDetail({ meal }: { meal: Pick<Meal, 'types' | 'macros' | 'ingredients' | 'batchOf' | 'box' | 'notes'> }) {
+/**
+ * A meal as a recipe: chips, one portion's numbers, then the ingredients and
+ * method with a portion counter. The counter starts at what the saved
+ * ingredients make (one serving, or a tray's boxes) and scales every amount.
+ */
+export function MealDetail({ meal }: { meal: Pick<Meal, 'types' | 'macros' | 'ingredients' | 'batchOf' | 'box' | 'method' | 'notes'> }) {
     const tray = isTray(meal) ? meal.batchOf! : null
-    const [whole, setWhole] = useState(true)
-    const share = tray && !whole ? tray : 1
-    const ingredients = (meal.ingredients ?? []).map((i) => ({
-        ...i,
-        grams: i.grams / share,
-        items: i.items ? Math.round((i.items / share) * 10) / 10 : i.items,
-    }))
+    const base = basePortions(meal)
+    const [portions, setPortions] = useState(base)
+    // A different meal in the same drawer starts again from its own batch size.
+    useEffect(() => setPortions(base), [base, meal])
+    const ingredients = scaleIngredients(meal.ingredients ?? [], base, portions)
+    const method = meal.method ?? []
     const { macros } = meal
+    const hasRecipe = ingredients.length > 0 || method.length > 0
     return (
         <div className="flex flex-col gap-6">
             {(meal.types.length > 0 || tray) && (
@@ -519,44 +554,121 @@ function MealDetail({ meal }: { meal: Pick<Meal, 'types' | 'macros' | 'ingredien
                 <MacroBar macros={macros} thick />
                 <MacroLegend macros={macros} />
             </div>
-            {tray && (
-                <p className="-mt-3 text-xs text-neutral-500">
-                    Figures are for one box. A tray is {kcal(macros.calories * tray)} kcal ·{' '}
-                    {fmt(Math.round(macros.protein * tray))} g protein.
-                </p>
-            )}
-            {ingredients.length > 0 && (
-                <section className="flex flex-col gap-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                            Ingredients · {tray ? (whole ? 'whole tray' : 'one box') : 'one serving'}
-                        </p>
-                        {tray && (
-                            <Segmented
-                                value={whole ? 'tray' : 'box'}
-                                options={[
-                                    ['box', 'One box'],
-                                    ['tray', 'Whole tray'],
-                                ]}
-                                onChange={(v) => setWhole(v === 'tray')}
-                            />
-                        )}
+            <p className="-mt-3 text-xs text-neutral-500">Figures are for one {tray ? 'box' : 'portion'}.</p>
+
+            {hasRecipe && (
+                <section className="flex flex-col gap-4 border-t border-hairline pt-5">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="min-w-0">
+                            <p className="text-[15px] font-medium text-neutral-900">Recipe</p>
+                            <p className="mt-0.5 text-[13px] text-neutral-600">
+                                {portions} {portions === 1 ? 'portion' : 'portions'} · {kcal(macros.calories * portions)} kcal ·{' '}
+                                {fmt(Math.round(macros.protein * portions))} g protein
+                            </p>
+                        </div>
+                        <PortionCounter value={portions} onChange={setPortions} />
                     </div>
-                    <ul className="divide-y divide-neutral-100 rounded-xl border border-neutral-200">
-                        {ingredients.map((i, n) => (
-                            <li key={n} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
-                                <span className="min-w-0 truncate text-neutral-800">{i.name}</span>
-                                <span className="shrink-0 tabular-nums text-neutral-500">{ingredientAmount(i)}</span>
-                            </li>
-                        ))}
-                    </ul>
+
+                    {ingredients.length > 0 && (
+                        <div className="flex flex-col gap-2">
+                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">Ingredients</p>
+                            <ul className="divide-y divide-neutral-100 rounded-xl border border-neutral-200">
+                                {ingredients.map((i, n) => (
+                                    <li key={n} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                                        <span className="min-w-0 truncate text-neutral-800">{i.name}</span>
+                                        <span className="shrink-0 tabular-nums text-neutral-500">{recipeAmount(i)}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                            {portions !== base && (
+                                <button
+                                    type="button"
+                                    onClick={() => setPortions(base)}
+                                    className="self-start text-xs font-medium text-neutral-500 underline-offset-2 hover:text-neutral-800 hover:underline"
+                                >
+                                    Back to {base} {base === 1 ? 'portion' : tray ? 'boxes (the whole tray)' : 'portions'}
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {method.length > 0 && (
+                        <div className="flex flex-col gap-2">
+                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">Method</p>
+                            <ol className="flex flex-col gap-3">
+                                {method.map((step, n) => (
+                                    <li key={n} className="flex gap-3 text-sm leading-relaxed text-neutral-800">
+                                        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs font-semibold tabular-nums text-neutral-700">
+                                            {n + 1}
+                                        </span>
+                                        <span className="min-w-0 pt-0.5">{step}</span>
+                                    </li>
+                                ))}
+                            </ol>
+                            {portions !== base && (
+                                <p className="text-xs text-neutral-500">
+                                    Any amounts written in the steps are for {base} {base === 1 ? 'portion' : 'portions'}.
+                                </p>
+                            )}
+                        </div>
+                    )}
                 </section>
             )}
+
             {meal.notes && (
                 <NoteBlock icon="fa-regular fa-note-sticky" title="Notes">
                     {meal.notes}
                 </NoteBlock>
             )}
+        </div>
+    )
+}
+
+/** "×1½ · 270 g" — like the shopping list's amounts, with halves as fractions. */
+function recipeAmount(i: MealIngredient): string {
+    const grams = i.grams > 0 ? `${fmt(i.grams)} g` : ''
+    return [i.items ? `×${itemsLabel(i.items)}` : '', grams].filter(Boolean).join(' · ')
+}
+
+/** − n + for how many portions the recipe makes. The number can be typed too. */
+function PortionCounter({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+    const [draft, setDraft] = useState<string | null>(null)
+    const commit = () => {
+        const n = Math.round(Number(draft))
+        setDraft(null)
+        if (draft && Number.isFinite(n) && n >= 1) onChange(Math.min(n, MAX_PORTIONS))
+    }
+    const btn =
+        'grid h-11 w-11 place-items-center text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:opacity-40 disabled:hover:bg-transparent lg:h-10 lg:w-10'
+    return (
+        <div className="flex shrink-0 items-center rounded-xl border border-neutral-300">
+            <button type="button" aria-label="One portion fewer" disabled={value <= 1} onClick={() => onChange(value - 1)} className={`${btn} rounded-l-xl`}>
+                <i className="fa-solid fa-minus text-[11px]" aria-hidden="true" />
+            </button>
+            <input
+                aria-label="Portions"
+                inputMode="numeric"
+                value={draft ?? String(value)}
+                onChange={(e) => setDraft(e.target.value.replace(/\D/g, ''))}
+                onBlur={commit}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') e.currentTarget.blur()
+                }}
+                onFocus={(e) => {
+                    setDraft(String(value))
+                    e.currentTarget.select()
+                }}
+                className="h-11 w-11 border-x border-neutral-200 bg-transparent text-center text-[15px] font-medium tabular-nums outline-none focus-visible:shadow-[inset_0_-2px_0_#111111] lg:h-10"
+            />
+            <button
+                type="button"
+                aria-label="One portion more"
+                disabled={value >= MAX_PORTIONS}
+                onClick={() => onChange(value + 1)}
+                className={`${btn} rounded-r-xl`}
+            >
+                <i className="fa-solid fa-plus text-[11px]" aria-hidden="true" />
+            </button>
         </div>
     )
 }
@@ -606,7 +718,9 @@ function MealFormDrawer({
     const [rows, setRows] = useState<IngredientDraft[]>([])
     const [boxes, setBoxes] = useState('')
     const [parts, setParts] = useState<PartDraft[]>([])
+    const [method, setMethod] = useState('')
     const [notes, setNotes] = useState('')
+    const [batchCook, setBatchCook] = useState(false)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
 
@@ -620,7 +734,9 @@ function MealFormDrawer({
         setFat(editing ? String(editing.macros.fat) : '')
         setRows(editing?.ingredients?.length ? editing.ingredients.map(toDraft) : [blankIngredient()])
         setBoxes(editing?.batchOf ? String(editing.batchOf) : '')
+        setBatchCook(editing ? isBatch(editing) : false)
         setParts(editing?.box?.length ? editing.box.map(toPartDraft) : [blankPart()])
+        setMethod((editing?.method ?? []).join('\n'))
         setNotes(editing?.notes ?? '')
         setSaving(false)
         setError('')
@@ -665,7 +781,12 @@ function MealFormDrawer({
             macros,
             ingredients,
             batchOf: batchOf ?? null,
+            batchCook,
             box: batchOf ? box : [],
+            method: method
+                .split('\n')
+                .map((l) => l.trim())
+                .filter(Boolean),
             notes: notes.trim() || undefined,
         }
         setSaving(true)
@@ -730,6 +851,18 @@ function MealFormDrawer({
                             )
                         })}
                     </div>
+                </div>
+
+                <div className="flex items-start justify-between gap-4 border-y border-hairline py-4">
+                    <div className="min-w-0">
+                        <p className="text-[15px] font-medium text-neutral-900">Batch cook</p>
+                        <p className="mt-0.5 text-[13px] text-neutral-600">
+                            {batchCook
+                                ? 'Cooked ahead and boxed up — it gets a pot to weigh in Prep’s Cook step.'
+                                : 'Made fresh on the day — Prep only puts it on the shopping list.'}
+                        </p>
+                    </div>
+                    <Switch checked={batchCook} onChange={setBatchCook} />
                 </div>
 
                 <div className="w-full sm:w-56">
@@ -895,9 +1028,18 @@ function MealFormDrawer({
                 </div>
 
                 <Textarea
+                    label="Method"
+                    rows={6}
+                    hint={`One step per line — they’re numbered for you. Write it for the ingredients above (${batchOf ? 'the whole tray' : 'one serving'}).`}
+                    placeholder={'Cook the rice\nSeason and fry the chicken, 6–7 min a side\nSteam the broccoli and serve'}
+                    value={method}
+                    onChange={(e) => setMethod(e.target.value)}
+                />
+
+                <Textarea
                     label="Notes"
                     rows={3}
-                    placeholder="Portions, where it’s from, how to make it…"
+                    placeholder="Where it’s from, swaps, tips…"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                 />
@@ -907,6 +1049,32 @@ function MealFormDrawer({
 }
 
 // ─── Import ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Downloads the whole library as JSON in the same shape the import takes,
+ * so the file can be pasted straight back into "Import meals".
+ */
+function downloadMealsJson(meals: Meal[]) {
+    const out = [...meals]
+        .sort((a, b) => a.order - b.order)
+        .map((m) => ({
+            name: m.name,
+            types: m.types,
+            macros: m.macros,
+            ingredients: m.ingredients ?? [],
+            ...(isTray(m) ? { batchOf: m.batchOf } : {}),
+            ...(isBatch(m) ? { batchCook: true } : {}),
+            ...(m.box?.length ? { box: m.box } : {}),
+            ...(m.method?.length ? { method: m.method } : {}),
+            ...(m.notes?.trim() ? { notes: m.notes } : {}),
+        }))
+    const url = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `meal-library-${new Date().toISOString().slice(0, 10)}.json`
+    link.click()
+    URL.revokeObjectURL(url)
+}
 
 const MEAL_TEMPLATE = JSON.stringify(
     [
@@ -929,6 +1097,11 @@ const MEAL_TEMPLATE = JSON.stringify(
                 { name: 'Basmati rice', grams: 75 },
                 { name: 'Tenderstem broccoli', grams: 100 },
                 { name: 'Olive oil', grams: 5 },
+            ],
+            method: [
+                'Rinse the rice and simmer for 12 minutes, then leave covered for 5.',
+                'Season the chicken and fry in the oil for 6–7 minutes a side.',
+                'Steam the broccoli for 4 minutes and serve everything together.',
             ],
         },
         {
@@ -983,7 +1156,16 @@ function ImportNotes() {
                 {f('ingredients')} the whole tray’s, and {f('box')} is what to weigh into each box — a list of{' '}
                 {f('name')} with {f('grams')}, like 330 g of the tray and 250 g rice.
             </p>
-            <p>{f('notes')} is free text — where it’s from, how to make it.</p>
+            <p>
+                {f('batchCook')} true means it&apos;s cooked ahead and boxed up (Prep weighs its pot in Cook); false or
+                left out, it&apos;s made fresh on the day. A tray is batch-cooked unless it says {f('false')}.
+            </p>
+            <p>
+                {f('method')} is the recipe&apos;s steps, in order — a list of strings, written for the amounts in{' '}
+                {f('ingredients')}. Leave off the numbers; they&apos;re added for you. Opening a meal shows the recipe
+                with a portion counter that scales the ingredients.
+            </p>
+            <p>{f('notes')} is free text — where it’s from, swaps, tips.</p>
             <p>A meal with the same name as one already in your library lets you choose to update it or keep both.</p>
         </>
     )

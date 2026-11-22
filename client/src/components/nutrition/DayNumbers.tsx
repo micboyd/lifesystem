@@ -46,7 +46,15 @@ export function DayNumbers({
         return (
             <p className="text-[13px] text-neutral-500">
                 Nothing {when === 'past' ? 'logged' : 'planned'}
-                {target > 0 && ` · target ${kcal(target)} kcal`}
+                {target > 0 &&
+                    ` · target ${[
+                        `${kcal(target)} kcal`,
+                        goals?.protein ? `${fmt(goals.protein)} g protein` : null,
+                        goals?.carbs ? `${fmt(goals.carbs)} g carbs` : null,
+                        goals?.fat ? `${fmt(goals.fat)} g fat` : null,
+                    ]
+                        .filter(Boolean)
+                        .join(' · ')}`}
             </p>
         )
     }

@@ -1,15 +1,6 @@
 import type { SessionRep } from '../types'
 import { RepBody } from './session/RepList'
 
-/**
- * A tap-to-count control for interval parts (e.g. "6 x 90s jog / 2min walk").
- * The big primary button logs a round; an undo steps back. It's a controlled
- * component — the parent owns the `done` count so it can be persisted (e.g. when
- * a session is marked done).
- *
- * When `details` are supplied, each rep is drawn as its own row with that rep's
- * info underneath; otherwise a compact row of progress dots is shown.
- */
 /** Seconds → "M:SS" clock label. */
 export function clock(sec: number): string {
     const m = Math.floor(sec / 60)
@@ -33,6 +24,14 @@ export function roundWindows(
     return windows
 }
 
+/**
+ * The reps of an interval part, each one its own row you tap when you finish
+ * it — no separate counter button. Tapping a later row ticks everything up to
+ * it; tapping a ticked row unticks back to it. It's controlled: the parent owns
+ * the `done` count so it can be persisted.
+ *
+ * Without per-rep info it's a row of progress dots and one small "+1" button.
+ */
 export default function RoundCounter({
     target,
     label,
@@ -43,6 +42,7 @@ export default function RoundCounter({
     done,
     onChange,
     readOnly = false,
+    active = true,
 }: {
     target: number
     label?: string
@@ -56,141 +56,116 @@ export default function RoundCounter({
     startAtSec?: number
     done: number
     onChange?: (next: number) => void
-    /** Recap mode (e.g. a logged session): show the progress, hide the tap controls. */
+    /** Recap mode (e.g. a logged session): show the progress, nothing to tap. */
     readOnly?: boolean
+    /** The part you're on — its next rep is picked out. */
+    active?: boolean
 }) {
     const complete = done >= target
     const one = (label?.trim() || 'round').toLowerCase()
-    const many = one.endsWith('s') ? one : `${one}s`
     const hasReps = !!reps && reps.length === target
     const hasDetails = hasReps || (!!details && details.length > 0)
-    const hasTimes = !!seconds && seconds.length > 0
+    // One rep's window is the part's own slot, already on its header.
+    const windows =
+        seconds && seconds.length > 0 && target > 1 ? roundWindows(target, seconds, startAtSec) : []
 
-    const windows = hasTimes ? roundWindows(target, seconds!, startAtSec) : []
-
-    return (
-        <div className="rounded-xl bg-neutral-50 p-3">
-            <div className="mb-2.5 flex items-center justify-between">
-                <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                    {target} {many}
-                </span>
-                <span
-                    className={`text-sm font-bold tabular-nums ${
-                        complete ? 'text-emerald-600' : 'text-neutral-900'
-                    }`}
-                >
-                    {done} / {target}
-                </span>
-            </div>
-
-            {hasDetails || hasTimes ? (
-                /* Per-rep checklist — each rep shows its own info and clock window. */
-                <ol className={`${readOnly ? '' : 'mb-3'} flex flex-col gap-1.5`}>
-                    {Array.from({ length: target }, (_, i) => {
-                        const isDone = i < done
-                        const isNext = i === done && !complete
-                        const win = windows[i]
-                        return (
-                            <li
-                                key={i}
-                                className={`flex ${hasReps ? 'items-start' : 'items-center'} gap-2.5 rounded-xl border px-2.5 py-2 transition-colors ${
-                                    isDone
-                                        ? 'border-emerald-200 bg-emerald-50'
-                                        : isNext
-                                          ? 'border-coral-300 bg-white ring-1 ring-coral-200'
-                                          : 'border-neutral-200 bg-white'
-                                }`}
-                            >
-                                <span
-                                    className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold tabular-nums ${
-                                        isDone
-                                            ? 'bg-emerald-500 text-white'
-                                            : isNext
-                                              ? 'bg-coral-500 text-white'
-                                              : 'bg-neutral-100 text-neutral-500'
-                                    }`}
-                                >
-                                    {isDone ? <i className="fa-solid fa-check text-[11px]" /> : i + 1}
-                                </span>
-                                {hasReps ? (
-                                    <div className={`min-w-0 flex-1 pt-0.5 ${isDone ? 'opacity-70' : ''}`}>
-                                        <RepBody rep={reps![i]} />
-                                    </div>
-                                ) : (
-                                <span
-                                    className={`min-w-0 flex-1 text-sm ${
-                                        isDone ? 'text-emerald-800' : 'text-neutral-700'
-                                    }`}
-                                >
-                                    {hasDetails
-                                        ? (details![i] ?? `${label?.trim() || 'Round'} ${i + 1}`)
-                                        : `${label?.trim() || 'Round'} ${i + 1}`}
-                                </span>
-                                )}
-                                {win && (
-                                    <span
-                                        className={`shrink-0 rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums ${
-                                            isDone
-                                                ? 'bg-emerald-100 text-emerald-700'
-                                                : isNext
-                                                  ? 'bg-coral-100 text-coral-700'
-                                                  : 'bg-neutral-100 text-neutral-500'
-                                        }`}
-                                    >
-                                        {clock(win[0])}–{clock(win[1])}
-                                    </span>
-                                )}
-                            </li>
-                        )
-                    })}
-                </ol>
-            ) : (
-                /* Progress dots — one per round, filled as you go. */
-                <div className={`${readOnly ? '' : 'mb-3'} flex flex-wrap gap-1.5`}>
+    if (!hasDetails && windows.length === 0) {
+        return (
+            <div className="flex items-center gap-3">
+                <div className="flex flex-1 flex-wrap gap-1.5">
                     {Array.from({ length: target }, (_, i) => (
                         <span
                             key={i}
-                            className={`h-2.5 flex-1 rounded-full transition-colors ${
+                            className={`h-2 flex-1 rounded-full transition-colors ${
                                 i < done ? 'bg-emerald-500' : 'bg-neutral-200'
                             }`}
                             style={{ minWidth: 10 }}
                         />
                     ))}
                 </div>
-            )}
+                {!readOnly && (
+                    <>
+                        <button
+                            type="button"
+                            aria-label="Undo one"
+                            onClick={() => onChange?.(Math.max(0, done - 1))}
+                            disabled={done === 0}
+                            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30"
+                        >
+                            <i className="fa-solid fa-rotate-left text-xs" aria-hidden="true" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => onChange?.(Math.min(target, done + 1))}
+                            disabled={complete}
+                            className="h-9 shrink-0 rounded-lg border border-neutral-300 bg-white px-3 text-sm font-semibold text-neutral-800 transition-colors hover:bg-neutral-50 active:bg-neutral-100 disabled:opacity-40"
+                        >
+                            +1 {one}
+                        </button>
+                    </>
+                )}
+            </div>
+        )
+    }
 
-            {!readOnly && (
-                <div className="flex items-center gap-2">
-                    <button
-                        type="button"
-                        onClick={() => onChange?.(Math.min(target, done + 1))}
-                        disabled={complete}
-                        className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${
-                            complete
-                                ? 'cursor-default bg-emerald-100 text-emerald-700'
-                                : 'bg-coral-500 text-white hover:bg-coral-600 active:bg-coral-700'
-                        }`}
-                    >
-                        {complete ? (
-                            <>
-                                <i className="fa-solid fa-check mr-1.5" />
-                                All {target} done
-                            </>
-                        ) : (
-                            <>Tap after each {one}</>
+    return (
+        <ol className="flex flex-col gap-1.5">
+            {Array.from({ length: target }, (_, i) => {
+                const isDone = i < done
+                const isNext = active && i === done && !complete
+                const win = windows[i]
+                const body = hasReps ? (
+                    <RepBody rep={reps![i]} />
+                ) : (
+                    <span className="min-w-0 flex-1 text-sm text-neutral-800">
+                        {details?.[i] ?? `${label?.trim() || 'Round'} ${i + 1}`}
+                    </span>
+                )
+                const inner = (
+                    <>
+                        <span
+                            className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full transition-colors ${
+                                isDone
+                                    ? 'bg-emerald-600 text-white'
+                                    : isNext
+                                      ? 'ring-2 ring-inset ring-neutral-900'
+                                      : 'ring-1 ring-inset ring-neutral-300'
+                            }`}
+                            aria-hidden="true"
+                        >
+                            {isDone && <i className="fa-solid fa-check text-[10px]" />}
+                        </span>
+                        <span className={`flex min-w-0 flex-1 ${isDone ? 'opacity-50' : ''}`}>
+                            {body}
+                        </span>
+                        {win && (
+                            <span className="shrink-0 pt-0.5 text-xs tabular-nums text-neutral-400">
+                                {clock(win[0])}–{clock(win[1])}
+                            </span>
                         )}
-                    </button>
-                    <button
-                        type="button"
-                        aria-label="Undo one"
-                        onClick={() => onChange?.(Math.max(0, done - 1))}
-                        disabled={done === 0}
-                        className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-neutral-200 text-neutral-500 transition-colors hover:bg-white hover:text-neutral-800 disabled:opacity-40"
-                    >
-                        <i className="fa-solid fa-rotate-left" />
-                    </button>
-                </div>
-            )}
-        </div>
+                    </>
+                )
+                const row = `flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
+                    isNext ? 'bg-white ring-1 ring-neutral-900/70' : isDone ? 'bg-transparent' : 'bg-neutral-50'
+                }`
+                return (
+                    <li key={i}>
+                        {readOnly ? (
+                            <div className={row}>{inner}</div>
+                        ) : (
+                            <button
+                                type="button"
+                                aria-pressed={isDone}
+                                aria-label={`${isDone ? 'Untick' : 'Tick'} ${one} ${i + 1}`}
+                                onClick={() => onChange?.(isDone ? i : i + 1)}
+                                className={`${row} hover:bg-neutral-100 active:bg-neutral-200/60`}
+                            >
+                                {inner}
+                            </button>
+                        )}
+                    </li>
+                )
+            })}
+        </ol>
     )
 }

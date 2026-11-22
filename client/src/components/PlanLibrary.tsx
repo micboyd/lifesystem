@@ -1,3 +1,5 @@
+import { LibraryFilters } from './LibraryToolbar'
+import { useLibraryView } from '../lib/librarySort'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Card } from './Card'
 import Spinner from './Spinner'
@@ -124,6 +126,7 @@ export default function PlanLibrary({ onApplied }: { onApplied?: (firstDate: str
     const toast = useToast()
     const [loading, setLoading] = useState(true)
     const [plans, setPlans] = useState<TrainingPlan[]>([])
+    const view = useLibraryView('trainingPlans', plans)
     const [importing, setImporting] = useState(false)
     const [openId, setOpenId] = useState<string | null>(null)
     const [applying, setApplying] = useState<TrainingPlan | null>(null)
@@ -278,8 +281,18 @@ export default function PlanLibrary({ onApplied }: { onApplied?: (firstDate: str
                     }
                 />
             ) : (
+                <>
+                {plans.length > 1 && (
+                    <LibraryFilters
+                        sort={view.sort}
+                        onSort={view.onSort}
+                        newCount={view.newCount}
+                        newOnly={view.newOnly}
+                        onNewOnly={view.onNewOnly}
+                    />
+                )}
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    {plans.map((plan) => (
+                    {view.shown.map((plan) => (
                         <PlanCard
                             key={plan._id}
                             plan={plan}
@@ -293,6 +306,7 @@ export default function PlanLibrary({ onApplied }: { onApplied?: (firstDate: str
                         />
                     ))}
                 </div>
+                </>
             )}
 
             <PlanDetailDrawer

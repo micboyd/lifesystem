@@ -110,6 +110,11 @@ function escapeRegExp(s: string): string {
  * `?all=1` to get the whole library in one go (the planner, the export centre
  * and the workout log all need every workout). The response carries `page`,
  * `pages` and `total` alongside `data`.
+ *
+ * `?sort=` orders it: `recent` (newest first), `oldest`, `updated` (last
+ * edited first) or `name`; anything else is library order. `?new=1` keeps only
+ * workouts added in the last week, and `newCount` says how many of the matches
+ * that is, so the library can offer the filter.
  */
 export async function listWorkouts(req: AuthRequest, res: Response) {
     const query: Record<string, unknown> = { user: req.userId }
@@ -131,13 +136,23 @@ export async function listWorkouts(req: AuthRequest, res: Response) {
         ]
     }
 
-    const sort = { order: 1 as const, createdAt: 1 as const }
+    const SORTS: Record<string, Record<string, 1 | -1>> = {
+        recent: { createdAt: -1 },
+        oldest: { createdAt: 1 },
+        updated: { updatedAt: -1 },
+        name: { name: 1 },
+    }
+    const sort = { ...(SORTS[String(req.query.sort)] ?? { order: 1 }), _id: 1 as const }
 
     if (req.query.all) {
         const workouts = await Workout.find(query).sort(sort)
         res.json({ message: 'OK', data: workouts, page: 1, pages: 1, total: workouts.length })
         return
     }
+
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const newCount = await Workout.countDocuments({ ...query, createdAt: { $gte: weekAgo } })
+    if (req.query.new) query.createdAt = { $gte: weekAgo }
 
     const page = Math.max(1, Math.floor(Number(req.query.page)) || 1)
     const total = await Workout.countDocuments(query)
@@ -147,7 +162,7 @@ export async function listWorkouts(req: AuthRequest, res: Response) {
         .skip((page - 1) * PAGE_SIZE)
         .limit(PAGE_SIZE)
 
-    res.json({ message: 'OK', data: workouts, page, pages, total })
+    res.json({ message: 'OK', data: workouts, page, pages, total, newCount })
 }
 
 /** POST /api/workouts — create a workout, appended to the end of the library. */

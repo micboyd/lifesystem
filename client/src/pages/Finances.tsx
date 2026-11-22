@@ -573,7 +573,7 @@ export default function Finances() {
                         <MonthArrow dir="next" onClick={() => setMonth((m) => addMonths(m, 1))} />
                     </div>
                     <div className="min-w-0 flex-1">
-                        <h1 className="truncate text-xl font-semibold tracking-tight text-neutral-950 sm:text-[22px]">
+                        <h1 className="truncate text-[17px] font-semibold tracking-tight text-neutral-950 min-[360px]:text-xl sm:text-[22px]">
                             {monthLabel}
                         </h1>
                         <p className="truncate text-[13px] text-neutral-500">

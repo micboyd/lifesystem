@@ -1,5 +1,6 @@
 import { Response } from 'express'
 import { randomUUID } from 'crypto'
+import { Types } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
 import ShoppingList, { IShoppingGroup, IShoppingList } from '../models/ShoppingList'
 import Meal from '../models/Meal'
@@ -69,7 +70,60 @@ async function send(userId: string, res: Response, list: List) {
     list.ticked = [...new Set(list.ticked)].filter((t) => present.has(t))
     list.markModified('groups')
     await list.save()
-    res.json({ message: 'OK', data: { groups: list.groups, ticked: list.ticked } })
+    res.json({ message: 'OK', data: { groups: list.groups, ticked: list.ticked, prep: list.prep ?? null } })
+}
+
+const DATE = /^\d{4}-\d{2}-\d{2}$/
+const count99 = (v: unknown) => Math.min(99, Math.max(1, Math.round(Number(v) || 0)))
+
+/**
+ * PUT /api/shopping/prep { from, to, extras: [{ meal, count }], meals: [{ id, count }] }
+ * — what Prep is cooking for. The list's meals become exactly `meals` (the
+ * days' meals and the extras, counted by the client); typed-in things stay.
+ * A meal that's new or needs more comes out of the basket.
+ */
+export async function setPrep(req: AuthRequest, res: Response) {
+    const b = (req.body ?? {}) as Record<string, unknown>
+    if (typeof b.from !== 'string' || typeof b.to !== 'string' || !DATE.test(b.from) || !DATE.test(b.to) || b.to < b.from) {
+        res.status(400).json({ message: 'from and to must be YYYY-MM-DD, from first' })
+        return
+    }
+    const read = (v: unknown, key: 'id' | 'meal') =>
+        (Array.isArray(v) ? v : [])
+            .map((r) => r as Record<string, unknown>)
+            .filter((r) => typeof r[key] === 'string' && Types.ObjectId.isValid(r[key] as string) && Number(r.count) >= 1)
+            .map((r) => ({ id: r[key] as string, count: count99(r.count) }))
+    const want = read(b.meals, 'id')
+    const extras = read(b.extras, 'meal')
+
+    const list = await listFor(req.userId!)
+    const meals = await Meal.find({ user: req.userId, _id: { $in: want.map((w) => w.id) } })
+    const kept: IShoppingGroup[] = list.groups.filter((g) => g.kind === 'item')
+    for (const w of want) {
+        const meal = meals.find((m) => String(m._id) === w.id)
+        if (!meal) continue
+        const had = list.groups.find((g) => g.kind === 'meal' && String(g.ref) === w.id)
+        const group: IShoppingGroup = had ?? {
+            id: randomUUID(),
+            kind: 'meal',
+            ref: meal._id as IShoppingGroup['ref'],
+            name: meal.name,
+            ingredients: (meal.ingredients ?? []).map((i) => ({ name: i.name, grams: i.grams, items: i.items })),
+            batchOf: meal.batchOf ?? null,
+            count: w.count,
+        }
+        if (!had || w.count > had.count) untick(list, group)
+        group.count = w.count
+        kept.push(group)
+    }
+    list.groups = kept
+    list.prep = {
+        from: b.from,
+        to: b.to,
+        extras: extras.map((e) => ({ meal: new Types.ObjectId(e.id), count: e.count })),
+    }
+    list.markModified('prep')
+    await send(req.userId!, res, list)
 }
 
 /** GET /api/shopping — what's been added, and which lines are ticked. */
@@ -109,6 +163,13 @@ export async function addToShopping(req: AuthRequest, res: Response) {
     else {
         group = { id: randomUUID(), ...entry, count: more }
         list.groups.push(group)
+    }
+    // Prep is cooking for some days: this goes on top of them, so it stays when they're recounted.
+    if (list.prep) {
+        const extra = list.prep.extras.find((e) => String(e.meal) === String(entry.ref))
+        if (extra) extra.count = Math.min(99, extra.count + more)
+        else list.prep.extras.push({ meal: entry.ref as Types.ObjectId, count: more })
+        list.markModified('prep')
     }
     untick(list, group)
     await send(req.userId!, res, list)
@@ -184,6 +245,7 @@ export async function clearShopping(req: AuthRequest, res: Response) {
     } else {
         list.groups = []
         list.ticked = []
+        list.prep = null
     }
     await send(req.userId!, res, list)
 }

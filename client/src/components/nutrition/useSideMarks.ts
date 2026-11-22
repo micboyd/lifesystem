@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 import { lineKey, sideMarked } from '../../lib/shopping'
 
 /**
- * Which ingredients are sides, as marked on the Thinking ahead shopping list.
+ * Which ingredients are sides, as marked on the Prep shopping list.
  * Kept on this device; unmarked names fall back to a guess (rice, pasta…).
  */
 const KEY = 'nutrition.sides'

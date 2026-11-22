@@ -88,6 +88,14 @@ interface JsonImportPanelProps {
     existingItems?: { _id: string; name: string }[]
     /** Reload the library grid after an import is reverted. */
     onLibraryChanged?: () => void
+    /**
+     * A failed import this library can help put right (plans naming meals the
+     * Library lacks). Return what to show in place of the error, or null for
+     * the plain message. `retry` sends the same import again.
+     */
+    renderError?: (error: unknown, retry: () => void, dismiss: () => void) => ReactNode | null
+    /** Extra controls under the description (e.g. a Basic / Advanced switch). */
+    toolbar?: ReactNode
 }
 
 /**
@@ -108,12 +116,16 @@ export default function JsonImportPanel({
     resource,
     existingItems,
     onLibraryChanged,
+    renderError,
+    toolbar,
 }: JsonImportPanelProps) {
     const toast = useToast()
     const [text, setText] = useState('')
     const [importing, setImporting] = useState(false)
     const [result, setResult] = useState<Result>(null)
     const [copied, setCopied] = useState(false)
+    // A failed import the library offered to help with, and what was being sent.
+    const [failed, setFailed] = useState<{ error: unknown; data: unknown; overwrite?: OverwriteMap } | null>(null)
 
     // Reconcile stage: set once a paste is found to clash with existing names.
     const [pending, setPending] = useState<unknown>(null)
@@ -134,6 +146,7 @@ export default function JsonImportPanel({
     async function commit(data: unknown, overwrite?: OverwriteMap) {
         setImporting(true)
         setResult(null)
+        setFailed(null)
         try {
             const { created, updated, placed } = await doImport(data, overwrite)
             const parts: string[] = []
@@ -148,7 +161,8 @@ export default function JsonImportPanel({
             setResult({ variant: 'success', message: `Import complete — ${summary}. Returning…` })
             setTimeout(() => onImported(created), 1200)
         } catch (err) {
-            setResult({ variant: 'danger', message: errorMessage(err) })
+            if (renderError?.(err, () => {}, () => {})) setFailed({ error: err, data, overwrite })
+            else setResult({ variant: 'danger', message: errorMessage(err) })
         } finally {
             setImporting(false)
         }
@@ -202,8 +216,15 @@ export default function JsonImportPanel({
                 </button>
                 <h2 className="text-xl font-bold tracking-tight text-neutral-950">{heading}</h2>
                 <p className="mt-1 text-sm text-neutral-500">{description}</p>
+                {toolbar && <div className="mt-4">{toolbar}</div>}
             </div>
 
+            {failed &&
+                renderError?.(
+                    failed.error,
+                    () => void commit(failed.data, failed.overwrite),
+                    () => setFailed(null)
+                )}
             {result && (
                 <Alert variant={result.variant} onClose={() => setResult(null)}>
                     {result.message}

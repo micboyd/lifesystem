@@ -49,6 +49,7 @@ Last updated: 2026-11-21 07:50 (status: COMPLETE)
 - [x] Plans
 - [x] Stats
 ### Finances
+- [x] Monthly (/finances) — added 2026-11-21 finance pass
 - [x] Monthly
 - [x] Statement
 - [x] Budgets
@@ -90,3 +91,10 @@ Last updated: 2026-11-21 07:50 (status: COMPLETE)
 - Login (code-only, session is signed in): card was px-6 + p-8, leaving ~208px for fields at 320px → px-4/p-6 on phones; subtitle 16px on phones.
 - Shared overlays: Modal max-h 85vh → 85dvh (iOS toolbar); Toast close 28→40px on phones and toast stack clears the home indicator; TimePicker spinner arrows 28→40px, clear × 20→32px, quick times + Now/Done taller on phones; DatePicker month arrows 32→40px on phones. TimePicker/DatePicker popovers already clamp to the viewport (checked End-time picker: 115–355px of 375). Drawer is full-screen on phones; BottomSheet already uses dvh + safe-area footer. iOS focus zoom already guarded in index.css.
 - Statement re-check after Doh change: page scrollWidth = 375; only the intentional swipe rows (section tabs, category chips) extend past the edge.
+- Finance pass 2026-11-21 (all finance screens + drawers at 375 and 320; checked overflow, tap targets <32px, text <11px, cut-off text):
+  - Monthly: paid/received ticks were 24px → 40px tap area, same 24px circle; row names wrap to 2 lines instead of truncating; amount column 96px under 360px; month title 17px under 360px.
+  - Statement: "Show more / Show all / See N payments" links 20px → 40px tall. Transactions review mode: phones stack amount over the Good/Bad toggle and let names wrap (were "Marks & Spen…"); event-pill checkbox has a 40px invisible tap area.
+  - Budgets card footer (Transactions, Sync, More), Archived, Out of sync → 40px on phones. Recent spending "Statement" link 18px → 40px.
+  - Forecast: plan delete button 28px → 40px on phones + aria-label.
+  - Clean already: Daily log, Spaces, Breakdown, Monthly row drawer, Statement payments drawer, Budgets transactions drawer.
+

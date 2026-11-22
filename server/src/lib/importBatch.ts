@@ -47,12 +47,20 @@ export function makeLastImportHandler<T extends Batchable>(model: Model<T>) {
 }
 
 /** DELETE handler → remove every record from the latest import batch. */
-export function makeUndoImportHandler<T extends Batchable>(model: Model<T>) {
+export function makeUndoImportHandler<T extends Batchable>(
+    model: Model<T>,
+    /** Tidies up anything that hangs off the records about to go, given their ids. */
+    beforeDelete?: (user: string, ids: unknown[]) => Promise<void>
+) {
     return async (req: AuthRequest, res: Response) => {
         const summary = await summarise(model, req.userId)
         if (!summary) {
             res.status(404).json({ message: 'No import to undo.' })
             return
+        }
+        if (beforeDelete) {
+            const docs = await model.find({ user: req.userId, importBatch: summary.batch } as FilterQuery<T>).select('_id')
+            await beforeDelete(req.userId!, docs.map((d) => d._id))
         }
         await model.deleteMany({ user: req.userId, importBatch: summary.batch } as FilterQuery<T>)
         res.json({ message: `Reverted ${summary.count} item(s).`, data: summary })

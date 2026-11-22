@@ -6,8 +6,8 @@ import type { ShoppingGroup, ShoppingList } from '../../types'
 
 /**
  * The shopping list's shared pieces: the hook that holds it, the cart button
- * on a Library card, and the header pill that jumps to Thinking ahead (where
- * the list is planned and shopped — see ThinkingAhead.tsx).
+ * on a Library card, and the header pill that jumps to Prep (where
+ * the list is planned and shopped — see Prep.tsx).
  */
 
 export type ShopKind = 'meal'
@@ -33,7 +33,7 @@ export function useShopping() {
                 const next = await addToShopping(kind, id, tray ?? 1)
                 setList(next)
                 const g = next.groups.find((x) => x.ref === id)
-                toast.show(g ? `${name}: ${countLabel(g)} in Thinking ahead.` : `Added ${name} to Thinking ahead.`)
+                toast.show(g ? `${name}: ${countLabel(g)} in Prep.` : `Added ${name} to Prep.`)
             } catch {
                 toast.show('Could not add that to the shopping list.', 'danger')
             }
@@ -58,7 +58,7 @@ export function leftToGet(list: ShoppingList): number {
     return mergeLines(list.groups).filter((l) => !ticked.has(l.key)).length
 }
 
-/** The header pill: how many things are left to buy. Opens Thinking ahead. */
+/** The header pill: how many things are left to buy. Opens Prep. */
 export function ShoppingPill({ list, onOpen }: { list: ShoppingList; onOpen: () => void }) {
     const left = leftToGet(list)
     return (
@@ -83,8 +83,8 @@ export function ShopButton({ name, onClick }: { name: string; onClick: () => voi
     return (
         <button
             type="button"
-            aria-label={`Add ${name} to Thinking ahead`}
-            title="Add to Thinking ahead"
+            aria-label={`Add ${name} to Prep`}
+            title="Add to Prep"
             onClick={onClick}
             className="relative z-20 -mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
         >

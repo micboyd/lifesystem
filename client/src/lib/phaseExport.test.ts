@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { phaseExportDocument, phaseExportFileName, phaseExportItem } from './phaseExport'
+import { phaseExportDocument, phaseExportFileName, phaseExportItem, menuExport } from './phaseExport'
 import type { NutritionPhase } from '../types'
 
 function phase(over: Partial<NutritionPhase> = {}): NutritionPhase {
@@ -70,5 +70,32 @@ describe('phaseExportFileName', () => {
         expect(phaseExportFileName([phase(), phase()], '2026-10-25')).toBe(
             'nutrition-plans-2026-10-25.json'
         )
+    })
+})
+
+describe('menuExport', () => {
+    const names = new Map([
+        ['a', 'Overnight oats'],
+        ['b', 'Curry'],
+        ['c', 'Naan'],
+    ])
+    const name = (id: string) => names.get(id)
+
+    it('writes days, slots and meal names, as a list when a slot holds several', () => {
+        expect(
+            menuExport(
+                [
+                    { day: 0, slot: 'breakfast', meal: 'a' },
+                    { day: 5, slot: 'dinner', meal: 'b' },
+                    { day: 5, slot: 'dinner', meal: 'c' },
+                ],
+                name
+            )
+        ).toEqual({ mon: { breakfast: 'Overnight oats' }, sat: { dinner: ['Curry', 'Naan'] } })
+    })
+
+    it('leaves out deleted meals, and is undefined when nothing is left', () => {
+        expect(menuExport([{ day: 1, slot: 'lunch', meal: 'gone' }], name)).toBeUndefined()
+        expect(menuExport(undefined, name)).toBeUndefined()
     })
 })

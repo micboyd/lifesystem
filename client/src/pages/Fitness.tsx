@@ -8,7 +8,8 @@ import { Card } from '../components/Card'
 import Spinner from '../components/Spinner'
 import Button from '../components/Button'
 import Input from '../components/Input'
-import LibraryToolbar from '../components/LibraryToolbar'
+import LibraryToolbar, { LibraryFilters } from '../components/LibraryToolbar'
+import { useLibraryView } from '../lib/librarySort'
 import Textarea from '../components/Textarea'
 import Select from '../components/Select'
 import EmptyState from '../components/EmptyState'
@@ -306,6 +307,7 @@ function ConditioningLibrary() {
     const [drawer, setDrawer] = useState<Drawered>(null)
     const [importing, setImporting] = useState(false)
     const [search, setSearch] = useState('')
+    const [category, setCategory] = useState<'all' | ConditioningCategory>('all')
     const [page, setPage] = useState(1)
 
     useEffect(() => {
@@ -314,14 +316,18 @@ function ConditioningLibrary() {
             .finally(() => setLoading(false))
     }, [])
 
-    // Filter by name/purpose, then paginate the matches 9 at a time.
-    const filtered = useMemo(() => {
+    // Filter by name/purpose and type, sort, then paginate the matches 9 at a time.
+    const searched = useMemo(() => {
         const q = search.trim().toLowerCase()
-        if (!q) return sessions
         return sessions.filter(
-            (s) => s.name.toLowerCase().includes(q) || (s.purpose ?? '').toLowerCase().includes(q)
+            (s) =>
+                (category === 'all' || s.category === category) &&
+                (!q || s.name.toLowerCase().includes(q) || (s.purpose ?? '').toLowerCase().includes(q))
         )
-    }, [sessions, search])
+    }, [sessions, search, category])
+    const view = useLibraryView('sessions', searched)
+    const filtered = view.shown
+    const types = CONDITIONING_CATEGORIES.filter((c) => sessions.some((s) => s.category === c))
 
     const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
 
@@ -469,7 +475,38 @@ function ConditioningLibrary() {
                 onImport={() => setImporting(true)}
                 newLabel="New session"
                 onNew={() => setDrawer({ mode: 'create' })}
-            />
+            >
+                {sessions.length > 0 && (
+                    <LibraryFilters
+                        sort={view.sort}
+                        onSort={(v) => {
+                            view.onSort(v)
+                            setPage(1)
+                        }}
+                        newCount={view.newCount}
+                        newOnly={view.newOnly}
+                        onNewOnly={(v) => {
+                            view.onNewOnly(v)
+                            setPage(1)
+                        }}
+                    >
+                        {types.length > 1 && (
+                            <Select
+                                value={category}
+                                onChange={(v) => {
+                                    setCategory(v as 'all' | ConditioningCategory)
+                                    setPage(1)
+                                }}
+                                options={[
+                                    { value: 'all', label: 'All types' },
+                                    ...types.map((c) => ({ value: c, label: c })),
+                                ]}
+                                className="w-full sm:w-40"
+                            />
+                        )}
+                    </LibraryFilters>
+                )}
+            </LibraryToolbar>
 
             {loading ? (
                 <div className="grid place-items-center py-16">
@@ -493,7 +530,11 @@ function ConditioningLibrary() {
                 <EmptyState
                     icon="fa-solid fa-magnifying-glass"
                     title="No matches"
-                    description={`No sessions match “${search.trim()}”.`}
+                    description={
+                        search.trim()
+                            ? `No sessions match “${search.trim()}”.`
+                            : 'No sessions fit these filters.'
+                    }
                 />
             ) : (
                 <>

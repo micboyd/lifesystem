@@ -16,6 +16,7 @@ interface WorkoutListResponse extends ApiResponse<Workout[]> {
     page: number
     pages: number
     total: number
+    newCount?: number
 }
 
 /** One page of the workout library. */
@@ -24,6 +25,8 @@ export interface WorkoutsPage {
     page: number
     pages: number
     total: number
+    /** How many of the matches were added this week. */
+    newCount: number
 }
 
 /** The whole library in one go — for the planner, the export centre and the log. */
@@ -37,12 +40,21 @@ export async function listWorkouts(): Promise<Workout[]> {
  * term that the server matches against the workout's name and description and
  * the names of the exercises it contains.
  */
-export async function listWorkoutsPage(page: number, search?: string): Promise<WorkoutsPage> {
+export async function listWorkoutsPage(
+    page: number,
+    search?: string,
+    opts: { sort?: string; newOnly?: boolean } = {}
+): Promise<WorkoutsPage> {
     const res = await api.get<WorkoutListResponse>('/workouts', {
-        params: { page, search: search?.trim() || undefined },
+        params: {
+            page,
+            search: search?.trim() || undefined,
+            sort: opts.sort && opts.sort !== 'library' ? opts.sort : undefined,
+            new: opts.newOnly ? 1 : undefined,
+        },
     })
     const d = res.data
-    return { workouts: d.data, page: d.page, pages: d.pages, total: d.total }
+    return { workouts: d.data, page: d.page, pages: d.pages, total: d.total, newCount: d.newCount ?? 0 }
 }
 
 export async function createWorkout(fields: WorkoutInput): Promise<Workout> {

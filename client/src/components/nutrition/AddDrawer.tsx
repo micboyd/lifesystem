@@ -7,6 +7,7 @@ import { PickRow, PICK_LABEL, Segmented } from '../planner/PlannerParts'
 import { CATEGORY } from './mealUi'
 import { fmt, kcal } from './format'
 import { fitCost, slotBudget } from '../../lib/mealAim'
+import { SLOT_PART } from '../../lib/mealEvents'
 import {
     eventCoversAllDay,
     eventCoversSlot,
@@ -38,6 +39,8 @@ export type AddTarget = {
     eaten: boolean
     /** Straight to marking the whole day away. */
     awayDay?: boolean
+    /** Straight to marking this slot away (from a calendar tag). */
+    away?: boolean
 }
 
 const PAGE_SIZE = 10
@@ -94,7 +97,7 @@ export function AddDrawer({
         setSlot(target.slot)
         setQuery('')
         setPage(1)
-        setStep({ kind: 'list' })
+        setStep(target.away ? { kind: 'away' } : { kind: 'list' })
         setBusy(false)
     }
 
@@ -390,13 +393,6 @@ function ListStep({
 
 // ─── Away ──────────────────────────────────────────────────────────────────────
 
-/** The part of the day a slot falls in, for matching it against calendar events. */
-const SLOT_PART: Record<MealType, 'morning' | 'afternoon' | 'evening' | null> = {
-    breakfast: 'morning',
-    lunch: 'afternoon',
-    dinner: 'evening',
-    snack: null,
-}
 
 /**
  * "At an event, so no meal here": pick one of the day's calendar events — the

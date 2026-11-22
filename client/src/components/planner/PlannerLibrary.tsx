@@ -38,6 +38,7 @@ export default function PlannerLibrary<K extends string, P extends string>({
     part,
     onPart,
     onAdd,
+    onOpen,
     onDragStart,
     onDragEnd,
     asideLabel,
@@ -53,6 +54,8 @@ export default function PlannerLibrary<K extends string, P extends string>({
     part: P
     onPart: (part: P) => void
     onAdd: (item: LibraryEntry<K>) => void
+    /** Clicking an item's name opens its details. Without it the name is plain text. */
+    onOpen?: (item: LibraryEntry<K>) => void
     onDragStart: (drag: LibraryDrag<K>) => void
     onDragEnd: () => void
     /** What the right-hand figure means, for screen readers. */
@@ -134,15 +137,33 @@ export default function PlannerLibrary<K extends string, P extends string>({
                         className="grid grid-cols-[10px_minmax(0,1fr)_auto] items-center gap-3.5 border-b border-[#dcdcdc] py-3.5 md:cursor-grab md:active:cursor-grabbing"
                     >
                         <span className={`h-2.5 w-2.5 ${item.dot}`} aria-hidden="true" />
-                        <span className="min-w-0">
-                            <span className="block truncate font-medium">{item.name}</span>
-                            <span className="block text-[13px] text-neutral-600">
-                                {item.meta}
-                                {item.aside && (
-                                    <span aria-label={asideLabel ? `${asideLabel}: ${item.aside}` : undefined}> · {item.aside}</span>
-                                )}
-                            </span>
-                        </span>
+                        {(() => {
+                            const body = (
+                                <>
+                                    <span className={`block truncate font-medium ${onOpen ? 'group-hover/open:underline group-hover/open:underline-offset-4' : ''}`}>
+                                        {item.name}
+                                    </span>
+                                    <span className="block text-[13px] text-neutral-600">
+                                        {item.meta}
+                                        {item.aside && (
+                                            <span aria-label={asideLabel ? `${asideLabel}: ${item.aside}` : undefined}> · {item.aside}</span>
+                                        )}
+                                    </span>
+                                </>
+                            )
+                            return onOpen ? (
+                                <button
+                                    type="button"
+                                    onClick={() => onOpen(item)}
+                                    aria-label={`See ${item.name}`}
+                                    className="group/open min-w-0 text-left"
+                                >
+                                    {body}
+                                </button>
+                            ) : (
+                                <span className="min-w-0">{body}</span>
+                            )
+                        })()}
                         <button
                             type="button"
                             onClick={() => onAdd(item)}

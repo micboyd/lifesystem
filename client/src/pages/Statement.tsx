@@ -177,7 +177,8 @@ function EventPill({ event, itemId }: { event: Event; itemId?: string }) {
                 aria-label={`${on ? 'Linked to' : 'Not linked to'} ${event.title}. ${on ? 'Untick if this payment wasn\u2019t part of it' : 'Tick to link it again'}`}
                 title={on ? `Linked to ${event.title}. Untick if it wasn\u2019t part of it.` : `Not linked to ${event.title}. Tick to link again.`}
                 onClick={() => links.toggle(itemId, event)}
-                className={`inline-flex min-w-0 max-w-[12rem] shrink items-center gap-1.5 rounded-full py-0.5 pl-1.5 pr-2 text-[11px] font-medium transition-colors ${
+                // The pill is small; the invisible ::after gives it a 40px-tall tap area.
+                className={`relative inline-flex min-w-0 max-w-[12rem] shrink items-center gap-1.5 rounded-full py-0.5 pl-1.5 pr-2 text-[11px] font-medium transition-colors after:absolute after:inset-x-0 after:-inset-y-2.5 after:content-[''] ${
                     on ? `${c.bg} ${c.text}` : 'bg-neutral-100 text-neutral-500 ring-1 ring-inset ring-neutral-200'
                 }`}
             >
@@ -526,7 +527,7 @@ function Insights({ insights, onOpen }: { insights: Insight[]; onOpen: (title: s
                 <button
                     type="button"
                     onClick={() => setAll(!all)}
-                    className="mt-3 text-[13px] font-medium text-neutral-600 hover:text-neutral-900"
+                    className="mt-1 inline-flex min-h-10 items-center text-[13px] font-medium text-neutral-600 hover:text-neutral-900"
                 >
                     {all ? 'Show fewer' : `Show ${insights.length - INSIGHTS_SHOWN} more`}
                 </button>
@@ -1088,7 +1089,7 @@ function Breakdown({ s, onOpen }: { s: MonthStatement; onOpen: (title: string, i
                 <button
                     type="button"
                     onClick={() => setAll(!all)}
-                    className="mt-2 text-[13px] font-medium text-neutral-600 hover:text-neutral-900"
+                    className="inline-flex min-h-10 items-center text-[13px] font-medium text-neutral-600 hover:text-neutral-900"
                 >
                     {all ? 'Show fewer' : `Show all ${list.length}`}
                 </button>
@@ -1125,9 +1126,14 @@ function TransactionRow({
                 <i className={`fa-solid ${categoryIcon(t.category)}`} aria-hidden="true" />
             </span>
             <div className="min-w-0 flex-1">
-                <p className="truncate text-[15px] text-neutral-900">{t.merchant ?? 'Unknown'}</p>
-                <div className="flex min-w-0 items-center gap-1.5 text-[13px] text-neutral-500">
-                    <span className="truncate">
+                {/* Reviewing narrows the row, so names wrap to a second line rather than cut off. */}
+                <p className={`text-[15px] text-neutral-900 ${verdict ? 'line-clamp-2 break-words' : 'truncate'}`}>
+                    {t.merchant ?? 'Unknown'}
+                </p>
+                <div
+                    className={`flex min-w-0 gap-1.5 text-[13px] text-neutral-500 ${verdict ? 'flex-wrap items-center' : 'items-center'}`}
+                >
+                    <span className={verdict ? 'break-words' : 'truncate'}>
                         {showDate ? `${dayLabel(t.date)} · ` : ''}
                         {timeLabel(t.time)}
                         {main ? ` · ${TAGS[main].label}` : ''}
@@ -1135,13 +1141,14 @@ function TransactionRow({
                     {event && <EventPill event={event} itemId={t.id} />}
                 </div>
             </div>
-            <M v={t.amount} className="shrink-0 text-[15px] font-medium text-neutral-900" />
-            {verdict && onVerdict && (
-                <VerdictToggle
-                    verdict={verdict}
-                    onChange={onVerdict}
-                    label={t.merchant ?? 'payment'}
-                />
+            {verdict && onVerdict ? (
+                // Phones stack the amount over the toggle so the name keeps its width.
+                <div className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3">
+                    <M v={t.amount} className="text-[15px] font-medium text-neutral-900" />
+                    <VerdictToggle verdict={verdict} onChange={onVerdict} label={t.merchant ?? 'payment'} />
+                </div>
+            ) : (
+                <M v={t.amount} className="shrink-0 text-[15px] font-medium text-neutral-900" />
             )}
         </li>
     )
@@ -1163,7 +1170,7 @@ function VerdictToggle({
             aria-pressed={verdict === v}
             aria-label={`Mark ${label} as ${v}`}
             onClick={() => onChange(v)}
-            className={`h-8 px-2.5 text-[12px] font-semibold transition-colors ${
+            className={`h-8 px-2 text-[12px] font-semibold transition-colors min-[360px]:px-2.5 ${
                 verdict === v ? on : 'text-neutral-500 hover:text-neutral-800'
             }`}
         >
@@ -1255,7 +1262,7 @@ function Transactions({
         byDay.set(t.date, [...(byDay.get(t.date) ?? []), t])
 
     return (
-        <Card hover={false}>
+        <div>
             <div className="mb-4 flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
@@ -1473,7 +1480,7 @@ function Transactions({
                     </p>
                 </div>
             )}
-        </Card>
+        </div>
     )
 }
 
@@ -1842,7 +1849,7 @@ function WeekCard({ week, onOpen }: { week: WeekReview; onOpen: (title: string, 
                 <button
                     type="button"
                     onClick={() => onOpen(week.done ? 'Last week' : 'This week', week.items)}
-                    className="text-[13px] font-medium text-neutral-600 hover:text-neutral-900"
+                    className="-my-2 inline-flex min-h-10 shrink-0 items-center text-[13px] font-medium text-neutral-600 hover:text-neutral-900"
                 >
                     See {plural(week.items.length, 'payment')}
                 </button>

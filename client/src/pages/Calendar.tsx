@@ -110,14 +110,25 @@ function relativeLabel(view: CalendarView, focusDate: string): string {
     return diff > 0 ? `In ${diff} ${unit}s` : `${-diff} ${unit}s ago`
 }
 
+/** The /calendar page. */
 export default function Calendar() {
+    return <CalendarBody />
+}
+
+/**
+ * The whole calendar: header, Year/Month views, drawers and export. The page
+ * renders it as-is; the top bar's Quick calendar renders it `embedded` inside
+ * an overlay, where it ignores the page's ?date link and isn't a <main>.
+ */
+export function CalendarBody({ embedded = false }: { embedded?: boolean } = {}) {
     const today = new Date()
     const { user } = useAuth()
     const { byId: calendarsById, setVisible } = useCalendars()
     const { types: hiddenTypes, rows: hiddenRows } = useCalendarFilters()
     // ?date=YYYY-MM-DD (from the dashboard's "Open day") opens that day's month.
     const [searchParams] = useSearchParams()
-    const linkedDate = /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get('date') ?? '') ? searchParams.get('date')! : null
+    const dateParam = embedded ? null : searchParams.get('date')
+    const linkedDate = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : null
     const [view, setView] = useState<CalendarView>(linkedDate ? 'Month' : 'Year')
     const [showPastMonths, setShowPastMonths] = useState(false)
     const [focusDate, setFocusDate] = useState(linkedDate ?? todayKey())
@@ -664,8 +675,9 @@ export default function Calendar() {
         .filter(Boolean)
         .join(' · ')
 
+    const Shell = embedded ? 'div' : 'main'
     return (
-        <main className="min-h-screen bg-white">
+        <Shell className={embedded ? 'bg-white' : 'min-h-screen bg-white'}>
             {/* Header: where you are, how to move, and the view. */}
             <div className="flex flex-wrap items-end gap-x-8 gap-y-4 border-b border-hairline px-5 pb-7 pt-8 sm:px-10">
                 <div className="min-w-0">
@@ -960,7 +972,7 @@ export default function Calendar() {
                     />
                 )}
             </Drawer>
-        </main>
+        </Shell>
     )
 }
 

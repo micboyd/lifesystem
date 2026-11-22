@@ -291,6 +291,16 @@ export function StepsGlance({ data }: { data: StepsData }) {
             goal={fmt(target)}
             share={(steps ?? 0) / target}
             bar="bg-success"
+            icon="fa-solid fa-shoe-prints"
+            iconTone="text-success"
+            note={
+                steps === null
+                    ? 'Not synced yet'
+                    : steps >= target
+                      ? 'Target hit'
+                      : `${fmt(target - steps)} to go`
+            }
+            noteTone={steps !== null && steps >= target ? 'text-success' : 'text-neutral-600'}
             to="/walking"
         />
     )

@@ -66,7 +66,6 @@ const FIXED_GROUPS: { title: string; rows: Row[] }[] = [
             { key: mealKey('lunch'), label: 'Lunch', detail: 'Each meal planned in the slot.', icon: 'fa-solid fa-bowl-food' },
             { key: mealKey('snack'), label: 'Snacks', detail: 'Each snack planned that day.', icon: 'fa-solid fa-apple-whole' },
             { key: mealKey('dinner'), label: 'Dinner', detail: 'Each meal planned in the slot.', icon: 'fa-solid fa-utensils' },
-            { key: 'plan-meals', label: 'Plan the day’s meals', detail: 'A nudge when nothing’s planned yet.', icon: 'fa-regular fa-calendar-plus' },
         ],
     },
     {

@@ -26,7 +26,7 @@ export type DayPart = 'morning' | 'afternoon' | 'evening'
 
 export const DAY_PARTS: DayPart[] = ['morning', 'afternoon', 'evening']
 
-export type StepKind = 'weigh' | 'training' | 'walk' | 'rest' | 'meal' | 'plan-meals' | 'calories' | 'protein' | 'habit'
+export type StepKind = 'weigh' | 'training' | 'walk' | 'rest' | 'meal' | 'calories' | 'protein' | 'habit'
 
 /**
  * - todo: still to do.
@@ -136,7 +136,6 @@ const RANK: Record<StepKind, number> = {
     walk: 1,
     meal: 2,
     habit: 3,
-    'plan-meals': 4,
     protein: 5,
     calories: 6,
     rest: 7,
@@ -218,8 +217,6 @@ function walkSteps(walks: YourDayWalk[], date: string, counts: (key: string) => 
  */
 function mealSteps(
     meals: MealPlanEntry[],
-    date: string,
-    today: string,
     counts: (key: string) => boolean,
     selection: PerfectDaySelection | undefined
 ): DayStep[] {
@@ -249,16 +246,6 @@ function mealSteps(
             })
         }
     }
-    // Only when nothing at all is planned — skipped foods still mean the day's been thought about.
-    if (meals.length === 0 && date >= today && counts('plan-meals'))
-        steps.push({
-            id: 'plan-meals',
-            kind: 'plan-meals',
-            part: null,
-            title: 'Plan the day’s meals',
-            detail: 'Nothing planned yet.',
-            state: 'todo',
-        })
     return steps
 }
 
@@ -361,7 +348,7 @@ export function yourDay(inputs: YourDayInputs): YourDay {
         ...weighStep(inputs.weightLogs, date, inputs.weightRate, counts, isChosen(selection, 'weigh')),
         ...trainingSteps(inputs.training, inputs.logged, counts),
         ...walkSteps(inputs.walks ?? [], date, counts),
-        ...mealSteps(inputs.meals, date, today, counts, selection),
+        ...mealSteps(inputs.meals, counts, selection),
         ...targetSteps(inputs.goals, inputs.eaten, counts),
         ...habits,
     ]

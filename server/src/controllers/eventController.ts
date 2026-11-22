@@ -1,3 +1,4 @@
+import { eventsBetween } from '../lib/eventSlots'
 import { Response } from 'express'
 import { Types } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
@@ -14,7 +15,6 @@ import Event, {
     RecurrenceFrequency,
     IRecurrence,
 } from '../models/Event'
-import { expandRecurring } from '../lib/recurrence'
 
 function isValidDate(value: unknown): value is string {
     return typeof value === 'string' && DATE_PATTERN.test(value)
@@ -179,32 +179,7 @@ export async function listEvents(req: AuthRequest, res: Response) {
             return
         }
 
-        // Non-recurring events that overlap the range
-        const regular = await Event.find({
-            user: req.userId,
-            startDate: { $lte: to },
-            endDate: { $gte: from },
-            recurrence: { $exists: false },
-        }).sort({ startDate: 1 })
-
-        // Recurring masters that could have instances in range
-        const recurring = await Event.find({
-            user: req.userId,
-            startDate: { $lte: to },
-            $or: [
-                { 'recurrence.endsOn': { $exists: false } },
-                { 'recurrence.endsOn': { $gte: from } },
-            ],
-            recurrence: { $exists: true },
-        })
-
-        const instances = recurring.flatMap((e) =>
-            expandRecurring(e.toObject(), from as string, to as string)
-        )
-
-        const data = [...regular.map((e) => e.toObject()), ...instances].sort((a, b) =>
-            a.startDate < b.startDate ? -1 : 1
-        )
+        const data = await eventsBetween(req.userId!, from as string, to as string)
         return res.json({ message: 'OK', data })
     }
 

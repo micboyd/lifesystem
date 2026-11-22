@@ -2,6 +2,11 @@ import { Response } from 'express'
 import { AuthRequest } from '../middleware/auth'
 import { makeLastImportHandler, makeUndoImportHandler, newBatchId } from '../lib/importBatch'
 import { extractList, extractOverwrite, nameKey } from '../lib/importReconcile'
+import { mealLookup, parseMenu, readNewMeals, readPutOn, type NewMealSpec, type ParsedMenuItem } from '../lib/menuImport'
+import { applyPlanMenu } from './nutritionMenuController'
+import Meal from '../models/Meal'
+import MealPlanEntry from '../models/MealPlanEntry'
+import { Types } from 'mongoose'
 import NutritionPhase, {
     ADJUSTMENT_SOURCES,
     GOAL_MODES,
@@ -456,47 +461,115 @@ export async function importNutritionPhases(req: AuthRequest, res: Response) {
         return
     }
 
+    // Meal weeks name library meals, so the library is read once up front.
+    const lookup = mealLookup(await Meal.find({ user: req.userId }).select('name'))
+
+    // Set when the user chose to import without the meals their Library lacks.
+    const skipMissing = !!body && typeof body === 'object' && (body as Record<string, unknown>).skipMissingMeals === true
+    const missing = new Map<string, Set<string>>()
+    // Meals the plans describe themselves (name + macros), to pre-fill the "add them?" step.
+    const described = new Map<string, NewMealSpec>()
+
     const errors: string[] = []
-    const parsed: ParsedPhase[] = []
+    const parsed: { phase: ParsedPhase; menu?: ParsedMenuItem[]; putOn: { from?: string } | null }[] = []
     list.forEach((raw, i) => {
         const name =
             raw && typeof raw === 'object' && typeof (raw as { name?: unknown }).name === 'string'
                 ? `"${((raw as { name: string }).name).trim()}"`
                 : `Plan ${i + 1}`
         const result = readBody(raw)
-        if ('error' in result) errors.push(`${name}: ${result.error}`)
-        else parsed.push(result)
+        if ('error' in result) {
+            errors.push(`${name}: ${result.error}`)
+            return
+        }
+        const extra = raw as Record<string, unknown>
+        const menu = parseMenu(extra.menu, lookup)
+        if (menu && 'error' in menu) {
+            errors.push(`${name}: ${menu.error}`)
+            return
+        }
+        const newMeals = readNewMeals(extra.meals)
+        if ('error' in newMeals) {
+            errors.push(`${name}: ${newMeals.error}`)
+            return
+        }
+        for (const m of newMeals) if (!described.has(nameKey(m.name))) described.set(nameKey(m.name), m)
+        if (menu && menu.unknown.length && !skipMissing)
+            for (const n of menu.unknown) {
+                const key = [...missing.keys()].find((k) => nameKey(k) === nameKey(n)) ?? n
+                const slots = missing.get(key) ?? new Set<string>()
+                for (const sl of menu.unknownSlots[n] ?? []) slots.add(sl)
+                missing.set(key, slots)
+            }
+        const putOn = readPutOn(extra.putOnPlanner)
+        if (putOn && 'error' in putOn) {
+            errors.push(`${name}: ${putOn.error}`)
+            return
+        }
+        parsed.push({ phase: result, menu: menu?.items, putOn })
     })
     if (errors.length) {
         res.status(400).json({ message: errors.slice(0, 8).join(' · ') })
+        return
+    }
+    // Meals the menus name that aren't in the Library: nothing is written, and the
+    // client is told which (and in which slots) so it can offer to add them.
+    if (missing.size) {
+        const names = [...missing.keys()]
+        res.status(400).json({
+            message: `Not in your Library: ${names.map((n) => `"${n}"`).join(', ')}`,
+            missingMeals: names.map((n) => {
+                const spec = described.get(nameKey(n))
+                return { ...spec, name: n, slots: [...missing.get(n)!] }
+            }),
+        })
         return
     }
 
     const batch = newBatchId()
     const created = []
     let updated = 0
-    for (const phase of parsed) {
+    let placed = 0
+    for (const { phase, menu, putOn } of parsed) {
         const existingId = overwrite.get(nameKey(phase.name))
         const existing = existingId
             ? await NutritionPhase.findOne({ _id: existingId, user: req.userId })
             : null
+        // A menu key replaces the week; no menu key leaves an existing week alone.
+        const menuDocs = menu?.map((m) => ({ ...m, meal: new Types.ObjectId(m.meal) }))
+        let saved: INutritionPhase | null
         if (existing) {
-            await applyUpdate(existing, phase, req.userId)
+            saved = await applyUpdate(existing, phase, req.userId)
+            if (saved && menuDocs) {
+                saved.menu = menuDocs as INutritionPhase['menu']
+                await saved.save()
+            }
             updated++
         } else {
-            created.push(
-                await NutritionPhase.create({ user: req.userId, ...phase, importBatch: batch })
-            )
+            saved = await NutritionPhase.create({
+                user: req.userId,
+                ...phase,
+                ...(menuDocs ? { menu: menuDocs } : {}),
+                importBatch: batch,
+            })
+            created.push(saved)
+        }
+        if (saved && putOn) {
+            const out = await applyPlanMenu(req.userId!, saved, putOn.from)
+            if (!('error' in out)) placed += out.added
         }
     }
-    res.status(201).json({ message: 'Imported', data: created, updated })
+    res.status(201).json({ message: 'Imported', data: created, updated, placed })
 }
 
 /** GET /api/nutrition-phases/import/last — the latest import batch, if any. */
 export const lastImport = makeLastImportHandler(NutritionPhase)
 
 /** DELETE /api/nutrition-phases/import/last — remove the phases the last import added. */
-export const undoImport = makeUndoImportHandler(NutritionPhase)
+export const undoImport = makeUndoImportHandler(NutritionPhase, async (user, ids) => {
+    // An import can put meals on the planner; the ones not yet eaten go with it.
+    await MealPlanEntry.deleteMany({ user, plan: { $in: ids }, status: 'planned', extra: false })
+})
 
 /**
  * POST /api/nutrition-phases/:id/adjustments — record a target change.
@@ -564,13 +637,27 @@ export async function deleteNutritionPhase(req: AuthRequest, res: Response) {
         res.status(404).json({ message: 'Plan not found' })
         return
     }
-    res.json({ message: 'Deleted' })
+    const removed = await clearPlanMeals(req.userId!, [phase._id])
+    res.json({ message: 'Deleted', data: { removed } })
+}
+
+/**
+ * A deleted plan's meals come off the planner: every one still only planned,
+ * on any day. Eaten and skipped ones are history — they stay, just no longer
+ * tied to the plan.
+ */
+async function clearPlanMeals(user: string, ids: unknown[]): Promise<number> {
+    const { deletedCount } = await MealPlanEntry.deleteMany({ user, plan: { $in: ids }, status: 'planned', extra: false })
+    await MealPlanEntry.updateMany({ user, plan: { $in: ids } }, { $unset: { plan: 1 } })
+    return deletedCount ?? 0
 }
 
 /** DELETE /api/nutrition-phases — removes every phase the user has. */
 export async function deleteAllNutritionPhases(req: AuthRequest, res: Response) {
-    const { deletedCount } = await NutritionPhase.deleteMany({ user: req.userId })
-    res.json({ message: 'Deleted', data: { deleted: deletedCount ?? 0 } })
+    const ids = (await NutritionPhase.find({ user: req.userId }, { _id: 1 }).lean()).map((p) => p._id)
+    const { deletedCount } = await NutritionPhase.deleteMany({ user: req.userId, _id: { $in: ids } })
+    const removed = await clearPlanMeals(req.userId!, ids)
+    res.json({ message: 'Deleted', data: { deleted: deletedCount ?? 0, removed } })
 }
 
 /**

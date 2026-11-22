@@ -80,6 +80,12 @@ export interface IMealPlanEntry extends Document {
      * slot simply counts as taken care of.
      */
     away?: boolean
+    /**
+     * The nutrition plan (NutritionPhase) whose meal week put this here. Lets
+     * the plan be taken back off the planner without touching meals placed by
+     * hand. Copying a week deliberately doesn't carry it.
+     */
+    plan?: Types.ObjectId
     name: string
     macros: IMacros
     status: EntryStatus
@@ -99,6 +105,7 @@ const mealPlanEntrySchema = new Schema<IMealPlanEntry>(
         box: { type: Schema.Types.ObjectId, ref: 'PlateFood' },
         sides: { type: [{ type: Schema.Types.ObjectId, ref: 'PlateFood' }], default: undefined },
         away: { type: Boolean },
+        plan: { type: Schema.Types.ObjectId, ref: 'NutritionPhase' },
         name: { type: String, required: true, trim: true },
         macros: { type: macrosSchema, default: () => ({}) },
         status: { type: String, enum: ENTRY_STATUSES, default: 'planned' },
@@ -109,5 +116,6 @@ const mealPlanEntrySchema = new Schema<IMealPlanEntry>(
 )
 
 mealPlanEntrySchema.index({ user: 1, date: 1 })
+mealPlanEntrySchema.index({ user: 1, plan: 1, date: 1 })
 
 export default model<IMealPlanEntry>('MealPlanEntry', mealPlanEntrySchema)

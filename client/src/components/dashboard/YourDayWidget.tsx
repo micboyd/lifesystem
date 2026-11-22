@@ -34,7 +34,6 @@ const KIND_TAG: Partial<Record<StepKind, { label: string; tone: AreaTone }>> = {
     rest: { label: 'Rest', tone: 'violet' },
     walk: { label: 'Walk', tone: 'green' },
     meal: { label: 'Meals', tone: 'orange' },
-    'plan-meals': { label: 'Meals', tone: 'orange' },
     protein: { label: 'Meals', tone: 'orange' },
     calories: { label: 'Meals', tone: 'orange' },
 }
@@ -46,7 +45,6 @@ const ACTION: Record<StepKind, { to: string; label: string }> = {
     rest: { to: '/fitness', label: 'Open the planner' },
     walk: { to: '/walking', label: 'Open the walk' },
     meal: { to: '/nutrition', label: 'Open meals' },
-    'plan-meals': { to: '/nutrition', label: 'Plan meals' },
     protein: { to: '/nutrition', label: 'Open meals' },
     calories: { to: '/nutrition', label: 'Open meals' },
     habit: { to: '/goals', label: 'Tick it off' },
@@ -227,7 +225,7 @@ export default function YourDayWidget({
                 {headlineOf(day, date, today)}
             </p>
 
-            <div className="mt-9 grid grid-cols-2 gap-x-8 gap-y-8 lg:grid-cols-4">
+            <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
                 {day.total > 0 && (
                     <GlanceMetric
                         label="Your day"
@@ -235,6 +233,10 @@ export default function YourDayWidget({
                         goal={String(day.total)}
                         share={day.done / day.total}
                         bar={day.perfect ? 'bg-success' : 'bg-neutral-900'}
+                        icon="fa-solid fa-list-check"
+                        iconTone="text-neutral-700"
+                        note={day.perfect ? 'All done' : `${day.total - day.done} left to do`}
+                        noteTone={day.perfect ? 'text-success' : 'text-neutral-600'}
                         to="/perfect-day"
                     />
                 )}
@@ -294,8 +296,8 @@ function Title() {
 function Targets({ day, nutrition }: { day: YourDay; nutrition: NutritionToday }) {
     const goals = nutrition.goals
     const meters = [
-        { kind: 'protein' as const, label: 'Protein', value: nutrition.eaten.protein, goal: goals?.protein, unit: ' g' },
-        { kind: 'calories' as const, label: 'Calories', value: nutrition.eaten.calories, goal: goals?.calories, unit: '' },
+        { kind: 'protein' as const, label: 'Protein', icon: 'fa-solid fa-drumstick-bite', value: nutrition.eaten.protein, goal: goals?.protein, unit: ' g' },
+        { kind: 'calories' as const, label: 'Calories', icon: 'fa-solid fa-bowl-food', value: nutrition.eaten.calories, goal: goals?.calories, unit: '' },
     ].flatMap((m) => {
         const step = day.steps.find((s) => s.kind === m.kind)
         return step && m.goal ? [{ ...m, goal: m.goal, state: step.state }] : []
@@ -310,11 +312,23 @@ function Targets({ day, nutrition }: { day: YourDay; nutrition: NutritionToday }
                     goal={`${Math.round(m.goal).toLocaleString('en-GB')}${m.unit}`}
                     share={m.value / m.goal}
                     bar={m.state === 'over' ? 'bg-danger' : 'bg-orange-500'}
+                    icon={m.icon}
+                    iconTone="text-orange-600"
+                    note={targetNote(m.kind, m.value, m.goal, m.unit)}
+                    noteTone={m.state === 'over' ? 'text-danger' : m.state === 'done' ? 'text-success' : 'text-neutral-600'}
                     to="/nutrition"
                 />
             ))}
         </>
     )
+}
+
+/** Protein says how much is still to get; calories how much is left, or how far over. */
+function targetNote(kind: 'protein' | 'calories', value: number, goal: number, unit: string): string {
+    const n = (x: number) => Math.round(x).toLocaleString('en-GB')
+    const gap = goal - value
+    if (kind === 'protein') return gap <= goal * 0.05 ? 'Target hit' : `${n(gap)}${unit} to go`
+    return gap < 0 ? `${n(-gap)} over` : `${n(gap)} left`
 }
 
 // ── Next up ──────────────────────────────────────────────────────────────────

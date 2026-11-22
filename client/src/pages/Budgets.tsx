@@ -908,7 +908,7 @@ function RemovedTransactionsDrawer({
                             onClick={() => setShowArchive(true)}
                             aria-label={`Archived (${archived.length})`}
                             title={`Archived (${archived.length})`}
-                            className="grid h-7 w-7 place-items-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                            className="grid h-10 w-10 place-items-center sm:h-7 sm:w-7 rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                         >
                             <i className="fa-solid fa-box-archive text-[11px]" aria-hidden="true" />
                         </button>
@@ -1427,7 +1427,7 @@ function BudgetCard({
                         <button
                             type="button"
                             onClick={() => onOpenReconcile(row)}
-                            className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
+                            className="relative mt-1.5 inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold after:absolute after:inset-x-0 after:-inset-y-2.5 after:content-[''] text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
                         >
                             <i className="fa-solid fa-triangle-exclamation text-[9px]" aria-hidden="true" />
                             Out of sync
@@ -1511,11 +1511,11 @@ function BudgetCard({
 
             {/* Footer — an action toolbar: quiet links on the left, the actions menu on
                 the right. Only things you click to do something live here. */}
-            <div className="mt-auto flex items-center gap-4 border-t border-neutral-100 pt-4 text-xs">
+            <div className="mt-auto flex items-center gap-4 border-t border-neutral-100 pt-2 text-xs sm:pt-3">
                 <button
                     type="button"
                     onClick={() => onOpenTransactions(row)}
-                    className="inline-flex items-center gap-1.5 font-semibold text-neutral-500 transition-colors hover:text-neutral-900"
+                    className="inline-flex min-h-10 items-center gap-1.5 font-semibold text-neutral-500 transition-colors hover:text-neutral-900"
                 >
                     <i className="fa-solid fa-receipt text-[11px]" aria-hidden="true" />
                     Transactions
@@ -1526,7 +1526,7 @@ function BudgetCard({
                         type="button"
                         onClick={() => onSync(row)}
                         disabled={syncing}
-                        className="inline-flex items-center gap-1.5 font-semibold text-neutral-500 transition-colors hover:text-neutral-900 disabled:opacity-50"
+                        className="inline-flex min-h-10 items-center gap-1.5 font-semibold text-neutral-500 transition-colors hover:text-neutral-900 disabled:opacity-50"
                     >
                         <i className={`fa-solid fa-arrows-rotate text-[11px] ${syncing ? 'animate-spin' : ''}`} aria-hidden="true" />
                         {syncing ? 'Syncing…' : 'Sync'}
@@ -1542,7 +1542,7 @@ function BudgetCard({
                             type="button"
                             aria-label="More actions"
                             aria-haspopup="menu"
-                            className="grid h-7 w-7 place-items-center rounded-lg border border-neutral-200 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                            className="grid h-10 w-10 place-items-center rounded-lg border sm:h-8 sm:w-8 border-neutral-200 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                         >
                             <i className="fa-solid fa-ellipsis text-xs" aria-hidden="true" />
                         </button>

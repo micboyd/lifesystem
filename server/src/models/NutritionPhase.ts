@@ -1,4 +1,5 @@
 import { Schema, model, Document, Types } from 'mongoose'
+import { MEAL_TYPES, type MealType } from './Meal'
 
 /**
  * Which direction the phase pushes bodyweight. It drives how the phase reads on
@@ -166,6 +167,17 @@ export interface ITargetStrategy {
 }
 
 /**
+ * One meal on the plan's repeating week: which day (0 = Monday … 6 = Sunday),
+ * which slot, and which library meal. The week repeats across the plan's dates
+ * and is copied onto the planner when the plan is applied.
+ */
+export interface IMenuItem {
+    day: number
+    slot: MealType
+    meal: Types.ObjectId
+}
+
+/**
  * A dated stretch of eating with its own targets — "Autumn cut", "Off-season".
  *
  * The meal planner records what was eaten day by day but nothing said what it
@@ -195,6 +207,8 @@ export interface INutritionPhase extends Document {
     adjustments?: IPhaseAdjustment[]
     strategy?: ITargetStrategy
     notes?: string
+    /** The plan's meal week, repeated across its dates. Empty until planned. */
+    menu?: IMenuItem[]
     /** Set when the phase came in through a bulk import, so the batch can be undone. */
     importBatch?: string | null
     createdAt: Date
@@ -282,6 +296,15 @@ const strategySchema = new Schema<ITargetStrategy>(
     { _id: false }
 )
 
+const menuItemSchema = new Schema<IMenuItem>(
+    {
+        day: { type: Number, required: true, min: 0, max: 6 },
+        slot: { type: String, enum: MEAL_TYPES, required: true },
+        meal: { type: Schema.Types.ObjectId, ref: 'Meal', required: true },
+    },
+    { _id: false }
+)
+
 const nutritionPhaseSchema = new Schema<INutritionPhase>(
     {
         user: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
@@ -300,6 +323,7 @@ const nutritionPhaseSchema = new Schema<INutritionPhase>(
         adjustments: { type: [adjustmentSchema], default: undefined },
         strategy: { type: strategySchema, default: undefined },
         notes: { type: String, trim: true },
+        menu: { type: [menuItemSchema], default: undefined },
         importBatch: { type: String, default: null },
     },
     { timestamps: true }

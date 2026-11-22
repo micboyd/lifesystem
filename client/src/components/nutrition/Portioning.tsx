@@ -44,6 +44,12 @@ function writeSaved(id: string, v: Saved) {
     }
 }
 
+/** Pot name · cooked weight · each box: the same three columns on every row and the heads above. */
+const POT_GRID = 'grid grid-cols-[minmax(0,1fr)_104px_84px] items-center gap-x-4 sm:grid-cols-[minmax(0,1fr)_120px_96px]'
+
+/** Sides are weighed cooked, so "(dry)" / "(raw)" on the shopping name would mislead here. */
+const cookedName = (name: string) => name.replace(/\s*\((dry|raw|uncooked)\)\s*$/i, '')
+
 const digits = (v: string) => v.replace(/[^\d]/g, '').slice(0, 6)
 const fmt = (n: number) => Math.round(n).toLocaleString('en-GB')
 
@@ -65,52 +71,43 @@ function PotLine({
 }) {
     const each = potShare(Number(value), boxes)
     return (
-        <li className="flex items-center gap-3 py-3">
-            <label htmlFor={id} className="min-w-0 flex-1 text-sm text-neutral-800">
-                {label}
-            </label>
-            <div className="relative w-24 shrink-0">
+        <li className={`${POT_GRID} py-3`}>
+            <span className="flex min-w-0 items-center gap-1">
+                <label htmlFor={id} className="min-w-0 truncate text-[15px] text-neutral-900">
+                    {label}
+                </label>
+                {onRemove && (
+                    <button
+                        type="button"
+                        aria-label={`Take ${label} off`}
+                        onClick={onRemove}
+                        className="grid h-8 w-8 shrink-0 place-items-center text-neutral-400 hover:text-neutral-700"
+                    >
+                        <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
+                    </button>
+                )}
+            </span>
+            <div className="relative">
                 <Input
                     id={id}
                     inputMode="numeric"
                     enterKeyHint="done"
-                    placeholder="Weigh"
+                    placeholder="0"
                     value={value}
                     onChange={(e) => onChange(digits(e.target.value))}
-                    className="text-right tabular-nums" wrapperClassName="w-full"
+                    className="!pr-8 text-right tabular-nums"
+                    wrapperClassName="w-full"
                 />
                 <span className="pointer-events-none absolute inset-y-0 right-3 grid place-items-center text-sm text-neutral-500">
                     g
                 </span>
             </div>
-            <i
-                className="fa-solid fa-arrow-right shrink-0 text-xs text-neutral-300"
-                aria-hidden="true"
-            />
-            <span className="w-20 shrink-0 text-right" aria-live="polite">
-                {each > 0 ? (
-                    <>
-                        <span className="block text-lg font-medium leading-tight tabular-nums text-neutral-950">
-                            {fmt(each)} g
-                        </span>
-                        <span className="block text-[11px] text-neutral-500">per box</span>
-                    </>
-                ) : (
-                    <span className="text-lg text-neutral-300">—</span>
-                )}
+            <span
+                className={`text-right text-[17px] tabular-nums ${each > 0 ? 'font-medium text-neutral-950' : 'text-neutral-400'}`}
+                aria-live="polite"
+            >
+                {each > 0 ? `${fmt(each)} g` : '–'}
             </span>
-            {onRemove ? (
-                <button
-                    type="button"
-                    aria-label={`Take ${label} off`}
-                    onClick={onRemove}
-                    className="-mr-2 grid h-11 w-7 shrink-0 place-items-center text-neutral-400 hover:text-neutral-700"
-                >
-                    <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
-                </button>
-            ) : (
-                <span className="-mr-2 w-7 shrink-0" />
-            )}
         </li>
     )
 }
@@ -143,10 +140,11 @@ function PortionCard({
     const m = meal.macros
 
     const pots = [
-        { key: 'main', label: sides.length ? 'Main' : 'The pot', value: saved.main },
+        { key: 'main', label: sides.length ? 'Main pot' : 'The pot', value: saved.main },
         ...sides.map((name) => ({
             key: lineKey(name),
-            label: name,
+            name,
+            label: cookedName(name),
             value: saved.weights[lineKey(name)] ?? '',
         })),
     ].map((p) => ({ ...p, each: potShare(Number(p.value), boxes) }))
@@ -182,10 +180,13 @@ function PortionCard({
         <li className="flex flex-col border-t border-neutral-900">
             <div className="pt-5">
                 <p className="text-[17px] font-medium text-neutral-900">{meal.name}</p>
-                <p className="mt-0.5 text-[13px] text-neutral-600">
-                    {plural(boxes, 'box', 'boxes')} · weigh each pot once it’s cooked
-                </p>
-                <ul className="mt-2 divide-y divide-hairline border-t border-hairline">
+                <p className="mt-0.5 text-[13px] text-neutral-600">{plural(boxes, 'box', 'boxes')}</p>
+                <div className={`${POT_GRID} mt-4 pb-2 text-[12px] text-neutral-500`} aria-hidden="true">
+                    <span>Pot</span>
+                    <span className="text-right">Cooked weight</span>
+                    <span className="text-right">In each box</span>
+                </div>
+                <ul className="divide-y divide-hairline border-t border-hairline">
                     {pots.map((p) => (
                         <PotLine
                             key={p.key}
@@ -198,7 +199,7 @@ function PortionCard({
                                     ? update({ main: v })
                                     : update({ weights: { ...saved.weights, [p.key]: v } })
                             }
-                            onRemove={p.key === 'main' ? undefined : () => removeSide(p.label)}
+                            onRemove={'name' in p ? () => removeSide(p.name) : undefined}
                         />
                     ))}
                 </ul>
@@ -235,7 +236,8 @@ function PortionCard({
                 </div>
             </div>
 
-            <div className="mt-auto bg-neutral-100/70">
+            <div className="mt-2 bg-neutral-100/70">
+                <p className="px-4 pt-3 text-[12px] font-medium text-neutral-600">One box gives you</p>
                 <dl className="grid grid-cols-4 divide-x divide-neutral-200/70">
                     {(
                         [
@@ -267,7 +269,7 @@ function PortionCard({
                     ).map((t) => (
                         <div
                             key={t.key}
-                            className="flex flex-col-reverse items-center gap-1 px-1 py-4"
+                            className="flex flex-col-reverse items-center gap-1 px-1 pb-4 pt-2"
                         >
                             <dt className="flex items-center gap-1.5 text-xs text-neutral-500">
                                 {t.dot && (
