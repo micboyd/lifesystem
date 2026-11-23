@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import StatTile from './StatTile'
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { OVERLINE } from './surfaceStyles'
 import PillToggle from './PillToggle'
 import { Surface, PanelHeader } from './stats/ui'
 import Button from './Button'
@@ -172,140 +172,163 @@ export default function BodyMetrics() {
     }
 
     const lastLog = logs.length ? logs[logs.length - 1] : null
+    const windowLabel = WINDOWS.find((w) => w.days === windowDays)?.label ?? ''
+    const toGo =
+        goals?.targetWeight != null && latest ? Math.abs(latest.trend - goals.targetWeight) : null
+
+    const actions = (
+        <div className="flex items-center gap-2">
+            <Button
+                variant="ghost"
+                size="sm"
+                icon="fa-solid fa-bullseye"
+                onClick={() => setGoalsOpen(true)}
+            >
+                Targets
+            </Button>
+            <Button size="sm" icon="fa-solid fa-plus" onClick={() => setEntry({ log: null })}>
+                Log weigh-in
+            </Button>
+        </div>
+    )
 
     return (
-        <div className="flex flex-col gap-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm text-neutral-500">
-                    {lastLog ? (
-                        <>
-                            Last weigh-in{' '}
-                            <span className="nums font-medium text-neutral-900">
-                                {lastLog.weight.toFixed(1)} kg
-                            </span>{' '}
-                            · {longDate(lastLog.date)}
-                        </>
-                    ) : (
-                        'No weigh-ins yet'
-                    )}
-                </p>
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        icon="fa-solid fa-bullseye"
-                        onClick={() => setGoalsOpen(true)}
-                    >
-                        Targets
-                    </Button>
-                    <Button
-                        size="sm"
-                        icon="fa-solid fa-plus"
-                        onClick={() => setEntry({ log: null })}
-                    >
-                        Log weigh-in
-                    </Button>
-                </div>
-            </div>
-
+        <div className="flex flex-col gap-8">
             {points.length === 0 ? (
-                <EmptyState
-                    icon="fa-solid fa-weight-scale"
-                    title="No weigh-ins yet"
-                    description="Log your weight — first thing, after the loo, before eating — and the trend line builds itself. One reading tells you nothing; two weeks of them tell you everything."
-                />
+                <>
+                    <div className="flex justify-end">{actions}</div>
+                    <EmptyState
+                        icon="fa-solid fa-weight-scale"
+                        title="No weigh-ins yet"
+                        description="Log your weight — first thing, after the loo, before eating — and the trend line builds itself. One reading tells you nothing; two weeks of them tell you everything."
+                    />
+                    <BodyPhotos logs={logs} onPhotosChange={setPhotos} />
+                </>
             ) : (
                 <>
-                    <div
-                        className={`grid grid-cols-2 gap-3 ${
-                            latestFat || goals?.targetBodyFat ? 'lg:grid-cols-5' : 'lg:grid-cols-4'
-                        }`}
-                    >
-                        <StatTile
-                            label="Trend"
-                            value={`${latest!.trend.toFixed(1)} kg`}
-                            sub={`Scale said ${latest!.weight.toFixed(1)} kg`}
-                        />
-                        <StatTile
-                            label={`Rate · ${WINDOWS.find((w) => w.days === windowDays)?.label}`}
-                            value={rate === null ? '—' : `${signed(rate)} kg/wk`}
-                            sub={
-                                pct === null
-                                    ? 'Needs two weigh-ins'
-                                    : `${signed(pct, 2)}% of bodyweight`
-                            }
-                            tone={tooEarly ? 'neutral' : STATUS_TONE[status]}
-                        />
-                        <StatTile
-                            label="Target"
-                            value={goals?.targetWeight ? `${goals.targetWeight} kg` : '—'}
-                            sub={
-                                goals?.targetWeight && latest
-                                    ? `${Math.abs(latest.trend - goals.targetWeight).toFixed(1)} kg to go`
-                                    : 'Set one under Targets'
-                            }
-                        />
-                        <StatTile
-                            label="Projected"
-                            value={eta ? longDate(eta) : '—'}
-                            sub={
-                                eta
-                                    ? `${daysBetween(todayKey(), eta)} days away, if this rate holds`
-                                    : etaHint(status)
-                            }
-                        />
-                        {(latestFat || goals?.targetBodyFat) && (
-                            <StatTile
-                                label="Body fat"
-                                value={latestFat ? `${latestFat.trend.toFixed(1)}%` : '—'}
-                                sub={bodyFatSub(latestFat, goals?.targetBodyFat)}
+                    {/* Hero: the one number that matters, then the few that frame it. */}
+                    <section className="flex flex-col gap-6">
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                            <div className="min-w-0">
+                                <p className={OVERLINE}>Trend weight</p>
+                                <p className="nums mt-1 text-[40px] font-semibold leading-none tracking-tight text-neutral-900">
+                                    {latest!.trend.toFixed(1)}
+                                    <span className="ml-1 text-xl font-medium text-neutral-500">
+                                        kg
+                                    </span>
+                                </p>
+                                <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-neutral-500">
+                                    {rate !== null && (
+                                        <Pill tone={tooEarly ? 'neutral' : STATUS_TONE[status]}>
+                                            {`${signed(rate)} kg/wk`}
+                                        </Pill>
+                                    )}
+                                    <span className="nums">
+                                        {pct !== null
+                                            ? `${signed(pct, 2)}% a week over ${windowLabel}`
+                                            : 'Needs two weigh-ins for a rate'}
+                                    </span>
+                                </div>
+                            </div>
+                            {actions}
+                        </div>
+
+                        <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-hairline pt-4 sm:grid-cols-4">
+                            <Fact
+                                label="Last weigh-in"
+                                value={lastLog ? `${lastLog.weight.toFixed(1)} kg` : '—'}
+                                sub={lastLog ? longDate(lastLog.date) : undefined}
                             />
-                        )}
-                    </div>
-
-                    {pace && <PlanCheck pace={pace} />}
-
-                    <Surface className="flex flex-col gap-4">
-                        <PanelHeader
-                            title="Weight trend"
-                            hint="Faint dots are the scale; the line is what’s actually happening."
-                            aside={
-                                <PillToggle
-                                    label="Rate window"
-                                    options={WINDOWS.map((w) => ({
-                                        value: w.days,
-                                        label: w.label,
-                                    }))}
-                                    value={windowDays}
-                                    onChange={setWindowDays}
+                            {(latestFat || goals?.targetBodyFat) && (
+                                <Fact
+                                    label="Body fat"
+                                    value={latestFat ? `${latestFat.trend.toFixed(1)}%` : '—'}
+                                    sub={bodyFatSub(latestFat, goals?.targetBodyFat)}
                                 />
-                            }
-                        />
-                        <TrendChart
-                            points={points.filter(
-                                (p) => daysBetween(p.date, todayKey()) <= HISTORY_DAYS
                             )}
-                            target={goals?.targetWeight}
-                            plan={pace?.weight?.line}
-                        />
-                        <RateVerdict
-                            status={status}
-                            rate={rate}
-                            intended={goals?.weeklyRate}
-                            tooEarly={tooEarly}
-                        />
-                    </Surface>
+                            {goals?.targetWeight != null ? (
+                                <>
+                                    <Fact
+                                        label="Target"
+                                        value={`${goals.targetWeight} kg`}
+                                        sub={toGo !== null ? `${toGo.toFixed(1)} kg to go` : undefined}
+                                    />
+                                    <Fact
+                                        label="Projected"
+                                        value={eta ? longDate(eta) : '—'}
+                                        sub={
+                                            eta
+                                                ? `${daysBetween(todayKey(), eta)} days, at this rate`
+                                                : etaHint(status)
+                                        }
+                                    />
+                                </>
+                            ) : (
+                                <div className="col-span-2 flex flex-col justify-center">
+                                    <button
+                                        type="button"
+                                        onClick={() => setGoalsOpen(true)}
+                                        className="group inline-flex items-center gap-1.5 self-start text-[13px] font-medium text-neutral-500 transition-colors hover:text-neutral-900"
+                                    >
+                                        Set a target weight to see when you&rsquo;ll get there
+                                        <i
+                                            className="fa-solid fa-arrow-right text-[10px] transition-transform group-hover:translate-x-0.5"
+                                            aria-hidden="true"
+                                        />
+                                    </button>
+                                </div>
+                            )}
+                        </dl>
+                    </section>
 
-                    <RecentLog
-                        logs={[...logs].reverse()}
-                        points={points}
-                        photoPoses={photoPoses}
-                        onOpen={(log) => setEntry({ log })}
-                    />
+                    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-10">
+                        <div className="flex min-w-0 flex-col gap-8">
+                            <Surface className="flex flex-col gap-4">
+                                <PanelHeader
+                                    title="Weight trend"
+                                    hint="Dots are the scale; the line is what’s really happening."
+                                    aside={
+                                        <PillToggle
+                                            label="Rate window"
+                                            options={WINDOWS.map((w) => ({
+                                                value: w.days,
+                                                label: w.label,
+                                            }))}
+                                            value={windowDays}
+                                            onChange={setWindowDays}
+                                        />
+                                    }
+                                />
+                                <TrendChart
+                                    points={points.filter(
+                                        (p) => daysBetween(p.date, todayKey()) <= HISTORY_DAYS
+                                    )}
+                                    target={goals?.targetWeight}
+                                    plan={pace?.weight?.line}
+                                />
+                                <RateVerdict
+                                    status={status}
+                                    rate={rate}
+                                    intended={goals?.weeklyRate}
+                                    tooEarly={tooEarly}
+                                />
+                            </Surface>
+
+                            {pace && <PlanCheck pace={pace} />}
+                        </div>
+
+                        <div className="flex min-w-0 flex-col gap-8">
+                            <BodyPhotos logs={logs} onPhotosChange={setPhotos} />
+                            <RecentLog
+                                logs={[...logs].reverse()}
+                                points={points}
+                                photoPoses={photoPoses}
+                                onOpen={(log) => setEntry({ log })}
+                            />
+                        </div>
+                    </div>
                 </>
             )}
-
-            <BodyPhotos logs={logs} onPhotosChange={setPhotos} />
 
             <WeighInDrawer
                 // Remounted per reading so the fields start from it.
@@ -680,7 +703,7 @@ function PlanCheck({ pace }: { pace: PlanPace }) {
         <Surface className="flex flex-col gap-3">
             <PanelHeader
                 title="On plan?"
-                hint={`Judged against your Plan “${phase.name}”, ${longDate(phase.startDate)} – ${longDate(by)}.`}
+                hint={`Against “${phase.name}”, ${longDate(phase.startDate)} – ${longDate(by)}`}
             />
             <ul className="divide-y divide-neutral-100">
                 <PlanRow
@@ -809,10 +832,10 @@ function RateVerdict({
     const actual = rate === null ? '' : `${signed(rate)} kg/wk`
     if (tooEarly) {
         return (
-            <p className="rounded-xl bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
+            <VerdictLine tone="neutral">
                 {actual} over this window, but your Plan is under two weeks old: that rate is early
                 water and the weeks before it. It can be judged from {longDate(tooEarly)}.
-            </p>
+            </VerdictLine>
         )
     }
     const goal = intended ? `${signed(intended)} kg/wk` : ''
@@ -827,17 +850,40 @@ function RateVerdict({
         'wrong-way': `You're moving ${actual} while aiming for ${goal}. Two weeks of this means the deficit isn't there, whatever the plan says.`,
     }
 
-    const tone = STATUS_TONE[status]
-    const box =
-        tone === 'good'
-            ? 'bg-emerald-50 text-emerald-700'
-            : tone === 'warn'
-              ? 'bg-amber-50 text-amber-800'
-              : tone === 'bad'
-                ? 'bg-red-50 text-red-700'
-                : 'bg-neutral-50 text-neutral-600'
+    return <VerdictLine tone={STATUS_TONE[status]}>{copy[status]}</VerdictLine>
+}
 
-    return <p className={`rounded-xl px-4 py-3 text-sm ${box}`}>{copy[status]}</p>
+const TONE_DOT: Record<Tone, string> = {
+    good: 'bg-emerald-500',
+    warn: 'bg-amber-500',
+    bad: 'bg-red-500',
+    neutral: 'bg-neutral-300',
+}
+
+/** The read on the chart: a coloured dot and a sentence, no filled box. */
+function VerdictLine({ tone, children }: { tone: Tone; children: ReactNode }) {
+    return (
+        <p className="flex gap-2.5 text-[13px] leading-relaxed text-neutral-600">
+            <span
+                className={`mt-[7px] h-2 w-2 shrink-0 rounded-full ${TONE_DOT[tone]}`}
+                aria-hidden="true"
+            />
+            <span>{children}</span>
+        </p>
+    )
+}
+
+/** One framing figure under the hero: label, value, a quiet line of context. */
+function Fact({ label, value, sub }: { label: string; value: string; sub?: string }) {
+    return (
+        <div className="min-w-0">
+            <dt className="text-[13px] text-neutral-500">{label}</dt>
+            <dd className="nums mt-0.5 truncate text-lg font-semibold tracking-tight text-neutral-900">
+                {value}
+            </dd>
+            {sub && <dd className="nums mt-0.5 text-[12px] leading-snug text-neutral-500">{sub}</dd>}
+        </div>
+    )
 }
 
 // ─── Recent log ─────────────────────────────────────────────────────────────────
@@ -855,74 +901,66 @@ function RecentLog({
 }) {
     const [expanded, setExpanded] = useState(false)
     const trendByDate = useMemo(() => new Map(points.map((p) => [p.date, p.trend])), [points])
-    const shown = expanded ? logs : logs.slice(0, 10)
+    const shown = expanded ? logs : logs.slice(0, RECENT_ROWS)
 
     return (
-        <Surface flush className="overflow-hidden">
-            <div className="px-4 pb-2 pt-4 sm:px-5 sm:pt-5">
-                <PanelHeader
-                    title="Weigh-ins"
-                    hint="Tap one to correct or delete it."
-                    aside={
-                        <span className="text-[13px] text-neutral-500">{logs.length} recorded</span>
-                    }
-                />
-            </div>
-            <ul className="divide-y divide-neutral-100">
+        <Surface className="flex flex-col gap-2">
+            <PanelHeader
+                title="Weigh-ins"
+                aside={<span className="nums text-[13px] text-neutral-500">{logs.length}</span>}
+            />
+            <ul className="-mx-2 flex flex-col">
                 {shown.map((log) => {
                     const trend = trendByDate.get(log.date)
                     const extras = [
-                        trend !== undefined && `${trend.toFixed(1)} trend`,
-                        log.waist && `${log.waist} cm waist`,
-                        log.bodyFat && `${log.bodyFat.toFixed(1)}% fat`,
+                        trend !== undefined && `trend ${trend.toFixed(1)}`,
+                        log.waist && `${log.waist} cm`,
+                        log.bodyFat && `${log.bodyFat.toFixed(1)}%`,
                     ].filter(Boolean)
+                    const poses = photoPoses.get(log.date)
                     return (
                         <li key={log._id}>
                             <button
                                 type="button"
                                 onClick={() => onOpen(log)}
-                                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-neutral-50 sm:px-5"
+                                className="flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-neutral-50"
                             >
                                 <div className="min-w-0 flex-1">
-                                    <p className="text-sm text-neutral-900">{longDate(log.date)}</p>
+                                    <p className="flex items-center gap-1.5 text-[13px] text-neutral-900">
+                                        {shortDate(log.date)}
+                                        {poses && (
+                                            <i
+                                                className="fa-solid fa-camera text-[10px] text-neutral-400"
+                                                title={`Photos taken: ${[...poses].join(', ')}`}
+                                                aria-label="Photos taken this day"
+                                            />
+                                        )}
+                                    </p>
                                     {extras.length > 0 && (
-                                        <p className="nums mt-0.5 truncate text-[13px] text-neutral-500">
+                                        <p className="nums mt-0.5 truncate text-[12px] text-neutral-500">
                                             {extras.join(' · ')}
                                         </p>
                                     )}
                                 </div>
-                                {photoPoses.has(log.date) && (
-                                    <span
-                                        className="nums inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[12px] font-medium text-emerald-700"
-                                        title={`Photos taken: ${[...photoPoses.get(log.date)!].join(', ')}`}
-                                    >
-                                        <i className="fa-solid fa-camera text-[10px]" aria-hidden="true" />
-                                        <i className="fa-solid fa-check text-[10px]" aria-hidden="true" />
-                                        <span className="sr-only">Photos taken this day</span>
+                                <span className="nums shrink-0 text-[14px] font-semibold text-neutral-900">
+                                    {log.weight.toFixed(1)}
+                                    <span className="ml-0.5 text-[12px] font-normal text-neutral-500">
+                                        kg
                                     </span>
-                                )}
-                                <span className="nums shrink-0 text-[15px] font-semibold text-neutral-900">
-                                    {log.weight.toFixed(1)} kg
                                 </span>
-                                <i
-                                    className="fa-solid fa-chevron-right shrink-0 text-[11px] text-neutral-300"
-                                    aria-hidden="true"
-                                />
                             </button>
                         </li>
                     )
                 })}
             </ul>
-            {logs.length > 10 && (
-                <div className="border-t border-neutral-100 px-4 py-3 sm:px-5">
-                    <button
-                        type="button"
-                        onClick={() => setExpanded((v) => !v)}
-                        className="text-[13px] font-medium text-neutral-500 hover:text-neutral-900"
-                    >
-                        {expanded ? 'Show less' : `Show all ${logs.length}`}
-                    </button>
-                </div>
+            {logs.length > RECENT_ROWS && (
+                <button
+                    type="button"
+                    onClick={() => setExpanded((v) => !v)}
+                    className="self-start text-[13px] font-medium text-neutral-500 hover:text-neutral-900"
+                >
+                    {expanded ? 'Show fewer' : `Show all ${logs.length}`}
+                </button>
             )}
         </Surface>
     )
@@ -1080,6 +1118,17 @@ type Tone = 'neutral' | 'good' | 'warn' | 'bad'
 /** "-0.4" / "+0.4" — the sign carries the meaning, so it's always shown. */
 function signed(n: number, dp = 1): string {
     return `${n > 0 ? '+' : ''}${n.toFixed(dp)}`
+}
+
+/** Weigh-ins listed before "Show all". */
+const RECENT_ROWS = 6
+
+/** "Mon 4 Aug" — the year only when it isn't this one. */
+function shortDate(date: string): string {
+    const { year, month, day } = parseDateKey(date)
+    const dow = new Date(year, month, day).toLocaleDateString('en-GB', { weekday: 'short' })
+    const sameYear = year === parseDateKey(todayKey()).year
+    return `${dow} ${day} ${MONTHS[month].slice(0, 3)}${sameYear ? '' : ` ${year}`}`
 }
 
 /** "4 Aug 2026" */

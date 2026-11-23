@@ -53,7 +53,7 @@ export default function BodyPhotos({
     const [adding, setAdding] = useState<PhotoKind | null>(null)
     const [open, setOpen] = useState<ProgressPhoto | null>(null)
     const [confirmDelete, setConfirmDelete] = useState<ProgressPhoto[] | null>(null)
-    const [view, setView] = useState<'side' | 'slider'>('side')
+    const [comparing, setComparing] = useState(false)
 
     useEffect(() => {
         photosConfigured()
@@ -134,157 +134,117 @@ export default function BodyPhotos({
         return (
             <Surface className="flex flex-col gap-2">
                 <PanelHeader title="Photos" />
-                <p className="text-sm text-neutral-500">
+                <p className="text-[13px] text-neutral-500">
                     Photos are stored in Cloudinary. Add{' '}
-                    <code className="text-[13px]">CLOUDINARY_URL</code> to the server&rsquo;s
+                    <code className="text-[12px]">CLOUDINARY_URL</code> to the server&rsquo;s
                     environment to turn them on.
                 </p>
             </Surface>
         )
     }
 
-    const rightLabel = right ? (right.kind === 'goal' ? 'Goal' : longDate(right.date)) : 'Compare'
     const rightChange =
         original && right?.kind === 'progress' ? change(logs, original, right) : null
-    const canSlide = !!original && !!right
+    const hasAny = (photos?.length ?? 0) > 0
+    const pick = (p: ProgressPhoto) => setPicked((prev) => ({ ...prev, [pose]: p._id }))
 
     return (
-        <Surface className="flex flex-col gap-4">
+        <Surface className="flex flex-col gap-3">
             <PanelHeader
                 title="Photos"
-                hint="Same pose, same light, same time of day — then compare."
                 aside={
-                    <div className="flex items-center gap-2">
-                        <Button
-                            variant="secondary"
-                            size="sm"
-                            icon="fa-solid fa-bullseye"
-                            onClick={() => setAdding('goal')}
-                            disabled={!photos}
-                        >
-                            Goal photos
-                        </Button>
-                        <Button
-                            size="sm"
-                            icon="fa-solid fa-camera"
-                            onClick={() => setAdding('progress')}
-                            disabled={!photos}
-                        >
-                            Add photos
-                        </Button>
-                    </div>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        icon="fa-solid fa-camera"
+                        onClick={() => setAdding('progress')}
+                        disabled={!photos}
+                    >
+                        Add
+                    </Button>
                 }
             />
 
             {!photos ? (
-                <div className="grid place-items-center py-12">
+                <div className="grid place-items-center py-10">
                     <Spinner />
+                </div>
+            ) : !hasAny ? (
+                <div className="flex flex-col items-start gap-2 rounded-xl border border-dashed border-neutral-200 p-4">
+                    <p className="text-[13px] leading-snug text-neutral-500">
+                        Front, side and back, in the same light each time. Your first set becomes
+                        the original everything is compared with.
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => setAdding('progress')}
+                        className="text-[13px] font-medium text-neutral-900 underline-offset-2 hover:underline"
+                    >
+                        Add your first set
+                    </button>
                 </div>
             ) : (
                 <>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                        <PillToggle label="Pose" options={POSES} value={pose} onChange={setPose} />
-                        {canSlide && (
-                            <PillToggle
-                                label="Compare view"
-                                options={[
-                                    { value: 'side', label: 'Side by side' },
-                                    { value: 'slider', label: 'Slider' },
-                                ]}
-                                value={view}
-                                onChange={setView}
-                            />
-                        )}
+                    <SegmentedPose value={pose} onChange={setPose} />
+
+                    <div className="grid grid-cols-2 gap-2">
+                        <Thumb
+                            label="Original"
+                            photo={original}
+                            sub={original ? caption(logs, original) : undefined}
+                            onOpen={setOpen}
+                            empty="No progress photo for this pose yet."
+                        />
+                        <Thumb
+                            label={right?.kind === 'goal' ? 'Goal' : right ? 'Latest' : 'Compare'}
+                            photo={right}
+                            sub={right ? caption(logs, right) : undefined}
+                            onOpen={setOpen}
+                            empty={
+                                original
+                                    ? 'Add a later set or a goal photo.'
+                                    : 'Nothing to compare yet.'
+                            }
+                        />
                     </div>
 
-                    {canSlide && view === 'slider' ? (
-                        <SliderCompare
-                            before={original!}
-                            after={right!}
-                            afterLabel={rightLabel}
-                            caption={[
-                                `${longDate(original!.date)} → ${right!.kind === 'goal' ? 'goal' : longDate(right!.date)}`,
-                                rightChange,
-                            ]
-                                .filter(Boolean)
-                                .join(' · ')}
-                        />
-                    ) : (
-                        <div className="grid grid-cols-2 gap-3">
-                            <ComparePane
-                                label="Original"
-                                photo={original}
-                                logs={logs}
-                                onOpen={setOpen}
-                                onDelete={(p) => setConfirmDelete([p])}
-                                empty={
-                                    <EmptyPane
-                                        text="Your first progress photo becomes the original."
-                                        action="Add photos"
-                                        onAction={() => setAdding('progress')}
-                                    />
-                                }
-                            />
-                            <ComparePane
-                                label={
-                                    right?.kind === 'goal' ? 'Goal' : right ? 'Progress' : 'Compare'
-                                }
-                                photo={right}
-                                logs={logs}
-                                onOpen={setOpen}
-                                onDelete={(p) => setConfirmDelete([p])}
-                                change={rightChange}
-                                empty={
-                                    <EmptyPane
-                                        text={
-                                            original
-                                                ? 'Add a later photo or a goal photo to compare against.'
-                                                : 'A goal photo — a reference shot or an AI-made you at your target.'
-                                        }
-                                        action="Goal photos"
-                                        onAction={() => setAdding('goal')}
-                                    />
-                                }
-                            />
-                        </div>
-                    )}
-
-                    {(laterProgress.length > 0 || goals.length > 0) && (
-                        <div className="flex flex-col gap-3 rounded-xl bg-neutral-50 p-3 sm:p-4">
-                            <p className="text-[13px] font-semibold text-neutral-900">
-                                Compare original with
-                            </p>
-                            {laterProgress.length > 0 && (
-                                <ThumbRow
-                                    title="Progress"
-                                    photos={laterProgress}
-                                    selectedId={right?._id}
-                                    sub={(p) => {
-                                        const d = original ? weightDelta(logs, original, p) : null
-                                        return d ?? shortDate(p.date)
-                                    }}
-                                    top={(p) => shortDate(p.date)}
-                                    onPick={(p) =>
-                                        setPicked((prev) => ({ ...prev, [pose]: p._id }))
-                                    }
+                    <div className="flex items-center justify-between gap-3">
+                        <p className="nums min-w-0 truncate text-[12px] text-neutral-500">
+                            {rightChange ?? ''}
+                        </p>
+                        {original && right && (
+                            <button
+                                type="button"
+                                onClick={() => setComparing(true)}
+                                className="group inline-flex shrink-0 items-center gap-1.5 text-[13px] font-medium text-neutral-500 transition-colors hover:text-neutral-900"
+                            >
+                                Compare
+                                <i
+                                    className="fa-solid fa-up-right-and-down-left-from-center text-[10px]"
+                                    aria-hidden="true"
                                 />
-                            )}
-                            {goals.length > 0 && (
-                                <ThumbRow
-                                    title="Goal"
-                                    photos={[...goals].reverse()}
-                                    selectedId={right?._id}
-                                    top={() => 'Goal'}
-                                    sub={(p) => p.note || shortDate(p.date)}
-                                    onPick={(p) =>
-                                        setPicked((prev) => ({ ...prev, [pose]: p._id }))
-                                    }
-                                />
-                            )}
-                        </div>
-                    )}
+                            </button>
+                        )}
+                    </div>
                 </>
             )}
+
+            <CompareDrawer
+                open={comparing && !!original && !!right}
+                pose={pose}
+                onPose={setPose}
+                original={original}
+                right={right}
+                laterProgress={laterProgress}
+                goals={goals}
+                logs={logs}
+                onPick={pick}
+                onOpenPhoto={(p) => {
+                    setComparing(false)
+                    setOpen(p)
+                }}
+                onClose={() => setComparing(false)}
+            />
 
             <AddPhotoDrawer
                 key={`add-${adding ?? 'closed'}`}
@@ -327,99 +287,222 @@ export default function BodyPhotos({
     )
 }
 
-// ─── Compare ────────────────────────────────────────────────────────────────────
+// ─── Compact card parts ─────────────────────────────────────────────────────────
 
-function ComparePane({
-    label,
-    photo,
-    logs,
-    onOpen,
-    onDelete,
-    change,
-    empty,
+/** Front / Side / Back as one quiet segmented control that fits the side column. */
+function SegmentedPose({
+    value,
+    onChange,
 }: {
-    label: string
-    photo: ProgressPhoto | null
-    logs: WeightLog[]
-    onOpen: (p: ProgressPhoto) => void
-    onDelete: (p: ProgressPhoto) => void
-    change?: string | null
-    empty: ReactNode
+    value: PhotoPose
+    onChange: (pose: PhotoPose) => void
 }) {
-    const weight = photo?.kind === 'progress' ? weightNear(logs, photo.date) : null
     return (
-        <div className="flex min-w-0 flex-col gap-2">
-            {photo ? (
-                <div className="relative">
-                    <button
-                        type="button"
-                        onClick={() => onOpen(photo)}
-                        className="block aspect-[3/4] w-full overflow-hidden rounded-xl bg-neutral-100 ring-1 ring-neutral-900/[0.06]"
-                        aria-label={`Open ${label.toLowerCase()} photo`}
-                    >
-                        <img src={photo.thumbUrl} alt="" className="h-full w-full object-cover" />
-                    </button>
-                    <span
-                        className={`pointer-events-none absolute left-2 top-2 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                            photo.kind === 'goal'
-                                ? 'bg-emerald-600 text-white'
-                                : 'bg-white/90 text-neutral-900'
-                        }`}
-                    >
-                        {label}
-                    </span>
-                    <div className="absolute right-2 top-2 flex gap-1.5">
-                        <IconButton
-                            icon="fa-solid fa-pen"
-                            label={`Edit ${label.toLowerCase()} photo`}
-                            onClick={() => onOpen(photo)}
-                        />
-                        <IconButton
-                            icon="fa-solid fa-trash-can"
-                            label={`Delete ${label.toLowerCase()} photo`}
-                            onClick={() => onDelete(photo)}
-                        />
-                    </div>
-                </div>
-            ) : (
-                empty
-            )}
-            {photo && (
-                <p className="nums min-w-0 truncate text-[12px] text-neutral-500">
-                    {[
-                        photo.kind === 'progress'
-                            ? longDate(photo.date)
-                            : photo.note || 'What you’re aiming for',
-                        weight != null && `${weight.toFixed(1)} kg`,
-                        change,
-                    ]
-                        .filter(Boolean)
-                        .join(' · ')}
-                </p>
-            )}
+        <div role="group" aria-label="Pose" className="grid grid-cols-3 gap-1 rounded-xl bg-neutral-100 p-1">
+            {POSES.map((p) => (
+                <button
+                    key={p.value}
+                    type="button"
+                    aria-pressed={value === p.value}
+                    onClick={() => onChange(p.value)}
+                    className={`h-8 rounded-[9px] text-[13px] font-medium transition-colors ${
+                        value === p.value
+                            ? 'bg-white text-neutral-900 shadow-sm ring-1 ring-neutral-900/[0.04]'
+                            : 'text-neutral-600 hover:text-neutral-900'
+                    }`}
+                >
+                    {p.label}
+                </button>
+            ))}
         </div>
     )
 }
 
-function IconButton({
-    icon,
+/** One small photo with its label underneath; tapping opens it. */
+function Thumb({
     label,
-    onClick,
+    photo,
+    sub,
+    onOpen,
+    empty,
 }: {
-    icon: string
     label: string
-    onClick: () => void
+    photo: ProgressPhoto | null
+    sub?: string
+    onOpen: (p: ProgressPhoto) => void
+    empty: string
 }) {
     return (
-        <button
-            type="button"
-            onClick={onClick}
-            aria-label={label}
-            title={label}
-            className="grid h-8 w-8 place-items-center rounded-full bg-white/90 text-[12px] text-neutral-700 shadow-sm backdrop-blur hover:bg-white hover:text-neutral-900"
-        >
-            <i className={icon} aria-hidden="true" />
-        </button>
+        <div className="flex min-w-0 flex-col gap-1.5">
+            {photo ? (
+                <button
+                    type="button"
+                    onClick={() => onOpen(photo)}
+                    className="block aspect-[3/4] w-full overflow-hidden rounded-lg bg-neutral-100 ring-1 ring-neutral-900/[0.06] transition-opacity hover:opacity-90"
+                    aria-label={`Open ${label.toLowerCase()} photo`}
+                >
+                    <img src={photo.thumbUrl} alt="" className="h-full w-full object-cover" />
+                </button>
+            ) : (
+                <div className="grid aspect-[3/4] w-full place-items-center rounded-lg border border-dashed border-neutral-200 p-3 text-center">
+                    <p className="text-[12px] leading-snug text-neutral-400">{empty}</p>
+                </div>
+            )}
+            <div className="min-w-0">
+                <p
+                    className={`text-[12px] font-medium ${
+                        photo?.kind === 'goal' ? 'text-emerald-700' : 'text-neutral-900'
+                    }`}
+                >
+                    {label}
+                </p>
+                {sub && <p className="nums truncate text-[12px] text-neutral-500">{sub}</p>}
+            </div>
+        </div>
+    )
+}
+
+/** "12 Nov · 102.7 kg" for a progress photo; the note (or "Goal") for a goal photo. */
+function caption(logs: WeightLog[], photo: ProgressPhoto): string {
+    if (photo.kind === 'goal') return photo.note || 'What you’re aiming for'
+    const w = weightNear(logs, photo.date)
+    return [shortDate(photo.date), w != null && `${w.toFixed(1)} kg`].filter(Boolean).join(' · ')
+}
+
+// ─── Compare (full size) ────────────────────────────────────────────────────────
+
+/**
+ * The big view: original against the chosen photo, side by side or as a wipe,
+ * with every other photo of the pose underneath to pick from.
+ */
+function CompareDrawer({
+    open,
+    pose,
+    onPose,
+    original,
+    right,
+    laterProgress,
+    goals,
+    logs,
+    onPick,
+    onOpenPhoto,
+    onClose,
+}: {
+    open: boolean
+    pose: PhotoPose
+    onPose: (pose: PhotoPose) => void
+    original: ProgressPhoto | null
+    right: ProgressPhoto | null
+    laterProgress: ProgressPhoto[]
+    goals: ProgressPhoto[]
+    logs: WeightLog[]
+    onPick: (p: ProgressPhoto) => void
+    onOpenPhoto: (p: ProgressPhoto) => void
+    onClose: () => void
+}) {
+    const [view, setView] = useState<'side' | 'slider'>('side')
+    const rightChange =
+        original && right?.kind === 'progress' ? change(logs, original, right) : null
+
+    return (
+        <Drawer size="2xl" open={open} onClose={onClose} title="Compare photos">
+            {original && right && (
+                <div className="flex flex-col gap-5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <PillToggle label="Pose" options={POSES} value={pose} onChange={onPose} />
+                        <PillToggle
+                            label="Compare view"
+                            options={[
+                                { value: 'side', label: 'Side by side' },
+                                { value: 'slider', label: 'Slider' },
+                            ]}
+                            value={view}
+                            onChange={setView}
+                        />
+                    </div>
+
+                    {view === 'slider' ? (
+                        <SliderCompare
+                            before={original}
+                            after={right}
+                            afterLabel={right.kind === 'goal' ? 'Goal' : shortDate(right.date)}
+                            caption={[
+                                `${longDate(original.date)} → ${right.kind === 'goal' ? 'goal' : longDate(right.date)}`,
+                                rightChange,
+                            ]
+                                .filter(Boolean)
+                                .join(' · ')}
+                        />
+                    ) : (
+                        <div className="flex flex-col gap-2">
+                            <div className="grid grid-cols-2 gap-3">
+                                {[
+                                    { photo: original, label: 'Original' },
+                                    { photo: right, label: right.kind === 'goal' ? 'Goal' : 'Latest' },
+                                ].map(({ photo, label }) => (
+                                    <div key={photo._id} className="flex min-w-0 flex-col gap-1.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => onOpenPhoto(photo)}
+                                            className="block aspect-[3/4] w-full overflow-hidden rounded-xl bg-neutral-100 ring-1 ring-neutral-900/[0.06]"
+                                            aria-label={`Edit ${label.toLowerCase()} photo`}
+                                        >
+                                            <img
+                                                src={photo.url}
+                                                alt=""
+                                                className="h-full w-full object-cover"
+                                            />
+                                        </button>
+                                        <p className="nums truncate text-[12px] text-neutral-500">
+                                            <span
+                                                className={`font-medium ${photo.kind === 'goal' ? 'text-emerald-700' : 'text-neutral-900'}`}
+                                            >
+                                                {label}
+                                            </span>{' '}
+                                            · {caption(logs, photo)}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                            {rightChange && (
+                                <p className="nums text-[13px] text-neutral-600">{rightChange}</p>
+                            )}
+                        </div>
+                    )}
+
+                    {(laterProgress.length > 0 || goals.length > 0) && (
+                        <div className="flex flex-col gap-3 border-t border-hairline pt-4">
+                            <p className="text-[13px] font-medium text-neutral-900">
+                                Compare the original with
+                            </p>
+                            {laterProgress.length > 0 && (
+                                <ThumbRow
+                                    title="Progress"
+                                    photos={laterProgress}
+                                    selectedId={right._id}
+                                    sub={(p) => weightDelta(logs, original, p) ?? ''}
+                                    top={(p) => shortDate(p.date)}
+                                    onPick={onPick}
+                                />
+                            )}
+                            {goals.length > 0 && (
+                                <ThumbRow
+                                    title="Goal"
+                                    photos={[...goals].reverse()}
+                                    selectedId={right._id}
+                                    top={() => 'Goal'}
+                                    sub={(p) => p.note || shortDate(p.date)}
+                                    onPick={onPick}
+                                />
+                            )}
+                        </div>
+                    )}
+                    <p className="text-[12px] text-neutral-500">
+                        Tap a photo to edit or delete it.
+                    </p>
+                </div>
+            )}
+        </Drawer>
     )
 }
 
@@ -553,29 +636,6 @@ function ThumbRow({
                     )
                 })}
             </div>
-        </div>
-    )
-}
-
-function EmptyPane({
-    text,
-    action,
-    onAction,
-}: {
-    text: string
-    action: string
-    onAction: () => void
-}) {
-    return (
-        <div className="flex aspect-[3/4] w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-neutral-200 p-3 text-center">
-            <p className="text-[12px] leading-snug text-neutral-500">{text}</p>
-            <button
-                type="button"
-                onClick={onAction}
-                className="text-[13px] font-medium text-neutral-900 underline-offset-2 hover:underline"
-            >
-                {action}
-            </button>
         </div>
     )
 }
