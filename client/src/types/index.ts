@@ -371,6 +371,32 @@ export const CONDITIONING_CATEGORIES = [
 ] as const
 export type ConditioningCategory = (typeof CONDITIONING_CATEGORIES)[number]
 
+/** Colours a user's own conditioning category can take. */
+export const CONDITIONING_GROUP_COLORS = [
+    'sky',
+    'emerald',
+    'amber',
+    'rose',
+    'violet',
+    'teal',
+    'orange',
+    'slate',
+] as const
+export type ConditioningGroupColor = (typeof CONDITIONING_GROUP_COLORS)[number]
+/** At most this many categories. */
+export const MAX_CONDITIONING_GROUPS = 5
+
+/**
+ * The user's own label for sessions, e.g. Running or Rugby — a "category" in the
+ * UI, separate from the fixed type (HIIT, Cardio…). Colours the planner.
+ */
+export interface ConditioningGroup {
+    _id: string
+    name: string
+    color: ConditioningGroupColor
+    order: number
+}
+
 /** One thing done for a stretch of time or distance — see server/src/lib/sessionReps.ts. */
 export interface RepEffort {
     /** What it is: "Run", "Walk", "Bike", "Calf raises". */
@@ -421,6 +447,8 @@ export interface ConditioningSession extends Phased<SessionPart> {
     /** Planned duration in minutes. */
     duration: number
     category: ConditioningCategory
+    /** The user's own category (ConditioningGroup id), if any. */
+    group?: string | null
     /** What the session is for, e.g. "Build aerobic base". */
     purpose?: string
     /** Guidance on how / when to run the session. */

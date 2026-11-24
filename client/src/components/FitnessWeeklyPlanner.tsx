@@ -134,8 +134,21 @@ import {
     GridDropHere,
 } from './planner/PlannerParts'
 import { estimateWorkoutMinutes } from '../lib/phases'
+import { GROUP_TONE, findGroup, useConditioningGroups } from '../lib/conditioningGroups'
+import type { ConditioningGroup } from '../types'
 
 // ─── Kind presentation ────────────────────────────────────────────────────────
+
+/** A conditioning entry's own category (Running, Rugby…), when its session has one. */
+function useEntryGroup(entry: FitnessPlanEntry): ConditioningGroup | undefined {
+    const groups = useConditioningGroups()
+    return entry.kind === 'conditioning' ? findGroup(groups, entry.session?.group) : undefined
+}
+
+/** What a conditioning entry is called on its line: its category, else its type. */
+function sessionKind(entry: FitnessPlanEntry, group?: ConditioningGroup): string {
+    return group?.name ?? entry.session?.category ?? ''
+}
 
 const KIND_META: Record<FitnessPlanKind, { label: string; noun: string; icon: string }> = {
     workout: { label: 'Strength', noun: 'workout', icon: 'fa-solid fa-dumbbell' },
@@ -902,6 +915,22 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                           },
                       ]
                     : []),
+                // Silence (or bring back) this item's calendar clash in one step.
+                ...((clashesByDate.get(entry.date) ?? []).some((c) => c.entry._id === entry._id)
+                    ? [
+                          entry.ignoreClash
+                              ? {
+                                    label: 'Warn about clash again',
+                                    icon: 'fa-solid fa-bell',
+                                    onClick: () => void handleOverrideClash(entry._id, false),
+                                }
+                              : {
+                                    label: 'Ignore clash',
+                                    icon: 'fa-solid fa-bell-slash',
+                                    onClick: () => void handleOverrideClash(entry._id, true),
+                                },
+                      ]
+                    : []),
                 {
                     label: 'Remove',
                     icon: 'fa-solid fa-trash-can',
@@ -1280,6 +1309,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                     overloadsByDate={overloadsByDate}
                     onShowClashes={setClashDate}
                     onShowOverloads={setOverloadDate}
+                    onIgnoreClash={(id) => void handleOverrideClash(id, true)}
                 />
             )}
 
@@ -2979,7 +3009,7 @@ const GARMIN_ROW_NOTE: Record<GarminState, string | null> = {
 }
 
 /** The one-line summary under a planned item's name. */
-function plannedMeta(entry: FitnessPlanEntry): string {
+function plannedMeta(entry: FitnessPlanEntry, group?: ConditioningGroup): string {
     if (entry.kind === 'workout' && entry.workout) {
         const n = entry.workout.main.length
         const mins = estimateWorkoutMinutes(entry.workout)
@@ -2988,7 +3018,7 @@ function plannedMeta(entry: FitnessPlanEntry): string {
             .join(' · ')
     }
     if (entry.kind === 'conditioning' && entry.session)
-        return `${entry.session.category} · ${minutesLabel(entry.session.duration)}`
+        return `${sessionKind(entry, group)} · ${minutesLabel(entry.session.duration)}`
     return KIND_META[entry.kind].label
 }
 
@@ -3019,6 +3049,7 @@ function PlannedRow({
     onContextMenu: (ev: MouseEvent) => void
 }) {
     const name = planItemName(entry) ?? KIND_META[entry.kind].noun
+    const group = useEntryGroup(entry)
     // A logged session counts as done even if it was skipped first.
     const skipped = !done && entry.skipped === true
     const garmin = useContext(GarminStatesContext)[entry._id]
@@ -3051,8 +3082,14 @@ function PlannedRow({
     return (
         <PlanRow
             compact={compact}
-            bar={skipped ? 'bg-neutral-300' : KIND_TONE[entry.kind].dot}
-            tint={skipped || done ? 'bg-neutral-50' : KIND_TONE[entry.kind].block}
+            bar={skipped ? 'bg-neutral-300' : group ? GROUP_TONE[group.color].dot : KIND_TONE[entry.kind].dot}
+            tint={
+                skipped || done
+                    ? 'bg-neutral-50'
+                    : group
+                      ? GROUP_TONE[group.color].block
+                      : KIND_TONE[entry.kind].block
+            }
             title={name}
             titleTone={
                 skipped
@@ -3067,8 +3104,8 @@ function PlannedRow({
                         ? `Skipped · ${entry.skipReason}`
                         : 'Skipped'
                     : garminNote
-                      ? `${plannedMeta(entry)} · ${garminNote}`
-                      : plannedMeta(entry)
+                      ? `${plannedMeta(entry, group)} · ${garminNote}`
+                      : plannedMeta(entry, group)
             }
             name={name}
             onOpen={onOpen}
@@ -3733,9 +3770,10 @@ function stepTicksKey(entry: FitnessPlanEntry | null): string | null {
  * in for the stat tiles, so each fact shows once.
  */
 function PlannedMeta({ entry, done }: { entry: FitnessPlanEntry; done: boolean }) {
+    const group = useEntryGroup(entry)
     const what =
         entry.kind === 'conditioning' && entry.session
-            ? [entry.session.category, minutesLabel(entry.session.duration)]
+            ? [sessionKind(entry, group), minutesLabel(entry.session.duration)]
             : [KIND_META[entry.kind].label]
     return (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -3910,13 +3948,13 @@ function entryMinutes(entry: FitnessPlanEntry): number {
 }
 
 /** The tile's one line of detail: minutes, then what it is. */
-function tileMeta(entry: FitnessPlanEntry): string {
+function tileMeta(entry: FitnessPlanEntry, group?: ConditioningGroup): string {
     const mins = entryMinutes(entry)
     const what =
         entry.kind === 'workout' && entry.workout
             ? `${entry.workout.main.length} exercises`
             : entry.kind === 'conditioning' && entry.session
-              ? entry.session.category
+              ? sessionKind(entry, group)
               : ''
     return [mins > 0 ? `${mins} min` : null, what || null].filter(Boolean).join(' · ')
 }
@@ -3927,19 +3965,23 @@ function ToSort({
     overloadsByDate,
     onShowClashes,
     onShowOverloads,
+    onIgnoreClash,
 }: {
     clashesByDate: Map<string, Clash[]>
     overloadsByDate: Map<string, SlotOverload[]>
     onShowClashes: (date: string) => void
     onShowOverloads: (date: string) => void
+    /** Accept a clash where it stands, silencing it without opening the dialog. */
+    onIgnoreClash: (id: string) => void
 }) {
-    const items: { key: string; text: string; onSort: () => void }[] = []
+    const items: { key: string; text: string; onSort: () => void; onIgnore?: () => void }[] = []
     for (const [date, list] of [...clashesByDate].sort(([a], [b]) => a.localeCompare(b)))
         for (const c of list.filter((c) => !c.acknowledged))
             items.push({
                 key: `c-${c.entry._id}`,
                 text: `${planItemName(c.entry) ?? KIND_META[c.entry.kind].noun} on ${shortDayLabel(date)} ${PART_META[partOf(c.entry)].label.toLowerCase()} clashes with ${c.events.map((e) => e.title).join(', ')}.`,
                 onSort: () => onShowClashes(date),
+                onIgnore: () => onIgnoreClash(c.entry._id),
             })
     for (const [date, list] of [...overloadsByDate].sort(([a], [b]) => a.localeCompare(b)))
         for (const o of list.filter((o) => !o.acknowledged))
@@ -3963,6 +4005,14 @@ function ToSort({
                     </span>
                     <span>{it.text}</span>
                     <span className="flex gap-2 whitespace-nowrap">
+                        {it.onIgnore && (
+                            <BarButton
+                                onClick={it.onIgnore}
+                                className="!h-9 !px-3"
+                            >
+                                Ignore
+                            </BarButton>
+                        )}
                         <BarButton solid onClick={it.onSort} className="!h-9 !px-3">
                             Sort it
                         </BarButton>
@@ -3999,6 +4049,7 @@ function PlanTile({
     onDragEnd: () => void
 }) {
     const name = planItemName(entry) ?? KIND_META[entry.kind].noun
+    const group = useEntryGroup(entry)
     const skipped = !done && entry.skipped === true
     return (
         <div
@@ -4010,7 +4061,7 @@ function PlanTile({
             }}
             onDragEnd={onDragEnd}
             onContextMenu={onContextMenu}
-            className={`relative ${skipped ? 'bg-tint-skipped text-neutral-600' : `${KIND_TONE[entry.kind].block} text-neutral-900`} ${
+            className={`relative ${skipped ? 'bg-tint-skipped text-neutral-600' : `${group ? GROUP_TONE[group.color].block : KIND_TONE[entry.kind].block} text-neutral-900`} ${
                 dragging ? 'opacity-40' : ''
             }`}
         >
@@ -4021,7 +4072,7 @@ function PlanTile({
                 className="flex w-full flex-col gap-1 px-2 pb-2.5 pt-2 text-left text-[14px] leading-[1.25]"
             >
                 <span className={`line-clamp-2 font-medium ${skipped ? 'line-through' : ''}`}>{name}</span>
-                <span className="block truncate pr-5 text-[12px]">{tileMeta(entry)}</span>
+                <span className="block truncate pr-5 text-[12px]">{tileMeta(entry, group)}</span>
                 {skipped && <span className="text-[11px] font-semibold uppercase tracking-[0.1em]">Skipped</span>}
                 {flag && (
                     <span className="mt-1 self-start whitespace-nowrap bg-neutral-900 px-1.5 py-[3px] text-[10px] font-semibold uppercase tracking-[0.1em] text-white">

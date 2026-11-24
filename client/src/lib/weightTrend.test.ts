@@ -9,6 +9,7 @@ import {
     rateStatus,
     ratePercent,
     daysBetween,
+    weightChanges,
     DAILY_ALPHA,
 } from './weightTrend'
 import type { WeightLog } from '../types'
@@ -290,5 +291,51 @@ describe('bodyFatSeries', () => {
     it('leaves the weight trend untouched by missing body fat', () => {
         const logs = [log('2026-08-01', 90, 28), log('2026-08-02', 89.5)]
         expect(trendSeries(logs).map((p) => p.date)).toEqual(['2026-08-01', '2026-08-02'])
+    })
+})
+
+describe('weightChanges', () => {
+    // One reading a day, losing 0.1 kg a day, for 40 days.
+    const daily = trendSeries(
+        Array.from({ length: 40 }, (_, i) => {
+            const d = new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10)
+            return log(d, 90 - i * 0.1)
+        })
+    )
+
+    it('offers only the windows the history covers, then the whole history', () => {
+        expect(weightChanges(daily).map((r) => r.label)).toEqual([
+            '1 week',
+            '2 weeks',
+            '4 weeks',
+            'Since first weigh-in',
+        ])
+    })
+
+    it('measures trend to trend from the right day', () => {
+        const [week, , month, all] = weightChanges(daily)
+        const last = daily[daily.length - 1]
+        expect(week.from.date).toBe('2026-02-02')
+        expect(week.change).toBeCloseTo(last.trend - week.from.trend, 6)
+        expect(month.days).toBe(28)
+        expect(all.from.date).toBe('2026-01-01')
+        expect(all.change).toBeCloseTo(last.trend - 90, 6)
+        expect(all.percent).toBeCloseTo(((last.trend - 90) / 90) * 100, 6)
+        expect(all.perWeek).toBeCloseTo(((last.trend - 90) / 39) * 7, 6)
+    })
+
+    it('starts from the last reading before the cutoff across a gap', () => {
+        const pts = trendSeries([
+            log('2026-01-01', 90),
+            log('2026-01-10', 89),
+            log('2026-01-30', 87),
+        ])
+        const twoWeeks = weightChanges(pts).find((r) => r.label === '2 weeks')!
+        expect(twoWeeks.from.date).toBe('2026-01-10')
+        expect(twoWeeks.days).toBe(20)
+    })
+
+    it('is empty with fewer than two weigh-ins', () => {
+        expect(weightChanges(trendSeries([log('2026-01-01', 90)]))).toEqual([])
     })
 })

@@ -3,9 +3,8 @@ import Drawer from './Drawer'
 import Button from './Button'
 import DatePicker from './DatePicker'
 import Textarea from './Textarea'
-import ConditioningSessionDetail from './ConditioningSessionDetail'
+import SessionSteps from './session/SessionSteps'
 import { SaveStatus } from './SessionPace'
-import { useStepTicks } from './session/SessionUI'
 import { SummaryExerciseList, SummaryStats, type SummaryRow } from './session/WorkoutSummary'
 import { conditioningPayload, useConditioningLog } from './useConditioningLog'
 import LiveRouteMap, { type LiveProgress } from './route/LiveRouteMap'
@@ -13,7 +12,8 @@ import { listRoutes, type RunRoute } from '../services/routes'
 import { routeStepMarkers, sessionDistance } from '../lib/routeDistance'
 import { useToast } from '../context/ToastContext'
 import { useWakeLock } from './useWakeLock'
-import { effortFacts } from '../lib/sessionReps'
+import NowView, { type NowState } from './session/NowView'
+import { sectionSteps } from '../lib/repSteps'
 import { todayKey } from '../lib/calendar'
 import { flattenPhases } from '../lib/phases'
 import {
@@ -24,7 +24,7 @@ import {
     timeOfDay,
     type DriftTone,
 } from '../lib/sessionPace'
-import type { ConditioningSession, RepEffort } from '../types'
+import type { ConditioningSession } from '../types'
 
 const PHASE_NAME: Record<string, string> = {
     warmUp: 'Warm-up',
@@ -82,6 +82,8 @@ export default function ConditioningLogDrawer({
     /** Undefined until edited, so autosaves leave the log's notes alone. */
     const [notes, setNotes] = useState<string | undefined>(undefined)
     const [finishing, setFinishing] = useState(false)
+    /** The big rep-you're-on view, or the whole session as a list. */
+    const [mode, setMode] = useState<'now' | 'list'>('now')
     const top = useRef<HTMLDivElement>(null)
 
     // A new session opening: start on the session, or on the wrap-up when every
@@ -104,7 +106,6 @@ export default function ConditioningLogDrawer({
         notes,
         onCreated: (logId) => onLogged?.(logId, date),
     })
-    const steps = useStepTicks(view ? view.stepsKey : null)
     // In the gym the phone sits on the treadmill or the floor: keep it awake.
     useWakeLock(!!target)
 
@@ -162,42 +163,69 @@ export default function ConditioningLogDrawer({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [liveRoute, session, logger.taps])
 
-    // What you're on right now, pinned above the footer so it's one thumb-tap
-    // away however far the page has scrolled.
-    const now = useMemo((): NowItem | null => {
-        if (!session) return null
+    // Done in the footer: the rep you're on, or the section when it has no reps.
+    function pressDone() {
+        if (!session) return
         const parts = flattenPhases(session)
         const i = parts.findIndex((_, k) => logger.taps.completedAt[k] == null)
+        if (i < 0) return
+        const rounds = parts[i].item.rounds ?? 0
+        if (rounds > 0) count(i, Math.min(logger.taps.counts[i] ?? 0, rounds) + 1)
+        else logger.complete(i)
+    }
+
+    // A row in the whole-session list: tick up to a rep, or untick back to it.
+    function tapRep(i: number, rep: number, done: boolean) {
+        if (!session) return
+        const rounds = flattenPhases(session)[i]?.item.rounds ?? 0
+        if (rounds > 0) count(i, done ? rep : rep + 1)
+        else if (done) logger.undo(i)
+        else logger.complete(i)
+    }
+
+    // The same as a step list for the Now view: the section's reps with their
+    // planned times, the one you're on, what's done before it and what's after.
+    const big = useMemo((): NowState | null => {
+        if (!session) return null
+        const parts = flattenPhases(session)
+        const open = (k: number) => logger.taps.completedAt[k] == null
+        const i = parts.findIndex((_, k) => open(k))
         if (i < 0) return null
         const { phase, item } = parts[i]
-        const rounds = item.rounds ?? 0
-        const done = Math.min(logger.taps.counts[i] ?? 0, rounds)
+        const reps = sectionSteps(item)
+        if (reps.length === 0) return null
+        const done = Math.min(logger.taps.counts[i] ?? 0, reps.length - 1)
         const label = item.roundLabel?.trim() ? item.roundLabel.trim().replace(/s$/, '') : 'Rep'
-        const where = [
-            PHASE_NAME[phase] ?? phase,
-            rounds > 1
-                ? `${label.charAt(0).toUpperCase()}${label.slice(1)} ${done + 1} of ${rounds}`
-                : `Part ${i + 1} of ${parts.length}`,
-        ].join(' · ')
-        const rep = rounds > 0 && item.reps?.length === rounds ? item.reps[done] : undefined
-        const what = rep
-            ? effortLine(rep)
-            : rounds > 0
-              ? item.roundDetails?.[done]?.trim() || item.name
-              : item.name
+        const pace = paceOf(
+            parts.map(({ item: p }) => ({ startMin: p.startMin, endMin: p.endMin })),
+            parts.map((_, k) => logger.taps.completedAt[k] ?? null)
+        )
         return {
-            where,
-            what,
-            then: rep?.rest ? effortLine(rep.rest) : undefined,
-            part: rep || (rounds > 0 && item.roundDetails?.[done]) ? item.name : undefined,
-            onDone: () => (rounds > 0 ? count(i, done + 1) : logger.complete(i)),
+            phase: PHASE_NAME[phase] ?? phase,
+            part: item.name,
+            partIndex: i,
+            partCount: parts.length,
+            repLabel: `${label.charAt(0).toUpperCase()}${label.slice(1)}`,
+            reps,
+            done,
+            drift: pace.drift,
+            before: parts
+                .filter((_, k) => k < i)
+                .map(({ item: p }) => ({ name: p.name, reps: sectionSteps(p) })),
+            upcoming: parts
+                .map((p, k) => ({ ...p, k }))
+                .filter(({ k }) => k > i && open(k))
+                .map(({ phase: ph, item: p }) => ({
+                    name: p.name,
+                    phase: PHASE_NAME[ph] ?? ph,
+                    reps: sectionSteps(p),
+                })),
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [session, logger.taps])
 
     useEffect(() => {
         top.current?.scrollIntoView({ block: 'start' })
-    }, [step])
+    }, [step, mode])
 
     async function finish() {
         if (!session) return
@@ -222,43 +250,52 @@ export default function ConditioningLogDrawer({
             title={session?.name ?? 'Log session'}
             footer={
                 <div className="flex w-full flex-col gap-3">
-                {step === 'log' && now && <NowBar now={now} />}
-                <div className="flex w-full items-center gap-3">
-                    <div className="mr-auto min-w-0">
-                        <SaveStatus state={logger.saveState} savedAt={logger.savedAt} />
-                    </div>
-                    {step === 'wrap' ? (
-                        <>
-                            <Button
-                                variant="secondary"
-                                icon="fa-solid fa-arrow-left"
-                                onClick={() => setStep('log')}
-                                aria-label="Back to the session"
-                            >
-                                <span className="hidden sm:inline">Back</span>
-                            </Button>
-                            <Button
-                                icon="fa-solid fa-flag-checkered"
-                                onClick={finish}
-                                disabled={finishing}
-                            >
-                                {finishing ? 'Saving…' : 'Finish session'}
-                            </Button>
-                        </>
-                    ) : (
-                        <Button
-                            variant={now ? 'ghost' : 'primary'}
-                            size={now ? 'sm' : 'md'}
-                            onClick={() => setStep('wrap')}
+                    {step === 'log' && big && (
+                        <button
+                            type="button"
+                            onClick={pressDone}
+                            className="inline-flex h-14 w-full items-center justify-center gap-2.5 rounded-xl bg-neutral-900 text-[13px] font-semibold uppercase tracking-[0.14em] text-white transition-colors active:bg-neutral-700"
                         >
-                            Wrap up
-                            <i
-                                className="fa-solid fa-arrow-right ml-2 text-xs"
-                                aria-hidden="true"
-                            />
-                        </Button>
+                            <i className="fa-solid fa-check" aria-hidden="true" />
+                            {big.reps.length > 1 ? `${big.repLabel} ${big.done + 1} done` : 'Done'}
+                        </button>
                     )}
-                </div>
+                    <div className="flex w-full items-center gap-3">
+                        <div className="mr-auto min-w-0">
+                            <SaveStatus state={logger.saveState} savedAt={logger.savedAt} />
+                        </div>
+                        {step === 'wrap' ? (
+                            <>
+                                <Button
+                                    variant="secondary"
+                                    icon="fa-solid fa-arrow-left"
+                                    onClick={() => setStep('log')}
+                                    aria-label="Back to the session"
+                                >
+                                    <span className="hidden sm:inline">Back</span>
+                                </Button>
+                                <Button
+                                    icon="fa-solid fa-flag-checkered"
+                                    onClick={finish}
+                                    disabled={finishing}
+                                >
+                                    {finishing ? 'Saving…' : 'Finish session'}
+                                </Button>
+                            </>
+                        ) : (
+                            <Button
+                                variant={big ? 'ghost' : 'primary'}
+                                size={big ? 'sm' : 'md'}
+                                onClick={() => setStep('wrap')}
+                            >
+                                Wrap up
+                                <i
+                                    className="fa-solid fa-arrow-right ml-2 text-xs"
+                                    aria-hidden="true"
+                                />
+                            </Button>
+                        )}
+                    </div>
                 </div>
             }
         >
@@ -266,6 +303,31 @@ export default function ConditioningLogDrawer({
                 <div ref={top} className="scroll-mt-5">
                     {step === 'log' ? (
                         <div className="flex flex-col gap-6">
+                            {big && (
+                                <div className="grid grid-cols-2 gap-1 rounded-xl bg-neutral-100 p-1">
+                                    {(
+                                        [
+                                            ['now', 'Now'],
+                                            ['list', 'Whole session'],
+                                        ] as const
+                                    ).map(([v, label]) => (
+                                        <button
+                                            key={v}
+                                            type="button"
+                                            aria-pressed={mode === v}
+                                            onClick={() => setMode(v)}
+                                            className={`h-10 rounded-lg text-[13px] font-semibold tracking-[-0.005em] transition-all ${
+                                                mode === v
+                                                    ? 'bg-white text-neutral-900 shadow-sm'
+                                                    : 'text-neutral-500'
+                                            }`}
+                                        >
+                                            {label}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            {big && mode === 'now' && <NowView now={big} />}
                             {liveRoute && (
                                 <LiveRouteMap
                                     key={liveRoute._id}
@@ -274,16 +336,15 @@ export default function ConditioningLogDrawer({
                                     progress={progress}
                                 />
                             )}
-                            <ConditioningSessionDetail
-                                session={session}
-                                counts={logger.taps.counts}
-                                onCount={count}
-                                completedAt={logger.taps.completedAt}
-                                onComplete={logger.complete}
-                                onUndo={logger.undo}
-                                stepTicks={steps.ticks}
-                                onToggleStep={steps.toggle}
-                            />
+                            {(mode === 'list' || !big) && (
+                                <SessionSteps
+                                    session={session}
+                                    counts={logger.taps.counts}
+                                    completedAt={logger.taps.completedAt}
+                                    onRep={tapRep}
+                                    onUndo={logger.undo}
+                                />
+                            )}
                         </div>
                     ) : (
                         <WrapUp
@@ -307,56 +368,6 @@ export default function ConditioningLogDrawer({
                 </div>
             )}
         </Drawer>
-    )
-}
-
-// ─── Now bar ────────────────────────────────────────────────────────────────────
-
-interface NowItem {
-    /** "Warm-up · Rep 1 of 2", or "Main · Part 2 of 3". */
-    where: string
-    /** The rep (or part) to do: "Walk · 3 min · 5.0 km/h". */
-    what: string
-    /** Its recovery, when it has one. */
-    then?: string
-    /** The part's name, when `what` is a rep inside it. */
-    part?: string
-    onDone: () => void
-}
-
-/** An effort on one line: its name, then its numbers. */
-function effortLine(e: RepEffort): string {
-    return [e.do, ...effortFacts(e).map((f) => f.text)].join(' · ')
-}
-
-/**
- * The rep you're on and one big Done — pinned at the bottom of the logger, so
- * mid-run on a phone it's a single tap without hunting for the row.
- */
-function NowBar({ now }: { now: NowItem }) {
-    return (
-        <div className="flex items-center gap-3" aria-live="polite">
-            <div className="min-w-0 flex-1">
-                <p className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-neutral-500">
-                    {now.where}
-                    {now.part && <span className="font-medium normal-case tracking-normal"> · {now.part}</span>}
-                </p>
-                <p className="mt-0.5 line-clamp-2 text-[15px] font-semibold leading-snug text-neutral-900">
-                    {now.what}
-                </p>
-                {now.then && (
-                    <p className="mt-0.5 truncate text-xs text-neutral-500">then {now.then}</p>
-                )}
-            </div>
-            <button
-                type="button"
-                onClick={now.onDone}
-                className="inline-flex h-14 shrink-0 items-center gap-2 bg-neutral-900 px-6 text-sm font-semibold uppercase tracking-[0.1em] text-white transition-colors hover:bg-black active:bg-neutral-700"
-            >
-                <i className="fa-solid fa-check" aria-hidden="true" />
-                Done
-            </button>
-        </div>
     )
 }
 

@@ -1,0 +1,801 @@
+{
+  "planName": "Rugby Season 2027",
+  "planStart": "2027-01-05",
+  "planEnd": "2027-04-24",
+  "source": "Written with Claude, November 2026.",
+  "generatedAt": "2026-11-23",
+  "goal": {
+    "primaryGoal": "Train twice a week and play every Saturday from January to the end of the season, staying fit and injury-free.",
+    "checkpoints": [
+      {
+        "date": "2027-02-27",
+        "target": "Through 8 weeks with no missed matches through injury."
+      },
+      {
+        "date": "2027-04-24",
+        "target": "Last match of the season."
+      }
+    ]
+  },
+  "trainingPhases": [
+    {
+      "name": "Back after Christmas",
+      "dates": "2027-01-05 to 2027-01-30",
+      "focus": "Rebuild match fitness after the break.",
+      "conditioning": "Tuesday fitness block at the lower end \u2014 RPE 7, full rests."
+    },
+    {
+      "name": "Mid-season",
+      "dates": "2027-02-01 to 2027-03-27",
+      "focus": "Hold fitness and sharpness through the run of matches.",
+      "conditioning": "Tuesday fitness block at full intensity."
+    },
+    {
+      "name": "Run-in",
+      "dates": "2027-03-29 to 2027-04-24",
+      "focus": "Stay fresh for the last matches.",
+      "conditioning": "Trim Tuesday fitness by a third; keep Thursday speed."
+    }
+  ],
+  "weeklyTemplate": [
+    {
+      "day": "Tuesday",
+      "strength": null,
+      "conditioning": "Rugby training - contact + fitness",
+      "slot": "Evening"
+    },
+    {
+      "day": "Thursday",
+      "strength": null,
+      "conditioning": "Rugby training - team run",
+      "slot": "Evening"
+    },
+    {
+      "day": "Saturday",
+      "strength": null,
+      "conditioning": "Rugby match",
+      "slot": "Afternoon"
+    }
+  ],
+  "conditioning": {
+    "existingRunPlan": [],
+    "post10KSessionLibrary": [
+      {
+        "name": "Rugby training - Tuesday (contact + fitness)",
+        "duration": 90,
+        "category": "HIIT",
+        "group": "Rugby",
+        "groupColor": "emerald",
+        "purpose": "The hard session of the week: handling, contact and breakdown, then rugby-specific fitness.",
+        "howToUse": "Evening club training. Full contact. Eat a proper meal 2-3 hours before and have a recovery shake or meal within an hour after.",
+        "helpers": [
+          "Boots, gumshield, water bottle",
+          "Tape for wrists/ankles if you use it"
+        ],
+        "warmUp": [
+          {
+            "name": "Pulse raiser",
+            "startMin": 0,
+            "endMin": 8,
+            "reps": [
+              {
+                "do": "Jog",
+                "time": "3 min",
+                "effort": "Easy"
+              },
+              {
+                "do": "Leg swings",
+                "count": 10,
+                "note": "each side"
+              },
+              {
+                "do": "Walking lunge with twist",
+                "count": 10
+              },
+              {
+                "do": "High knees",
+                "distance": "20 m",
+                "times": 2
+              },
+              {
+                "do": "Heel flicks",
+                "distance": "20 m",
+                "times": 2
+              }
+            ]
+          },
+          {
+            "name": "Activation + build-ups",
+            "startMin": 8,
+            "endMin": 15,
+            "reps": [
+              {
+                "do": "Glute bridge",
+                "count": 10
+              },
+              {
+                "do": "Lateral shuffle",
+                "distance": "10 m",
+                "note": "each way",
+                "times": 2
+              },
+              {
+                "times": 4,
+                "do": "Build-up sprint",
+                "distance": "30 m",
+                "effort": "60% \u2192 90%",
+                "rest": {
+                  "do": "Walk",
+                  "time": "30s"
+                }
+              }
+            ]
+          }
+        ],
+        "main": [
+          {
+            "name": "Handling + skills",
+            "detail": "Hands up early, pass in front of the receiver.",
+            "startMin": 15,
+            "endMin": 35,
+            "reps": [
+              {
+                "do": "Passing drills",
+                "time": "10 min",
+                "effort": "RPE 5",
+                "note": "both hands, at pace"
+              },
+              {
+                "do": "2v1 / 3v2 attack",
+                "time": "10 min",
+                "effort": "RPE 6"
+              }
+            ]
+          },
+          {
+            "name": "Contact + breakdown",
+            "detail": "Low body height, head to the side.",
+            "startMin": 35,
+            "endMin": 55,
+            "reps": [
+              {
+                "do": "Tackle technique",
+                "time": "8 min",
+                "effort": "RPE 6",
+                "note": "shoulder, wrap, drive"
+              },
+              {
+                "do": "Ruck clear-outs",
+                "time": "6 min",
+                "effort": "RPE 7"
+              },
+              {
+                "do": "Jackal / counter-ruck",
+                "time": "6 min",
+                "effort": "RPE 7"
+              }
+            ]
+          },
+          {
+            "name": "Rugby fitness",
+            "detail": "Quality over grind \u2014 every rep at match intensity.",
+            "startMin": 55,
+            "endMin": 70,
+            "reps": [
+              {
+                "times": 6,
+                "do": "Shuttle run",
+                "distance": "120 m",
+                "effort": "RPE 8",
+                "note": "10-20-30 m shuttle, touch each line",
+                "rest": "45s"
+              },
+              {
+                "times": 4,
+                "do": "Up-down + sprint",
+                "distance": "20 m",
+                "effort": "RPE 9",
+                "note": "hit the floor, get up, sprint",
+                "rest": "60s"
+              }
+            ]
+          },
+          {
+            "name": "Opposed team play",
+            "startMin": 70,
+            "endMin": 82,
+            "reps": [
+              {
+                "do": "Opposed game",
+                "time": "12 min",
+                "effort": "RPE 7",
+                "note": "touch or full contact as coach calls"
+              }
+            ]
+          }
+        ],
+        "coolDown": [
+          {
+            "name": "Walk + stretch",
+            "startMin": 82,
+            "endMin": 90,
+            "reps": [
+              {
+                "do": "Walk",
+                "time": "2 min",
+                "effort": "Easy"
+              },
+              {
+                "do": "Hip flexor stretch",
+                "time": "45s",
+                "note": "each side"
+              },
+              {
+                "do": "Hamstring stretch",
+                "time": "45s",
+                "note": "each side"
+              },
+              {
+                "do": "Glute stretch",
+                "time": "45s",
+                "note": "each side"
+              },
+              {
+                "do": "Neck + shoulder rolls",
+                "count": 10
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Rugby training - Thursday (team run)",
+        "duration": 75,
+        "category": "HIIT",
+        "group": "Rugby",
+        "groupColor": "emerald",
+        "purpose": "Lighter, sharper session before the match: unit work, team shape and speed. Leave fresh.",
+        "howToUse": "Evening club training. Limited contact. Keep the sprints short and sharp, then go home and sleep well \u2014 the match is in two days.",
+        "helpers": [
+          "Boots, gumshield, water bottle"
+        ],
+        "warmUp": [
+          {
+            "name": "Pulse raiser",
+            "startMin": 0,
+            "endMin": 7,
+            "reps": [
+              {
+                "do": "Jog",
+                "time": "3 min",
+                "effort": "Easy"
+              },
+              {
+                "do": "Leg swings",
+                "count": 10,
+                "note": "each side"
+              },
+              {
+                "do": "Inchworm",
+                "count": 5
+              },
+              {
+                "do": "Skips",
+                "distance": "20 m",
+                "times": 2
+              }
+            ]
+          },
+          {
+            "name": "Speed prep",
+            "startMin": 7,
+            "endMin": 12,
+            "reps": [
+              {
+                "do": "A-skips",
+                "distance": "15 m",
+                "times": 2
+              },
+              {
+                "times": 3,
+                "do": "Build-up sprint",
+                "distance": "30 m",
+                "effort": "70% \u2192 95%",
+                "rest": {
+                  "do": "Walk",
+                  "time": "30s"
+                }
+              }
+            ]
+          }
+        ],
+        "main": [
+          {
+            "name": "Unit skills",
+            "detail": "Walk-through first, then at pace.",
+            "startMin": 12,
+            "endMin": 30,
+            "reps": [
+              {
+                "do": "Forwards: lineout + scrum / Backs: moves",
+                "time": "18 min",
+                "effort": "RPE 5"
+              }
+            ]
+          },
+          {
+            "name": "Team shape",
+            "detail": "Run through the plays for Saturday.",
+            "startMin": 30,
+            "endMin": 55,
+            "reps": [
+              {
+                "do": "Attack shape",
+                "time": "12 min",
+                "effort": "RPE 6",
+                "note": "unopposed then semi-opposed"
+              },
+              {
+                "do": "Defence line speed",
+                "time": "13 min",
+                "effort": "RPE 6"
+              }
+            ]
+          },
+          {
+            "name": "Speed",
+            "detail": "Full recovery between \u2014 this is speed, not fitness.",
+            "startMin": 55,
+            "endMin": 62,
+            "reps": [
+              {
+                "times": 6,
+                "do": "Sprint",
+                "distance": "20 m",
+                "effort": "Max",
+                "rest": {
+                  "do": "Walk",
+                  "time": "60s"
+                }
+              }
+            ]
+          }
+        ],
+        "coolDown": [
+          {
+            "name": "Walk + stretch",
+            "startMin": 62,
+            "endMin": 72,
+            "reps": [
+              {
+                "do": "Walk",
+                "time": "2 min",
+                "effort": "Easy"
+              },
+              {
+                "do": "Hip flexor stretch",
+                "time": "45s",
+                "note": "each side"
+              },
+              {
+                "do": "Quad stretch",
+                "time": "45s",
+                "note": "each side"
+              },
+              {
+                "do": "Calf stretch",
+                "time": "45s",
+                "note": "each side"
+              },
+              {
+                "do": "Hamstring stretch",
+                "time": "45s",
+                "note": "each side"
+              }
+            ]
+          },
+          {
+            "name": "Match prep",
+            "startMin": 72,
+            "endMin": 75,
+            "reps": [
+              {
+                "do": "Team talk",
+                "time": "3 min",
+                "note": "selection + game plan"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Rugby match",
+        "duration": 145,
+        "category": "HIIT",
+        "group": "Rugby",
+        "groupColor": "emerald",
+        "purpose": "Match day. The times run from arriving at the ground.",
+        "howToUse": "Arrive 45 min before kick-off. Big carb-based meal 3-4 hours before, snack + fluids 1 hour before. Refuel and rehydrate straight after, and log any knocks.",
+        "helpers": [
+          "Boots (+ spare studs), gumshield, shin pads if worn",
+          "Kit bag: towel, change of clothes, water bottle",
+          "Post-match snack / shake"
+        ],
+        "warmUp": [
+          {
+            "name": "Arrive + mobilise",
+            "startMin": 0,
+            "endMin": 15,
+            "reps": [
+              {
+                "do": "Strap / tape up",
+                "time": "5 min"
+              },
+              {
+                "do": "Foam roll + mobility",
+                "time": "10 min",
+                "effort": "Easy",
+                "note": "hips, calves, upper back"
+              }
+            ]
+          },
+          {
+            "name": "Team warm-up",
+            "startMin": 15,
+            "endMin": 40,
+            "reps": [
+              {
+                "do": "Jog + dynamic drills",
+                "time": "8 min",
+                "effort": "Easy"
+              },
+              {
+                "do": "Handling",
+                "time": "7 min",
+                "effort": "RPE 5"
+              },
+              {
+                "do": "Contact prep",
+                "time": "5 min",
+                "effort": "RPE 6",
+                "note": "hit shields, body height"
+              },
+              {
+                "times": 3,
+                "do": "Sprint",
+                "distance": "20 m",
+                "effort": "95%",
+                "rest": {
+                  "do": "Walk",
+                  "time": "45s"
+                }
+              }
+            ]
+          },
+          {
+            "name": "Final prep",
+            "startMin": 40,
+            "endMin": 45,
+            "reps": [
+              {
+                "do": "Fluids + team huddle",
+                "time": "5 min"
+              }
+            ]
+          }
+        ],
+        "main": [
+          {
+            "name": "First half",
+            "startMin": 45,
+            "endMin": 85,
+            "reps": [
+              {
+                "do": "Play",
+                "time": "40 min",
+                "effort": "Match"
+              }
+            ]
+          },
+          {
+            "name": "Half-time",
+            "startMin": 85,
+            "endMin": 95,
+            "reps": [
+              {
+                "do": "Rest + fluids",
+                "time": "10 min",
+                "note": "stay warm, keep moving"
+              }
+            ]
+          },
+          {
+            "name": "Second half",
+            "startMin": 95,
+            "endMin": 135,
+            "reps": [
+              {
+                "do": "Play",
+                "time": "40 min",
+                "effort": "Match"
+              }
+            ]
+          }
+        ],
+        "coolDown": [
+          {
+            "name": "Cool-down",
+            "startMin": 135,
+            "endMin": 145,
+            "reps": [
+              {
+                "do": "Walk",
+                "time": "3 min",
+                "effort": "Easy"
+              },
+              {
+                "do": "Stretch",
+                "time": "5 min",
+                "note": "hips, hamstrings, quads, calves"
+              },
+              {
+                "do": "Refuel + rehydrate",
+                "time": "2 min",
+                "note": "within 30 min of the final whistle"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "post10KCalendar": [
+      {
+        "date": "2027-01-05",
+        "session": "Rugby training - Tuesday (contact + fitness)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-01-07",
+        "session": "Rugby training - Thursday (team run)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-01-09",
+        "session": "Rugby match",
+        "slot": "Afternoon"
+      },
+      {
+        "date": "2027-01-12",
+        "session": "Rugby training - Tuesday (contact + fitness)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-01-14",
+        "session": "Rugby training - Thursday (team run)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-01-16",
+        "session": "Rugby match",
+        "slot": "Afternoon"
+      },
+      {
+        "date": "2027-01-19",
+        "session": "Rugby training - Tuesday (contact + fitness)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-01-21",
+        "session": "Rugby training - Thursday (team run)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-01-23",
+        "session": "Rugby match",
+        "slot": "Afternoon"
+      },
+      {
+        "date": "2027-01-26",
+        "session": "Rugby training - Tuesday (contact + fitness)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-01-28",
+        "session": "Rugby training - Thursday (team run)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-01-30",
+        "session": "Rugby match",
+        "slot": "Afternoon"
+      },
+      {
+        "date": "2027-02-02",
+        "session": "Rugby training - Tuesday (contact + fitness)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-02-04",
+        "session": "Rugby training - Thursday (team run)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-02-06",
+        "session": "Rugby match",
+        "slot": "Afternoon"
+      },
+      {
+        "date": "2027-02-09",
+        "session": "Rugby training - Tuesday (contact + fitness)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-02-11",
+        "session": "Rugby training - Thursday (team run)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-02-13",
+        "session": "Rugby match",
+        "slot": "Afternoon"
+      },
+      {
+        "date": "2027-02-16",
+        "session": "Rugby training - Tuesday (contact + fitness)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-02-18",
+        "session": "Rugby training - Thursday (team run)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-02-20",
+        "session": "Rugby match",
+        "slot": "Afternoon"
+      },
+      {
+        "date": "2027-02-23",
+        "session": "Rugby training - Tuesday (contact + fitness)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-02-25",
+        "session": "Rugby training - Thursday (team run)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-02-27",
+        "session": "Rugby match",
+        "slot": "Afternoon"
+      },
+      {
+        "date": "2027-03-02",
+        "session": "Rugby training - Tuesday (contact + fitness)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-03-04",
+        "session": "Rugby training - Thursday (team run)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-03-06",
+        "session": "Rugby match",
+        "slot": "Afternoon"
+      },
+      {
+        "date": "2027-03-09",
+        "session": "Rugby training - Tuesday (contact + fitness)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-03-11",
+        "session": "Rugby training - Thursday (team run)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-03-13",
+        "session": "Rugby match",
+        "slot": "Afternoon"
+      },
+      {
+        "date": "2027-03-16",
+        "session": "Rugby training - Tuesday (contact + fitness)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-03-18",
+        "session": "Rugby training - Thursday (team run)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-03-20",
+        "session": "Rugby match",
+        "slot": "Afternoon"
+      },
+      {
+        "date": "2027-03-23",
+        "session": "Rugby training - Tuesday (contact + fitness)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-03-25",
+        "session": "Rugby training - Thursday (team run)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-03-27",
+        "session": "Rugby match",
+        "slot": "Afternoon"
+      },
+      {
+        "date": "2027-03-30",
+        "session": "Rugby training - Tuesday (contact + fitness)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-04-01",
+        "session": "Rugby training - Thursday (team run)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-04-03",
+        "session": "Rugby match",
+        "slot": "Afternoon"
+      },
+      {
+        "date": "2027-04-06",
+        "session": "Rugby training - Tuesday (contact + fitness)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-04-08",
+        "session": "Rugby training - Thursday (team run)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-04-10",
+        "session": "Rugby match",
+        "slot": "Afternoon"
+      },
+      {
+        "date": "2027-04-13",
+        "session": "Rugby training - Tuesday (contact + fitness)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-04-15",
+        "session": "Rugby training - Thursday (team run)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-04-17",
+        "session": "Rugby match",
+        "slot": "Afternoon"
+      },
+      {
+        "date": "2027-04-20",
+        "session": "Rugby training - Tuesday (contact + fitness)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-04-22",
+        "session": "Rugby training - Thursday (team run)",
+        "slot": "Evening"
+      },
+      {
+        "date": "2027-04-24",
+        "session": "Rugby match",
+        "slot": "Afternoon"
+      }
+    ]
+  },
+  "scheduleOverrides": [],
+  "readinessRules": [
+    "After a match, keep Sunday easy. Monday's run is the week's hard session; if you're still battered from Saturday, swap it for an easy run.",
+    "Any head knock: no training until you've followed the return-to-play protocol.",
+    "If Tuesday's contact left you sore, skip the up-downs on Thursday's warm-up and keep the sprints at 90%.",
+    "Don't put a hard run on Friday before a match."
+  ]
+}

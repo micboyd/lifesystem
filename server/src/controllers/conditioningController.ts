@@ -13,6 +13,8 @@ import { mapPhases, readPhased, sentPhases } from '../lib/phases'
 import { missingWindows } from '../lib/timeWindow'
 import { readHelpers } from '../lib/helpers'
 import { readWatchSteps } from '../lib/watchSteps'
+import { readGroup } from './conditioningGroupController'
+import ConditioningGroup from '../models/ConditioningGroup'
 
 /** The warm-up, main and cool-down parts of a request body or imported item. */
 function toPhasedParts(doc: Record<string, unknown>) {
@@ -67,6 +69,7 @@ export async function createSession(req: AuthRequest, res: Response) {
         name,
         duration: toAmount(req.body.duration),
         category: toCategory(req.body.category),
+        group: (await readGroup(req.userId, req.body.group)) ?? null,
         purpose:
             typeof req.body.purpose === 'string' ? req.body.purpose.trim() || undefined : undefined,
         ...toPhasedParts(req.body),
@@ -87,6 +90,10 @@ export async function updateSession(req: AuthRequest, res: Response) {
     if (typeof b.name === 'string' && b.name.trim()) fields.name = b.name.trim()
     if (b.duration !== undefined) fields.duration = toAmount(b.duration)
     if (b.category !== undefined) fields.category = toCategory(b.category)
+    if (b.group !== undefined) {
+        const group = await readGroup(req.userId, b.group)
+        if (group !== undefined) fields.group = group
+    }
     if (typeof b.purpose === 'string') fields.purpose = b.purpose.trim() || undefined
     const phases = sentPhases(b, 'parts')
     if (phases.length) {
@@ -132,6 +139,11 @@ export async function importSessions(req: AuthRequest, res: Response) {
         return
     }
 
+    // A session may name one of the user's categories ("group": "Rugby").
+    const groupIds = new Map(
+        (await ConditioningGroup.find({ user: req.userId })).map((g) => [nameKey(g.name), g._id])
+    )
+
     const errors: string[] = []
     // Placements run parallel to `normalised` by index, so we can pin each item
     // onto the planner once we know the id it resolved to.
@@ -164,6 +176,9 @@ export async function importSessions(req: AuthRequest, res: Response) {
             name,
             duration: toAmount(item.duration),
             category: toCategory(item.category),
+            ...(typeof item.group === 'string' && groupIds.has(nameKey(item.group))
+                ? { group: groupIds.get(nameKey(item.group)) }
+                : {}),
             purpose:
                 typeof item.purpose === 'string' ? item.purpose.trim() || undefined : undefined,
             ...toPhasedParts(item),

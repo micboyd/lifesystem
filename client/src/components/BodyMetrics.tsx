@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import {
+    useEffect,
+    useMemo,
+    useState,
+    type FormEvent,
+    type PointerEvent,
+    type ReactNode,
+} from 'react'
 import { OVERLINE } from './surfaceStyles'
 import PillToggle from './PillToggle'
 import { Surface, PanelHeader } from './stats/ui'
@@ -24,7 +31,9 @@ import {
     rateStatus,
     projectTargetDate,
     daysBetween,
+    weightChanges,
     type TrendPoint,
+    type WeightChange,
     type BodyFatPoint,
     type RateStatus,
 } from '../lib/weightTrend'
@@ -314,6 +323,8 @@ export default function BodyMetrics() {
                                 />
                             </Surface>
 
+                            <ChangePanel rows={weightChanges(points)} />
+
                             {pace && <PlanCheck pace={pace} />}
                         </div>
 
@@ -542,6 +553,8 @@ function TrendChart({
     const [box, setBox] = useState<HTMLDivElement | null>(null)
     const measured = useBoxWidth(box)
     const CHART_W = measured || DEFAULT_CHART_W
+    // Index of the weigh-in under the pointer (mouse or finger), for the readout.
+    const [hover, setHover] = useState<number | null>(null)
     if (points.length < 2) {
         return (
             <p className="py-10 text-center text-sm text-neutral-500">
@@ -577,14 +590,33 @@ function TrendChart({
         .map((p, i) => `${i === 0 ? 'M' : 'L'}${x(p.date)},${y(p.trend)}`)
         .join(' ')
 
+    /** Snap to the weigh-in nearest the pointer horizontally. */
+    function pick(e: PointerEvent<SVGSVGElement>) {
+        const rect = e.currentTarget.getBoundingClientRect()
+        const px = ((e.clientX - rect.left) / rect.width) * CHART_W
+        let best = 0
+        for (let i = 1; i < points.length; i++) {
+            if (Math.abs(x(points[i].date) - px) < Math.abs(x(points[best].date) - px)) best = i
+        }
+        setHover(best)
+    }
+
+    const hovered = hover !== null ? points[hover] : null
+    const hx = hovered ? x(hovered.date) : 0
+    const planThen =
+        hovered && planSpan && hovered.date >= planSpan.from ? valueOn(plan!, hovered.date) : null
+
     return (
-        <div ref={setBox}>
+        <div ref={setBox} className="relative">
             <svg
                 viewBox={`0 0 ${CHART_W} ${CHART_H}`}
                 height={CHART_H}
-                className="block w-full"
+                className="block w-full touch-pan-y"
                 role="img"
                 aria-label="Bodyweight trend over time"
+                onPointerMove={pick}
+                onPointerDown={pick}
+                onPointerLeave={() => setHover(null)}
             >
                 {target != null && (
                     <>
@@ -649,7 +681,75 @@ function TrendChart({
                     strokeLinejoin="round"
                     strokeLinecap="round"
                 />
+
+                {hovered && (
+                    <g pointerEvents="none">
+                        <line
+                            x1={hx}
+                            x2={hx}
+                            y1={PAD_Y / 2}
+                            y2={CHART_H - PAD_Y / 2}
+                            className="stroke-neutral-300"
+                            strokeWidth={1}
+                        />
+                        <circle
+                            cx={hx}
+                            cy={y(hovered.weight)}
+                            r={4}
+                            className="fill-neutral-500 stroke-white"
+                            strokeWidth={2}
+                        />
+                        <circle
+                            cx={hx}
+                            cy={y(hovered.trend)}
+                            r={5}
+                            className="fill-coral-500 stroke-white"
+                            strokeWidth={2}
+                        />
+                    </g>
+                )}
             </svg>
+
+            {hovered && (
+                <div
+                    className="pointer-events-none absolute top-0 z-10 rounded-lg border border-hairline bg-white px-3 py-2 text-[12px] shadow-md"
+                    style={
+                        // Sit beside the guide line, flipping sides past the middle.
+                        hx > CHART_W / 2
+                            ? { right: CHART_W - hx + 10 }
+                            : { left: hx + 10 }
+                    }
+                >
+                    <p className="font-medium text-neutral-900">{longDate(hovered.date)}</p>
+                    <dl className="nums mt-1 grid grid-cols-[auto_auto] gap-x-3 gap-y-0.5">
+                        <dt className="text-neutral-500">Scale</dt>
+                        <dd className="text-right font-semibold text-neutral-900">
+                            {hovered.weight.toFixed(1)} kg
+                        </dd>
+                        <dt className="text-neutral-500">Trend</dt>
+                        <dd className="text-right font-semibold text-coral-600">
+                            {hovered.trend.toFixed(1)} kg
+                        </dd>
+                        {planThen !== null && (
+                            <>
+                                <dt className="text-neutral-500">Plan</dt>
+                                <dd className="text-right text-neutral-700">
+                                    {planThen.toFixed(1)} kg
+                                </dd>
+                            </>
+                        )}
+                        {hover! > 0 && (
+                            <>
+                                <dt className="text-neutral-500">vs previous</dt>
+                                <dd className="text-right text-neutral-700">
+                                    {signed(hovered.trend - points[hover! - 1].trend)} kg
+                                </dd>
+                            </>
+                        )}
+                    </dl>
+                </div>
+            )}
+
             <div className="flex justify-between px-1 text-[11px] text-neutral-500">
                 <span>{longDate(first)}</span>
                 <span>{longDate(points[points.length - 1].date)}</span>
@@ -884,6 +984,55 @@ function Fact({ label, value, sub }: { label: string; value: string; sub?: strin
             {sub && <dd className="nums mt-0.5 text-[12px] leading-snug text-neutral-500">{sub}</dd>}
         </div>
     )
+}
+
+// ─── Change over time ───────────────────────────────────────────────────────────
+
+/**
+ * How far the trend has moved over the last week, fortnight, month… and since
+ * the very first weigh-in. Trend to trend, so one heavy morning can't fake it.
+ */
+function ChangePanel({ rows }: { rows: WeightChange[] }) {
+    if (!rows.length) return null
+    return (
+        <Surface className="flex flex-col gap-2">
+            <PanelHeader
+                title="Weight change"
+                hint="Trend now against the trend back then — not single scale readings."
+            />
+            <ul className="divide-y divide-neutral-100">
+                {rows.map((r) => (
+                    <li key={r.label} className="flex items-center gap-3 py-3">
+                        <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-neutral-900">{r.label}</p>
+                            <p className="nums mt-0.5 truncate text-[13px] text-neutral-500">
+                                from {r.from.trend.toFixed(1)} kg on {longDate(r.from.date)}
+                            </p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                            <p
+                                className={`nums text-[15px] font-semibold ${
+                                    r.change <= -0.05 ? 'text-emerald-700' : 'text-neutral-900'
+                                }`}
+                            >
+                                {changeText(r.change)}
+                            </p>
+                            <p className="nums mt-0.5 text-[12px] text-neutral-500">
+                                {signed(r.percent)}%
+                                {r.perWeek !== null && ` · ${signed(r.perWeek, 2)} kg/wk`}
+                            </p>
+                        </div>
+                    </li>
+                ))}
+            </ul>
+        </Surface>
+    )
+}
+
+/** "Lost 2.4 kg" / "Gained 0.3 kg" / "No change". */
+function changeText(kg: number): string {
+    if (Math.abs(kg) < 0.05) return 'No change'
+    return `${kg < 0 ? 'Lost' : 'Gained'} ${Math.abs(kg).toFixed(1)} kg`
 }
 
 // ─── Recent log ─────────────────────────────────────────────────────────────────

@@ -245,6 +245,8 @@ const TEMPLATE = `{
         "duration": 36,
         "category": "Endurance",       // HIIT | Cardio | Endurance | Mobility | Recovery
                                        // (mobility and recovery routines are conditioning sessions too)
+        "group": "Running",            // optional: one of your own categories (made if new, up to 5)
+        "groupColor": "sky",           // optional, for a new one: sky | emerald | amber | rose | violet | teal | orange | slate
         "purpose": "Aerobic base.",
         "notes": "Easy if the knee is sore.", // shown on that day in the plan's calendar
         "howToUse": "Leave a non-running day before the next run.",

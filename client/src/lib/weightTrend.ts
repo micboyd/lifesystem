@@ -250,3 +250,70 @@ export function ratePercent(points: TrendPoint[], ratePerWeek: number | null): n
     if (current <= 0) return null
     return (ratePerWeek / current) * 100
 }
+
+/** One row of "how much has changed": the trend now against the trend back then. */
+export interface WeightChange {
+    /** "2 weeks", "Since first weigh-in"… */
+    label: string
+    /** Days looked back from the last weigh-in; for the whole history, the span of it. */
+    days: number
+    /** The point measured from. */
+    from: TrendPoint
+    /** Trend now minus trend then, kg (negative = lost). */
+    change: number
+    /** `change` as a percentage of the starting trend. */
+    percent: number
+    /** Average kg a week over the stretch; null under a week. */
+    perWeek: number | null
+}
+
+/** Look-back windows offered, shortest first. Each only shows once history covers it. */
+export const CHANGE_WINDOWS = [
+    { label: '1 week', days: 7 },
+    { label: '2 weeks', days: 14 },
+    { label: '4 weeks', days: 28 },
+    { label: '8 weeks', days: 56 },
+    { label: '12 weeks', days: 84 },
+    { label: '6 months', days: 182 },
+    { label: '1 year', days: 365 },
+] as const
+
+/**
+ * Change in the trend over fixed look-backs, plus over the whole history.
+ *
+ * Measured trend-to-trend, anchored on the last weigh-in, so a salty dinner on
+ * either day doesn't swing the answer. The start is the last point on or before
+ * the cutoff — the trend as it stood that day. A window longer than the history
+ * is left out rather than quietly shortened; "since first weigh-in" covers that.
+ */
+export function weightChanges(points: TrendPoint[]): WeightChange[] {
+    if (points.length < 2) return []
+    const last = points[points.length - 1]
+    const first = points[0]
+    const row = (label: string, from: TrendPoint): WeightChange => {
+        const days = daysBetween(from.date, last.date)
+        const change = last.trend - from.trend
+        return {
+            label,
+            days,
+            from,
+            change,
+            percent: (change / from.trend) * 100,
+            perWeek: days >= MIN_RATE_SPAN_DAYS ? (change / days) * 7 : null,
+        }
+    }
+
+    const rows: WeightChange[] = []
+    for (const w of CHANGE_WINDOWS) {
+        const cutoff = addDaysIso(last.date, -w.days)
+        if (first.date > cutoff) break
+        let from = first
+        for (const p of points) {
+            if (p.date > cutoff) break
+            from = p
+        }
+        rows.push(row(w.label, from))
+    }
+    rows.push(row('Since first weigh-in', first))
+    return rows
+}

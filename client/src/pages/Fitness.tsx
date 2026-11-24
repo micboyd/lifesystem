@@ -27,6 +27,8 @@ import BodyMetrics from '../components/BodyMetrics'
 import FitnessExportCenter from '../components/FitnessExportCenter'
 import FitnessStats from '../components/stats/FitnessStats'
 import ConditioningSessionDetail from '../components/ConditioningSessionDetail'
+import ConditioningGroupsDrawer, { GroupChip } from '../components/ConditioningGroupsDrawer'
+import { findGroup, useConditioningGroups } from '../lib/conditioningGroups'
 import ConditioningLogDrawer, { type ConditioningLogTarget } from '../components/ConditioningLogDrawer'
 import { listLogs as listConditioningLogs } from '../services/conditioningLogs'
 import { todayKey } from '../lib/calendar'
@@ -309,6 +311,9 @@ function ConditioningLibrary() {
     const [importing, setImporting] = useState(false)
     const [search, setSearch] = useState('')
     const [category, setCategory] = useState<'all' | ConditioningCategory>('all')
+    const [groupFilter, setGroupFilter] = useState('all')
+    const [groupsOpen, setGroupsOpen] = useState(false)
+    const groups = useConditioningGroups()
     const [page, setPage] = useState(1)
 
     useEffect(() => {
@@ -323,9 +328,11 @@ function ConditioningLibrary() {
         return sessions.filter(
             (s) =>
                 (category === 'all' || s.category === category) &&
+                (groupFilter === 'all' ||
+                    (groupFilter === 'none' ? !findGroup(groups, s.group) : s.group === groupFilter)) &&
                 (!q || s.name.toLowerCase().includes(q) || (s.purpose ?? '').toLowerCase().includes(q))
         )
-    }, [sessions, search, category])
+    }, [sessions, search, category, groupFilter, groups])
     const view = useLibraryView('sessions', searched)
     const filtered = view.shown
     const types = CONDITIONING_CATEGORIES.filter((c) => sessions.some((s) => s.category === c))
@@ -476,6 +483,17 @@ function ConditioningLibrary() {
                 onImport={() => setImporting(true)}
                 newLabel="New session"
                 onNew={() => setDrawer({ mode: 'create' })}
+                menu={
+                    <Button
+                        variant="secondary"
+                        icon="fa-solid fa-tags"
+                        onClick={() => setGroupsOpen(true)}
+                        aria-label="Categories"
+                        className="px-3.5 sm:px-[18px]"
+                    >
+                        <span className="hidden sm:inline">Categories</span>
+                    </Button>
+                }
             >
                 {sessions.length > 0 && (
                     <LibraryFilters
@@ -491,6 +509,21 @@ function ConditioningLibrary() {
                             setPage(1)
                         }}
                     >
+                        {groups.length > 0 && (
+                            <Select
+                                value={groupFilter}
+                                onChange={(v) => {
+                                    setGroupFilter(v)
+                                    setPage(1)
+                                }}
+                                options={[
+                                    { value: 'all', label: 'All categories' },
+                                    ...groups.map((g) => ({ value: g._id, label: g.name })),
+                                    { value: 'none', label: 'No category' },
+                                ]}
+                                className="w-full sm:w-44"
+                            />
+                        )}
                         {types.length > 1 && (
                             <Select
                                 value={category}
@@ -569,6 +602,8 @@ function ConditioningLibrary() {
 
             <ConditioningLogDrawer target={logTarget} onClose={() => setLogTarget(null)} />
 
+            <ConditioningGroupsDrawer open={groupsOpen} onClose={() => setGroupsOpen(false)} />
+
             <SessionFormDrawer
                 form={drawer?.mode === 'create' || drawer?.mode === 'edit' ? drawer : null}
                 onClose={() => setDrawer(null)}
@@ -593,6 +628,7 @@ function SessionCard({
     onDelete: () => void
 }) {
     const partCount = allInPhases(session).length
+    const group = findGroup(useConditioningGroups(), session.group)
     return (
         <Card as="div" className="relative flex flex-col gap-3">
             <button
@@ -636,6 +672,7 @@ function SessionCard({
             </div>
 
             <div className="flex flex-wrap gap-1.5">
+                {group && <GroupChip group={group} />}
                 <CategoryChip category={session.category} />
             </div>
 
@@ -749,6 +786,8 @@ function SessionFormDrawer({
     const [name, setName] = useState('')
     const [duration, setDuration] = useState('0')
     const [category, setCategory] = useState<ConditioningCategory>('HIIT')
+    const groups = useConditioningGroups()
+    const [group, setGroup] = useState('')
     const [purpose, setPurpose] = useState('')
     const [parts, setParts] = useState<Phased<PartRow>>(emptyPhases)
     const [howToUse, setHowToUse] = useState('')
@@ -760,6 +799,7 @@ function SessionFormDrawer({
         setName(editing?.name ?? '')
         setDuration(editing?.duration != null ? String(editing.duration) : '0')
         setCategory(editing?.category ?? 'HIIT')
+        setGroup(editing?.group ?? '')
         setPurpose(editing?.purpose ?? '')
         setParts(
             editing
@@ -785,6 +825,7 @@ function SessionFormDrawer({
             name: name.trim(),
             duration: num(duration),
             category,
+            group: group || null,
             purpose: purpose.trim() || undefined,
             ...mapPhases(parts, (list) =>
                 list
@@ -863,13 +904,25 @@ function SessionFormDrawer({
                         className="flex-1"
                     />
                     <Select
-                        label="Category *"
+                        label="Type *"
                         value={category}
                         onChange={(v) => setCategory(v as ConditioningCategory)}
                         options={CONDITIONING_CATEGORIES.map((c) => ({ label: c, value: c }))}
                         className="flex-1"
                     />
                 </div>
+
+                {groups.length > 0 && (
+                    <Select
+                        label="Category"
+                        value={findGroup(groups, group) ? group : ''}
+                        onChange={setGroup}
+                        options={[
+                            { value: '', label: 'None' },
+                            ...groups.map((g) => ({ value: g._id, label: g.name })),
+                        ]}
+                    />
+                )}
 
                 <Textarea
                     label="Purpose"

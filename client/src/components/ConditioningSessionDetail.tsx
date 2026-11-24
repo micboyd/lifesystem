@@ -1,7 +1,5 @@
 import { useEffect, useRef } from 'react'
 import RoundCounter from './RoundCounter'
-import { RepList } from './session/RepList'
-import { formatMetres, partReps, repsDistance } from '../lib/sessionReps'
 import PhaseHeading, { phaseSpan } from './PhaseHeading'
 import {
     ItemDetail,
@@ -15,10 +13,14 @@ import {
 } from './session/SessionUI'
 import { CompleteButton, PaceBanner, SlotChip } from './SessionPace'
 import { driftLabel, driftTone, hasSlot, minutesLabel, slotLabel, timeOfDay, type Slot } from '../lib/sessionPace'
-import { SESSION_PHASES } from '../types'
+import { SESSION_PHASES, SESSION_PHASE_LABELS } from '../types'
+import { sectionLines } from '../lib/repSteps'
+import { OVERLINE } from './session/StepList'
 import type { ConditioningSession, ConditioningCategory, SessionPart } from '../types'
 import { flattenPhases } from '../lib/phases'
 import { paceOf } from '../lib/sessionPace'
+import { findGroup, useConditioningGroups } from '../lib/conditioningGroups'
+import { GroupChip } from './ConditioningGroupsDrawer'
 
 const CATEGORY_META: Record<ConditioningCategory, string> = {
     HIIT: 'bg-rose-50 text-rose-700 ring-rose-600/20',
@@ -83,6 +85,7 @@ export default function ConditioningSessionDetail({
     stats?: boolean
 }) {
     const indexed = flattenPhases(session).map((r, index) => ({ ...r, index }))
+    const group = findGroup(useConditioningGroups(), session.group)
     const slots = indexed.map(({ item }) => ({ startMin: item.startMin, endMin: item.endMin }))
     const logging = !!onComplete && !readOnly
     const times = indexed.map(({ index }) => completedAt?.[index] ?? null)
@@ -135,7 +138,12 @@ export default function ConditioningSessionDetail({
                         {
                             icon: 'fa-solid fa-heart-pulse',
                             label: 'Type',
-                            value: <CategoryChip category={session.category} />,
+                            value: (
+                                <span className="inline-flex flex-wrap gap-1.5">
+                                    {group && <GroupChip group={group} />}
+                                    <CategoryChip category={session.category} />
+                                </span>
+                            ),
                         },
                     ]}
                 />
@@ -207,19 +215,18 @@ export default function ConditioningSessionDetail({
                     )
                 if (overview)
                     return (
-                        <section key={phase} className="flex flex-col gap-3">
-                            <PhaseHeading
-                                phase={phase}
-                                meta={phaseSpan(rows.map(({ item }) => item))}
-                            />
-                            <ul className="divide-y divide-neutral-100 rounded-xl border border-neutral-200">
-                                {rows.map(({ item, index }, n) => (
-                                    <OverviewPart
-                                        key={index}
-                                        part={item}
-                                        number={n + 1}
-                                        slot={slots[index]}
-                                    />
+                        <section key={phase} className="flex flex-col gap-3.5">
+                            <div className="flex items-baseline justify-between gap-3 border-b border-neutral-100 pb-2">
+                                <p className={`${OVERLINE} text-neutral-400`}>
+                                    {SESSION_PHASE_LABELS[phase]}
+                                </p>
+                                <span className="text-[13px] tabular-nums text-neutral-400">
+                                    {phaseSpan(rows.map(({ item }) => item))}
+                                </span>
+                            </div>
+                            <ul className="flex flex-col gap-4">
+                                {rows.map(({ item, index }) => (
+                                    <OverviewPart key={index} part={item} slot={rows.length > 1} />
                                 ))}
                             </ul>
                         </section>
@@ -452,49 +459,31 @@ function LogPart({
 }
 
 /**
- * One section of a session in the overview: its number, name, slot and cue,
- * then its reps — each with its numbers (time, distance, speed, pace, effort)
- * as pills, identical reps folded into one "6×" row. Read, not ticked.
+ * One section of a session in the overview, kept short: its name and slot,
+ * then a line per run of identical reps — "3× Run 4 min (7.2 km/h) · Walk 1:30".
+ * The full step-by-step is in the logger.
  */
-function OverviewPart({
-    part,
-    number,
-    slot,
-}: {
-    part: SessionPart
-    number: number
-    slot: { startMin?: number; endMin?: number }
-}) {
-    const reps = partReps(part)
-    const distance = repsDistance(reps)
-    const summary = [
-        reps.length > 1 ? `${reps.length} reps` : undefined,
-        distance ? `${formatMetres(distance)} total` : undefined,
-    ]
-        .filter(Boolean)
-        .join(' · ')
-
+function OverviewPart({ part, slot }: { part: SessionPart; slot: boolean }) {
+    const lines = sectionLines(part)
     return (
-        <li className="flex flex-col gap-2.5 px-4 py-3.5">
-            <div className="flex items-start gap-3">
-                <span className="w-4 shrink-0 pt-px text-right text-xs font-semibold tabular-nums text-neutral-500">
-                    {number}
-                </span>
-                <div className="min-w-0 flex-1">
-                    <p className="font-semibold leading-snug text-neutral-900">{part.name}</p>
-                    {summary && <p className="mt-0.5 text-xs text-neutral-500">{summary}</p>}
-                </div>
-                <SlotChip slot={slot} />
+        <li className="flex flex-col gap-1">
+            <div className="flex items-baseline justify-between gap-3">
+                <p className="min-w-0 text-[15px] font-semibold tracking-[-0.01em] text-neutral-950">
+                    {part.name}
+                </p>
+                {slot && hasSlot(part) && (
+                    <span className="shrink-0 text-[13px] tabular-nums text-neutral-400">
+                        {slotLabel(part)}
+                    </span>
+                )}
             </div>
-            {(part.detail || reps.length > 0) && (
-                <div className="flex flex-col gap-2.5 pl-7">
-                    {part.detail && (
-                        <p className="whitespace-pre-wrap text-sm leading-relaxed text-neutral-600">
-                            {part.detail}
-                        </p>
-                    )}
-                    <RepList part={part} />
-                </div>
+            {lines.map((l, k) => (
+                <p key={k} className="text-sm leading-snug text-neutral-600">
+                    {l}
+                </p>
+            ))}
+            {part.detail && (
+                <p className="line-clamp-2 text-[13px] leading-snug text-neutral-400">{part.detail}</p>
             )}
         </li>
     )

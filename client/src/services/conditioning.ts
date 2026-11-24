@@ -7,6 +7,7 @@ export interface ConditioningInput extends Partial<Phased<SessionPart>> {
     name: string
     duration?: number
     category?: ConditioningSession['category']
+    group?: string | null
     purpose?: string
     howToUse?: string
     helpers?: string[]

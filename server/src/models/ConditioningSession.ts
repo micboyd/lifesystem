@@ -45,6 +45,8 @@ export interface IConditioningSession extends Document, Phased<ISessionPart> {
     /** Planned duration in minutes. */
     duration: number
     category: ConditioningCategory
+    /** The user's own category (ConditioningGroup), e.g. Running or Rugby. */
+    group?: Types.ObjectId | null
     /** What the session is for, e.g. "Build aerobic base". */
     purpose?: string
     /** Guidance on how / when to run the session. */
@@ -105,6 +107,7 @@ const conditioningSessionSchema = new Schema<IConditioningSession>(
         name: { type: String, required: true, trim: true },
         duration: { type: Number, default: 0, min: 0 },
         category: { type: String, enum: CONDITIONING_CATEGORIES, default: 'HIIT' },
+        group: { type: Schema.Types.ObjectId, ref: 'ConditioningGroup', default: null },
         purpose: { type: String, trim: true },
         warmUp: { type: [partSchema], default: [] },
         main: { type: [partSchema], default: [] },

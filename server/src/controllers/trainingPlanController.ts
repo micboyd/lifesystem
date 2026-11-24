@@ -14,6 +14,11 @@ import ConditioningSession, {
     CONDITIONING_CATEGORIES,
     ConditioningCategory,
 } from '../models/ConditioningSession'
+import ConditioningGroup, {
+    CONDITIONING_GROUP_COLORS,
+    ConditioningGroupColor,
+    MAX_CONDITIONING_GROUPS,
+} from '../models/ConditioningGroup'
 import WorkoutLog from '../models/WorkoutLog'
 import ConditioningLog from '../models/ConditioningLog'
 import { toSessionParts } from '../lib/sessionParts'
@@ -408,7 +413,40 @@ export async function importPlan(req: AuthRequest, res: Response) {
     // ── Conditioning: the dated run plan plus the post-goal session library ─────
     const runPlan = arr(conditioningDoc.existingRunPlan)
     const postLibrary = arr(conditioningDoc.post10KSessionLibrary)
+    // A session may name one of your own categories ("group": "Rugby"). One that
+    // doesn't exist yet is made — in "groupColor" if given — while there's room.
+    const groupIds = new Map(
+        (await ConditioningGroup.find({ user: userId }).sort({ order: 1 })).map((g) => [
+            nameKey(g.name),
+            g._id,
+        ])
+    )
+    for (const s of [...runPlan, ...postLibrary]) {
+        const gName = str(s.group)
+        if (!gName || groupIds.has(nameKey(gName))) continue
+        if (groupIds.size >= MAX_CONDITIONING_GROUPS) {
+            warnings.push({
+                source: 'conditioning',
+                message: `No room for category "${gName}" (${MAX_CONDITIONING_GROUPS} at most), so its sessions have none.`,
+            })
+            groupIds.set(nameKey(gName), null as never)
+            continue
+        }
+        const color = CONDITIONING_GROUP_COLORS.includes(s.groupColor as ConditioningGroupColor)
+            ? (s.groupColor as ConditioningGroupColor)
+            : CONDITIONING_GROUP_COLORS[groupIds.size % CONDITIONING_GROUP_COLORS.length]
+        const g = await ConditioningGroup.create({
+            user: userId,
+            name: gName,
+            color,
+            order: groupIds.size,
+        })
+        groupIds.set(nameKey(gName), g._id)
+    }
     const sessionFields = (s: Record<string, unknown>) => ({
+        ...(str(s.group) && groupIds.get(nameKey(str(s.group)!))
+            ? { group: groupIds.get(nameKey(str(s.group)!)) }
+            : {}),
         duration: num(s.duration) ?? 0,
         category: CONDITIONING_CATEGORIES.includes(s.category as ConditioningCategory)
             ? (s.category as ConditioningCategory)
