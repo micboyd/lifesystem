@@ -182,6 +182,12 @@ export default function MonthView({
                                                 <i className="fa-solid fa-repeat hidden text-[8px] shrink-0 opacity-60 sm:inline-block" />
                                             )}
                                             <span className="truncate">{e.title}</span>
+                                            {e.alcohol && (
+                                                <i
+                                                    className="fa-solid fa-beer-mug-empty ml-auto shrink-0 text-[12px] text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]"
+                                                    aria-label="Drinking"
+                                                />
+                                            )}
                                         </button>
                                     )
                                 })}

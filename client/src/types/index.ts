@@ -1156,6 +1156,8 @@ export interface Event {
     endPart: Part
     /** When true the event is excluded from the Fitness planner's slot-clash warnings. */
     ignoreClash?: boolean
+    /** True when the event involves drinking — counted per month on the calendar. */
+    alcohol?: boolean
     recurrence?: Recurrence
     /** YYYY-MM-DD occurrence dates removed from a recurring series. */
     exdates?: string[]

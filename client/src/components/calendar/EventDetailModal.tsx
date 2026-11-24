@@ -154,8 +154,9 @@ export default function EventDetailModal({
 
                     <StatStrip stats={stats} />
 
-                    {(e.location || e.recurrence) && (
+                    {(e.location || e.recurrence || e.alcohol) && (
                         <div className="flex flex-col gap-3">
+                            {e.alcohol && <DetailRow icon="fa-solid fa-beer-mug-empty">Drinking</DetailRow>}
                             {e.location && <DetailRow icon="fa-solid fa-location-dot">{e.location}</DetailRow>}
                             {e.recurrence && (
                                 <DetailRow icon="fa-solid fa-repeat">

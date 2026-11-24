@@ -74,6 +74,7 @@ interface EventFields {
     endDate: string
     endPart: Part
     ignoreClash: boolean
+    alcohol: boolean
     recurrence?: IRecurrence
 }
 
@@ -133,6 +134,7 @@ function parseBody(body: Record<string, unknown>): EventFields | string {
         endDate: body.endDate as string,
         endPart,
         ignoreClash: body.ignoreClash === true,
+        alcohol: body.alcohol === true,
         recurrence,
     }
 }
@@ -245,6 +247,7 @@ export async function updateEvent(req: AuthRequest, res: Response) {
         endDate: fields.endDate,
         endPart: fields.endPart,
         ignoreClash: fields.ignoreClash,
+        alcohol: fields.alcohol,
     }
     const $unset: Record<string, 1> = {}
 

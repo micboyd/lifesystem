@@ -50,6 +50,7 @@ import EditRecurringEventDialog, {
 } from '../components/calendar/EditRecurringEventDialog'
 import MonthView from '../components/calendar/MonthView'
 import MonthFlags from '../components/calendar/MonthFlags'
+import AlcoholTab, { alcoholEventsInMonth } from '../components/calendar/AlcoholTab'
 import MonthNoteEditor from '../components/calendar/MonthNoteEditor'
 import { ArrowButton, BarButton, Eyebrow } from '../components/Blok'
 import CalendarFilterBar from '../components/calendar/CalendarFilterBar'
@@ -382,6 +383,7 @@ export function CalendarBody({ embedded = false }: { embedded?: boolean } = {}) 
             // keep their original ending shape.
             endPart: span === 0 ? part : src.endPart,
             ignoreClash: src.ignoreClash,
+            alcohol: src.alcohol,
         }
         setSaving(true)
         try {
@@ -735,12 +737,17 @@ export function CalendarBody({ embedded = false }: { embedded?: boolean } = {}) 
                 {view === 'Month' && loading && <MonthSkeleton />}
                 {view === 'Month' && !loading && (
                     <div className="flex flex-col gap-3">
-                        <div className="px-5 sm:px-0">
+                        <div className="flex items-start gap-3 px-5 sm:px-0">
                         <MonthFlags
+                            className="flex-1"
                             month={monthKeyOf(focusDate)}
                             notes={monthNotes}
                             onEdit={(note) => setNoteEdit({ note, month: note.startMonth })}
                             onAdd={(m) => setNoteEdit({ note: null, month: m })}
+                        />
+                        <AlcoholTab
+                            events={alcoholEventsInMonth(events, monthKeyOf(focusDate))}
+                            onOpen={setPickerEvents}
                         />
                         </div>
                         <MonthView {...sharedProps} />
@@ -766,6 +773,7 @@ export function CalendarBody({ embedded = false }: { embedded?: boolean } = {}) 
                                     month={month}
                                     today={today}
                                     events={visibleEvents}
+                                    allEvents={events}
                                     hiddenByDate={hiddenByDate}
                                     hiddenRows={hiddenRows}
                                     birthdaysByDay={birthdaysByDay}
@@ -857,6 +865,7 @@ export function CalendarBody({ embedded = false }: { embedded?: boolean } = {}) 
                                   endDate: ev.endDate,
                                   endPart: ev.endPart,
                                   ignoreClash: ev.ignoreClash,
+                                  alcohol: ev.alcohol,
                               })
                               setDetailEvent({ ...ev, notes: notes || undefined })
                               reload()
@@ -1032,6 +1041,8 @@ interface MonthBlockProps {
     month: number
     today: Date
     events: Event[]
+    /** Every loaded event, filters ignored — feeds the drinking-days tab. */
+    allEvents: Event[]
     /** Events on hidden calendars, keyed by date — drawn as presence dots. */
     hiddenByDate: Map<string, Event[]>
     /** Birthdays keyed by MM-DD — drawn as a cake in the day header. */
@@ -1110,6 +1121,7 @@ function MonthBlock({
     onDeleteEvent,
     onPasteEvent,
     canPaste,
+    allEvents,
 }: MonthBlockProps) {
     const tk = todayKey()
     const total = daysInMonth(year, month)
@@ -1152,7 +1164,11 @@ function MonthBlock({
                     onEdit={onEditMonthNote}
                     onAdd={onAddMonthNote}
                 />
-                <span className="ml-auto text-[13px] text-neutral-600">
+                <span className="ml-auto flex items-center gap-4 text-[13px] text-neutral-600">
+                    <AlcoholTab
+                        events={alcoholEventsInMonth(allEvents, monthKey(year, month))}
+                        onOpen={onPickEvents}
+                    />
                     {monthEventCount} event{monthEventCount === 1 ? '' : 's'}
                 </span>
             </div>

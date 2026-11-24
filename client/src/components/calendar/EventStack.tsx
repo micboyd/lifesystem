@@ -81,6 +81,12 @@ function Chip({
                     </span>
                 )}
             </button>
+            {event.alcohol && !hideLabel && (
+                <i
+                    className="fa-solid fa-beer-mug-empty pointer-events-none absolute right-1 top-1 z-[1] text-[12px] leading-none text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]"
+                    aria-label="Drinking"
+                />
+            )}
         </div>
     )
 }

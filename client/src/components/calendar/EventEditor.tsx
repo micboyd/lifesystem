@@ -143,6 +143,7 @@ export default function EventEditor({
     const [time, setTime] = useState<string | null>(null)
     const [notes, setNotes] = useState('')
     const [ignoreClash, setIgnoreClash] = useState(false)
+    const [alcohol, setAlcohol] = useState(false)
     const [error, setError] = useState('')
     const [recurring, setRecurring] = useState(false)
     const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency>('weekly')
@@ -167,6 +168,7 @@ export default function EventEditor({
         setTime(event?.time ?? null)
         setNotes(event?.notes ?? '')
         setIgnoreClash(event?.ignoreClash ?? false)
+        setAlcohol(event?.alcohol ?? false)
         setError('')
         const rec = event?.recurrence
         setRecurring(!!rec)
@@ -271,6 +273,7 @@ export default function EventEditor({
             endDate: finalEnd,
             endPart: finalEndPart,
             ignoreClash,
+            alcohol,
             recurrence: recurring
                 ? { frequency: recurrenceFrequency, endsOn: recurrenceEndsOn || undefined }
                 : undefined,
@@ -540,6 +543,12 @@ export default function EventEditor({
                                 />
                             )}
                         </SettingRow>
+                        <SettingRow
+                            icon="fa-solid fa-beer-mug-empty"
+                            label="Alcohol"
+                            hint="Drinking at this one — counted on the month."
+                            control={<Switch checked={alcohol} onChange={setAlcohol} />}
+                        />
                         <SettingRow
                             icon="fa-solid fa-dumbbell"
                             label="Ignore planner clashes"

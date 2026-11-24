@@ -15,6 +15,7 @@ export interface EventInput {
     endDate: string
     endPart: Part
     ignoreClash?: boolean
+    alcohol?: boolean
     recurrence?: Recurrence
 }
 
