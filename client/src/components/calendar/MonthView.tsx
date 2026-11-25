@@ -1,7 +1,7 @@
 import { todayKey, addDays, getWeekStart, parseDateKey } from '../../lib/calendar'
 import { EVENT_TYPE_ICONS, DAY_STATUS_OPTIONS } from '../../types'
 import { useCalendars } from '../../context/CalendarsContext'
-import { colorsForEvent } from '../../lib/eventColors'
+import { colorsForEvent, PAST_BLOCK } from '../../lib/eventColors'
 import type { Event, DayStatus, Part, Reminder, Birthday } from '../../types'
 import { Card } from '../Card'
 import ReminderChip from '../reminders/ReminderChip'
@@ -172,8 +172,9 @@ export default function MonthView({
                                                 ev.stopPropagation()
                                                 onEventClick(e)
                                             }}
-                                            className={`flex w-full items-center gap-1 truncate px-1 py-0.5 text-left text-[11px] sm:px-1.5 font-semibold transition-colors ${colors.bg} ${colors.text} ${colors.hover}`}
+                                            className={`relative flex w-full items-center gap-1 truncate rounded-[4px] py-[3px] pl-[7px] pr-2 text-left text-[11px] font-medium transition hover:brightness-95 sm:pr-3 ${colors.light} ${colors.text} ${date < tk ? PAST_BLOCK : ''}`}
                                         >
+                                            <span className={`absolute inset-y-0 left-0 w-[3px] ${colors.bg}`} aria-hidden="true" />
                                             <i
                                                 className={`${EVENT_TYPE_ICONS[e.eventType]} hidden shrink-0 text-[9px] opacity-70 sm:inline-block`}
                                                 aria-hidden="true"
@@ -184,7 +185,7 @@ export default function MonthView({
                                             <span className="truncate">{e.title}</span>
                                             {e.alcohol && (
                                                 <i
-                                                    className="fa-solid fa-beer-mug-empty ml-auto shrink-0 text-[12px] text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]"
+                                                    className="fa-solid fa-beer-mug-empty ml-auto shrink-0 text-[11px] text-[#b08410]"
                                                     aria-label="Drinking"
                                                 />
                                             )}

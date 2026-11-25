@@ -39,6 +39,7 @@ export default function MonthNoteEditor({ open, note, defaultMonth, onClose, onS
         setColor(note?.color ?? 'neutral')
         setBody(note?.note ?? '')
         setError('')
+        setSaving(false)
         setConfirmingDelete(false)
     }, [open, note, defaultMonth])
 
@@ -85,6 +86,7 @@ export default function MonthNoteEditor({ open, note, defaultMonth, onClose, onS
             onClose()
         } catch {
             setError('Could not delete the flag.')
+        } finally {
             setSaving(false)
         }
     }

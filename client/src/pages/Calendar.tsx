@@ -62,6 +62,7 @@ import BirthdaysDaySection from '../components/calendar/BirthdaysDaySection'
 import DayMarkers from '../components/calendar/DayMarkers'
 import RemindersDaySection from '../components/reminders/RemindersDaySection'
 import { MonthSkeleton, YearSkeleton } from '../components/calendar/CalendarSkeleton'
+import { PAST_BLOCK } from '../lib/eventColors'
 
 type CalendarView = 'Month' | 'Year'
 const VIEWS: CalendarView[] = ['Year', 'Month']
@@ -1082,6 +1083,8 @@ interface MonthBlockProps {
 
 // Today's column: one grey line down its right edge, through every row. A real
 // border (not an inset shadow) so it runs unbroken through the row hairlines.
+/** Width of one day column in the Year view grid (a minimum: wide screens stretch it to fill). */
+const DAY_COL = 'w-10'
 const TODAY_COL_LINE = 'border-r border-r-[#a3a3a3]'
 
 function MonthBlock({
@@ -1172,9 +1175,14 @@ function MonthBlock({
                     {monthEventCount} event{monthEventCount === 1 ? '' : 's'}
                 </span>
             </div>
-            <div ref={scrollRef} className="mt-6 overflow-x-auto">
+            <div ref={scrollRef} className="mt-6 overflow-x-auto overscroll-x-contain">
                 <table
-                    className={`w-full min-w-[60rem] table-fixed border-collapse ${dragging ? 'select-none' : ''}`}
+                    // Day columns are at least DAY_COL wide; narrower screens swipe sideways.
+                    // An explicit width (part label + 40px per day + totals) keeps table-fixed
+                    // honest: long titles truncate instead of stretching their column. On
+                    // wide screens min-w-full stretches the grid to fill the card instead.
+                    style={{ '--grid-w': `${dayNums.length * 40 + (totalsOn ? 64 : 0)}px` } as React.CSSProperties}
+                    className={`w-[calc(78px+var(--grid-w))] min-w-full table-fixed border-collapse sm:w-[calc(104px+var(--grid-w))] ${dragging ? 'select-none' : ''}`}
                 >
                     <thead>
                         <tr className="border-b border-hairline">
@@ -1192,7 +1200,7 @@ function MonthBlock({
                                         key={day}
                                         ref={todayCol ? todayRef : undefined}
                                         className={[
-                                            'group/day px-0 pb-2.5 pt-2 text-center font-normal',
+                                            `group/day ${DAY_COL} px-0 pb-2.5 pt-2 text-center font-normal`,
                                             weekend && !todayCol ? 'bg-neutral-50' : '',
                                         ].join(' ')}
                                     >
@@ -1380,10 +1388,17 @@ function MonthBlock({
                                                     onClick={() => onLeaveClick(key)}
                                                     title={colors.label}
                                                     aria-label={colors.label}
-                                                    className={`flex h-full w-full items-center overflow-hidden px-1.5 text-left transition ${colors.bg} ${colors.hover} ${colors.text}`}
+                                                    // Same look as event blocks: tint + strip where the run
+                                                    // starts; greyed once the day has passed.
+                                                    className={`relative flex h-full w-full items-center overflow-hidden rounded-[4px] text-left transition hover:brightness-95 ${colors.tint} ${colors.text} ${
+                                                        colors.strip && (key === status.startDate || day === 1) ? 'pl-[7px] pr-2.5' : 'pl-1.5 pr-2.5'
+                                                    } ${key < tk ? PAST_BLOCK : ''}`}
                                                 >
+                                                    {colors.strip && (key === status.startDate || day === 1) && (
+                                                        <span className={`absolute inset-y-0 left-0 w-[3px] ${colors.strip}`} aria-hidden="true" />
+                                                    )}
                                                     {(key === status.startDate || day === 1) && (
-                                                        <span className="line-clamp-2 text-[11px] font-medium leading-[1.15]">
+                                                        <span className="min-w-0 truncate text-[11px] font-medium leading-[1.15]">
                                                             {colors.label.replace(/^Annual Leave \((\w+)\)$/, (_, s: string) => `Leave, ${s.toLowerCase()}`)}
                                                         </span>
                                                     )}

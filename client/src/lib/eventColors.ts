@@ -21,3 +21,6 @@ export function colorsForEvent(event: Event, byId: Map<string, Calendar>): Event
     if (calendar && !calendar.isDefault) return CALENDAR_COLOR_CLASSES[calendar.color]
     return event.startPart === 'na' ? NA_EVENT_COLORS : EVENT_TYPE_COLORS[event.eventType]
 }
+
+/** A block whose day has passed (events and leave): greyed out, full colour again on hover. */
+export const PAST_BLOCK = 'opacity-60 grayscale hover:opacity-100 hover:grayscale-0'

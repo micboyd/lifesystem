@@ -19,9 +19,22 @@ interface ContextMenuProps {
 export default function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
     const ref = useRef<HTMLDivElement>(null)
     const [pos, setPos] = useState({ left: x, top: y })
+    // Parents pass a fresh onClose each render; read it through a ref so the
+    // listeners (and the scroll grace period below) are set up once per open.
+    const onCloseRef = useRef(onClose)
+    onCloseRef.current = onClose
 
     useEffect(() => {
+        const onClose = () => onCloseRef.current()
+        const openedAt = performance.now()
         function close() {
+            onClose()
+        }
+        // A trackpad two-finger tap (the Mac right-click) often nudges a
+        // sideways-scrolling grid by a pixel or two as the menu opens; ignore
+        // scrolls in that first moment so the menu doesn't vanish instantly.
+        function onScroll() {
+            if (performance.now() - openedAt < 400) return
             onClose()
         }
         function onKey(e: KeyboardEvent) {
@@ -29,16 +42,16 @@ export default function ContextMenu({ x, y, items, onClose }: ContextMenuProps) 
         }
         // Capture-phase scroll so it fires for any scrolling ancestor.
         window.addEventListener('mousedown', close)
-        window.addEventListener('scroll', close, true)
+        window.addEventListener('scroll', onScroll, true)
         window.addEventListener('resize', close)
         window.addEventListener('keydown', onKey)
         return () => {
             window.removeEventListener('mousedown', close)
-            window.removeEventListener('scroll', close, true)
+            window.removeEventListener('scroll', onScroll, true)
             window.removeEventListener('resize', close)
             window.removeEventListener('keydown', onKey)
         }
-    }, [onClose])
+    }, [])
 
     // Keep the menu on-screen once we know its real size.
     useLayoutEffect(() => {

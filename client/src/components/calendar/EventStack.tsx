@@ -1,6 +1,6 @@
 import { useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { useCalendars } from '../../context/CalendarsContext'
-import { colorsForEvent } from '../../lib/eventColors'
+import { colorsForEvent, PAST_BLOCK } from '../../lib/eventColors'
 import ContextMenu from '../ContextMenu'
 import type { MenuItem } from '../DropdownMenu'
 import type { Event } from '../../types'
@@ -59,7 +59,7 @@ function Chip({
     onContextMenu?: (e: ReactMouseEvent) => void
 }) {
     const { byId } = useCalendars()
-    const { bg, hover, text } = colorsForEvent(event, byId)
+    const { bg, light, text } = colorsForEvent(event, byId)
     const sizing = mini ? 'min-h-0 flex-1' : 'h-full'
     return (
         <div className={`group/chip relative ${sizing}`} onContextMenu={onContextMenu}>
@@ -71,22 +71,27 @@ function Chip({
                     e.stopPropagation()
                     onClick()
                 }}
-                className={`flex h-full w-full items-center overflow-hidden px-1.5 py-[3px] text-left ${bg} ${text} ${hover} transition ${
-                    muted ? 'opacity-50 hover:opacity-100' : ''
-                }`}
+                // A soft tint of the event's colour with a solid strip down the
+                // left edge; a continuation keeps the tint but drops the strip.
+                className={`relative flex h-full w-full items-center overflow-hidden text-left transition hover:brightness-95 ${light} ${text} ${
+                    hideLabel ? 'rounded-r-[4px] px-1.5' : 'rounded-[4px] pl-[7px] pr-2.5'
+                } py-[3px] ${muted ? PAST_BLOCK : ''}`}
             >
+                {!hideLabel && <span className={`absolute inset-y-0 left-0 w-[3px] ${bg}`} aria-hidden="true" />}
                 {!hideLabel && (
-                    <span lang="en-GB" className="line-clamp-2 text-[11px] font-medium leading-[1.15] [hyphens:auto]">
-                        {event.title}
+                    <span className="flex w-full min-w-0 flex-col items-start gap-1.5">
+                        {event.alcohol && (
+                            <i
+                                className="fa-solid fa-beer-mug-empty text-[11px] leading-none text-[#b08410]"
+                                aria-label="Drinking"
+                            />
+                        )}
+                        <span className="block w-full truncate text-[11px] font-medium leading-[1.15]">
+                            {event.title}
+                        </span>
                     </span>
                 )}
             </button>
-            {event.alcohol && !hideLabel && (
-                <i
-                    className="fa-solid fa-beer-mug-empty pointer-events-none absolute right-1 top-1 z-[1] text-[12px] leading-none text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]"
-                    aria-label="Drinking"
-                />
-            )}
         </div>
     )
 }
@@ -216,7 +221,7 @@ export default function EventStack({
                             onPick(events)
                         }}
                         onContextMenu={(e) => openMenu(e, null)}
-                        className={`flex min-h-0 flex-1 items-center justify-center bg-neutral-100 text-[11px] font-semibold text-neutral-600 transition-colors hover:bg-neutral-200 ${past ? 'opacity-50 hover:opacity-100' : ''}`}
+                        className={`flex min-h-0 flex-1 items-center justify-center rounded-[4px] bg-neutral-100 text-[11px] font-semibold text-neutral-600 transition-colors hover:bg-neutral-200 ${past ? PAST_BLOCK : ''}`}
                     >
                         +{events.length - 1} more
                     </button>

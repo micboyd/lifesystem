@@ -1179,6 +1179,10 @@ export interface DayStatusOption {
     bg: string
     text: string
     hover: string
+    /** Year-view block: a soft tint of the colour… */
+    tint: string
+    /** …with this solid strip down the left edge where the run starts (none for pending). */
+    strip?: string
 }
 
 export const DAY_STATUS_OPTIONS: DayStatusOption[] = [
@@ -1188,6 +1192,7 @@ export const DAY_STATUS_OPTIONS: DayStatusOption[] = [
         bg: 'bg-white border border-dashed border-[#4f7a63]',
         text: 'text-neutral-900',
         hover: 'hover:bg-[#eef3f0]',
+        tint: 'bg-white border border-dashed border-[#4f7a63]',
     },
     {
         value: 'annual_leave_approved',
@@ -1195,6 +1200,8 @@ export const DAY_STATUS_OPTIONS: DayStatusOption[] = [
         bg: 'bg-[#8fa79a]',
         text: 'text-neutral-900',
         hover: 'hover:brightness-95',
+        tint: 'bg-[#8fa79a]/40',
+        strip: 'bg-[#8fa79a]',
     },
     {
         value: 'bank_holiday',
@@ -1202,6 +1209,8 @@ export const DAY_STATUS_OPTIONS: DayStatusOption[] = [
         bg: 'bg-[#8fa79a]',
         text: 'text-neutral-900',
         hover: 'hover:brightness-95',
+        tint: 'bg-[#8fa79a]/40',
+        strip: 'bg-[#8fa79a]',
     },
     {
         value: 'christmas_new_year',
@@ -1209,6 +1218,8 @@ export const DAY_STATUS_OPTIONS: DayStatusOption[] = [
         bg: 'bg-[#8fa79a]',
         text: 'text-neutral-900',
         hover: 'hover:brightness-95',
+        tint: 'bg-[#8fa79a]/40',
+        strip: 'bg-[#8fa79a]',
     },
 ]
 
