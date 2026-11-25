@@ -35,6 +35,9 @@ export interface IFinanceRow extends Document {
     pastWeeklyAmounts: IPastWeeklyAmount[]
     /** Weekly budgets: the Monday carry rolls from (null = no carry). */
     carryFrom?: string | null
+    /** YYYY-MM the row was switched on as a tracked budget — carry never rolls
+     *  in from months before it (null = tracked since the rolling-carry start). */
+    trackedFrom?: string | null
     pot?: Types.ObjectId | null
     /** Starling Space categoryUid this budget mirrors transactions from (null = not linked). */
     starlingCategoryUid?: string | null
@@ -82,6 +85,7 @@ const financeRowSchema = new Schema<IFinanceRow>(
             default: [],
         },
         carryFrom: { type: String, default: null, match: /^\d{4}-\d{2}-\d{2}$/ },
+        trackedFrom: { type: String, default: null, match: /^\d{4}-\d{2}$/ },
         pot: { type: Schema.Types.ObjectId, ref: 'FinancePot', default: null },
         starlingCategoryUid: { type: String, default: null },
     },

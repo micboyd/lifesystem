@@ -41,6 +41,7 @@ import { useInvalidate } from '../context/DataSyncContext'
 import { useAuth } from '../context/AuthContext'
 import DeleteScopeDialog from '../components/finance/DeleteScopeDialog'
 import AmountScopeDialog from '../components/finance/AmountScopeDialog'
+import ClearAllDialog from '../components/finance/ClearAllDialog'
 import { GroupHeader, PotHeader, SheetRow, SpaceStrip } from '../components/finance/MonthlySheet'
 import {
     AddRowDrawer,
@@ -129,6 +130,7 @@ export default function Finances() {
     const [nameDrawer, setNameDrawer] = useState<NameDrawerTarget | null>(null)
     const [potToDelete, setPotToDelete] = useState<FinancePot | null>(null)
     const [spaceGroup, setSpaceGroup] = useState<FinanceGroup | null>(null)
+    const [clearAllOpen, setClearAllOpen] = useState(false)
 
     // Starling spaces, for groups linked to the space that pays them. null until loaded.
     const [spaces, setSpaces] = useState<StarlingSpace[] | null>(null)
@@ -588,6 +590,24 @@ export default function Finances() {
                             )}
                         </p>
                     </div>
+                    {groups.length + savingsTargets.length > 0 && (
+                        <Button
+                            variant="danger"
+                            icon="fa-solid fa-eraser"
+                            onClick={() => setClearAllOpen(true)}
+                            aria-label="Clear all finances"
+                        >
+                            <span className="hidden sm:inline">Clear all</span>
+                        </Button>
+                    )}
+                    <Button
+                        variant="secondary"
+                        icon="fa-solid fa-file-import"
+                        onClick={() => navigate('/finances/import')}
+                        aria-label="Import plan"
+                    >
+                        <span className="hidden sm:inline">Import</span>
+                    </Button>
                     <Button icon="fa-solid fa-plus" onClick={() => setNewGroupOpen(true)} aria-label="New group">
                         <span className="hidden sm:inline">New group</span>
                     </Button>
@@ -910,6 +930,22 @@ export default function Finances() {
                     onConfirm={handleConfirmDelete}
                 />
             )}
+
+            <ClearAllDialog
+                open={clearAllOpen}
+                onClose={() => setClearAllOpen(false)}
+                onCleared={() => {
+                    setClearAllOpen(false)
+                    setGroups([])
+                    setRows([])
+                    setPots([])
+                    setEntries([])
+                    setPaidRows(new Set())
+                    setSavingsTargets([])
+                    invalidate('budget')
+                    toast.show('Finances cleared. A backup file downloaded.', 'success')
+                }}
+            />
 
             {pendingAmountEdit && (
                 <AmountScopeDialog

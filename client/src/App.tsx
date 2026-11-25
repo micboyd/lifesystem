@@ -10,6 +10,7 @@ import Fitness from './pages/Fitness'
 import Nutrition from './pages/Nutrition'
 import FinanceLayout from './pages/FinanceLayout'
 import Finances from './pages/Finances'
+import FinanceImportPanel from './components/finance/FinanceImportPanel'
 import Statement from './pages/Statement'
 import Budgets from './pages/Budgets'
 import BudgetCalendar from './pages/BudgetCalendar'
@@ -143,6 +144,7 @@ export default function App() {
                     <Route path="daily-log" element={<BudgetCalendar />} />
                     <Route path="forecast" element={<SavingsForecast />} />
                     <Route path="spaces" element={<Spaces />} />
+                    <Route path="import" element={<FinanceImportPanel />} />
                 </Route>
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/perfect-day" element={<PerfectDay />} />

@@ -1806,7 +1806,11 @@ export default function Budgets() {
         const newType: 'weekly' | 'daily' | null =
             row.budgetType == null ? 'weekly' : row.budgetType === 'weekly' ? 'daily' : null
         try {
-            const updated = await updateRow(row._id, { budgetType: newType })
+            // Switching on stamps the viewed month so no carry rolls in from before it.
+            const updated = await updateRow(
+                row._id,
+                row.budgetType == null ? { budgetType: newType, trackedFrom: month } : { budgetType: newType }
+            )
             setRows((prev) => prev.map((r) => (r._id === row._id ? updated : r)))
             invalidate('budget')
         } catch {

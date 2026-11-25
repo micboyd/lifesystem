@@ -551,6 +551,8 @@ export interface MealPlanEntry {
     away?: boolean
     /** The nutrition plan whose meal week put this here. */
     plan?: string
+    /** The calendar clash on this meal's slot (that day only) has been accepted — no tag there. */
+    ignoreClash?: boolean
     name: string
     macros: Macros
     status: EntryStatus
@@ -1343,6 +1345,8 @@ export interface FinanceRow {
     pastWeeklyAmounts?: { beforeWeek: string; amount: number }[]
     /** Weekly budgets: the Monday carry starts rolling from. Absent = no carry. */
     carryFrom?: string | null
+    /** YYYY-MM tracking was switched on — no carry rolls in from before it. */
+    trackedFrom?: string | null
     /** Starling Space categoryUid this budget mirrors transactions from. */
     starlingCategoryUid?: string | null
     createdAt: string

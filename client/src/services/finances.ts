@@ -138,6 +138,8 @@ export async function updateRow(
             FinanceRow,
             'name' | 'order' | 'recurring' | 'budgeted' | 'budgetType' | 'starlingCategoryUid'
         > & {
+            /** YYYY-MM tracking starts (sent when switching tracking on). */
+            trackedFrom: string | null
             recurringAmount: number | null
             /** £/week for weekly budgets; the server keeps recurringAmount in step. */
             weeklyAmount: number | null
@@ -543,4 +545,47 @@ export async function listEventUnlinks(): Promise<EventUnlinkDto[]> {
 /** linked: false unticks the match; true puts it back. */
 export async function setEventUnlink(itemId: string, eventKey: string, linked: boolean): Promise<void> {
     await api.post('/finances/event-unlinks', { itemId, eventKey, linked })
+}
+
+// ── Plan import ───────────────────────────────────────────────────────────────
+
+export type FinanceImportAction = 'add' | 'change' | 'same' | 'end' | 'one-off' | 'reopen' | 'missing'
+
+export interface FinanceImportSummary {
+    month: string
+    changes: {
+        group: string
+        row: string
+        action: FinanceImportAction
+        from?: number
+        to?: number
+        weekly?: number
+        note?: string
+    }[]
+    untouched: { group: string; row: string; amount: number }[]
+    groupsCreated: string[]
+    totals: { income: number; expense: number; savings: number; leftOver: number }
+    warnings: string[]
+}
+
+/** Apply a finance plan document — or, with `dryRun`, preview what it would change. */
+export async function importFinancePlan(doc: unknown, dryRun = false): Promise<FinanceImportSummary> {
+    const res = await api.post<ApiResponse<FinanceImportSummary>>('/finances/import', doc, {
+        params: dryRun ? { dryRun: '1' } : {},
+    })
+    return res.data.data
+}
+
+// ── Clear all ─────────────────────────────────────────────────────────────────
+
+export interface ClearAllResult {
+    removed: Record<string, number>
+    /** Everything that was removed, to save as a backup file. */
+    backup: Record<string, unknown>
+}
+
+/** Wipe the whole finance plan — sheet, budgets and savings plans. Bank data stays. */
+export async function clearAllFinances(): Promise<ClearAllResult> {
+    const res = await api.post<ApiResponse<ClearAllResult>>('/finances/clear-all', { confirm: 'CLEAR' })
+    return res.data.data
 }

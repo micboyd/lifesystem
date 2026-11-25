@@ -86,6 +86,11 @@ export interface IMealPlanEntry extends Document {
      * hand. Copying a week deliberately doesn't carry it.
      */
     plan?: Types.ObjectId
+    /**
+     * The calendar clash on this meal's slot has been accepted: the event tag
+     * stops showing on that slot (that day only). Cleared when the meal moves.
+     */
+    ignoreClash?: boolean
     name: string
     macros: IMacros
     status: EntryStatus
@@ -106,6 +111,7 @@ const mealPlanEntrySchema = new Schema<IMealPlanEntry>(
         sides: { type: [{ type: Schema.Types.ObjectId, ref: 'PlateFood' }], default: undefined },
         away: { type: Boolean },
         plan: { type: Schema.Types.ObjectId, ref: 'NutritionPhase' },
+        ignoreClash: { type: Boolean },
         name: { type: String, required: true, trim: true },
         macros: { type: macrosSchema, default: () => ({}) },
         status: { type: String, enum: ENTRY_STATUSES, default: 'planned' },

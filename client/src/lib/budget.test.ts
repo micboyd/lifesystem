@@ -214,6 +214,13 @@ describe('rolling carry from ROLLING_CARRY_FROM', () => {
         expect(carryIntoMonth(row300, '2026-11', history)).toBe(0)
     })
 
+    it('rolls nothing in from months before tracking was switched on', () => {
+        // Switched on in December: November's untracked £300 isn't "left over".
+        const history = new Map([['2026-11', { entries: [], spends: [], excluded: new Set<string>() }]])
+        expect(carryIntoMonth({ ...row300, trackedFrom: '2026-12' }, '2026-12', history)).toBe(0)
+        expect(carryIntoMonth({ ...row300, trackedFrom: '2026-11' }, '2026-12', history)).toBe(300)
+    })
+
     it('adds the rolled-in carry to the day, the week and the month', () => {
         const row310 = dailyRow(310) // £10/day in December
         const day = computeBudgetDay(row310, undefined, [spend('2026-12-01', 5)], '2026-12-02', new Set(), [], -40)

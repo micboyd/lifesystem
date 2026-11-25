@@ -64,7 +64,10 @@ export function AddDrawer({
     onAddAwayDay,
     copied,
     onPaste,
+    onIgnoreClash,
 }: {
+    /** Keep the meals in a slot and stop the calendar flagging that block. */
+    onIgnoreClash?: (date: string, slot: MealType) => Promise<void>
     onAddAwayDay: (date: string, name: string) => Promise<void>
     /** A meal copied elsewhere, offered first so it can be pasted here. */
     copied?: MealPlanEntry | null
@@ -181,6 +184,7 @@ export function AddDrawer({
                             busy={busy}
                             onBack={() => setStep({ kind: 'list' })}
                             onPick={(name) => run(() => onAddAway(date, slot, name))}
+                            onIgnore={onIgnoreClash ? () => run(() => onIgnoreClash(date, slot)) : undefined}
                         />
                     ) : (
                         <ListStep
@@ -407,6 +411,7 @@ function AwayStep({
     busy,
     onBack,
     onPick,
+    onIgnore,
 }: {
     date: string
     /** Null: the whole day. */
@@ -417,6 +422,8 @@ function AwayStep({
     busy: boolean
     onBack?: () => void
     onPick: (name: string) => void
+    /** Keep the planned meals and stop flagging this slot on this day. */
+    onIgnore?: () => void
 }) {
     const [other, setOther] = useState('')
     const part = slot ? SLOT_PART[slot] : null
@@ -427,6 +434,7 @@ function AwayStep({
             Number(covers(b)) - Number(covers(a)) || (a.time ?? '').localeCompare(b.time ?? '')
     )
     const slotName = slot ? CATEGORY[slot].label.toLowerCase() : 'meals'
+    const clashing = slot && planned > 0 ? sorted.filter(covers) : []
     const when = (e: Event) => {
         if (e.allDay || e.startPart === 'na' || date !== e.startDate)
             return e.time && date === e.startDate ? e.time : 'All day'
@@ -483,6 +491,18 @@ function AwayStep({
                     </Button>
                 </div>
             </form>
+            {onIgnore && clashing.length > 0 && (
+                <section className="flex flex-col gap-2 border-t border-neutral-200 pt-4">
+                    <p className={LABEL}>Eating here anyway?</p>
+                    <PickRow
+                        title="Keep the meal, ignore the clash"
+                        detail={`${clashing.length === 1 ? clashing[0].title : `${clashing.length} events`} stops flagging ${slotName} on this day only`}
+                        icon="fa-solid fa-bell-slash"
+                        disabled={busy}
+                        onClick={onIgnore}
+                    />
+                </section>
+            )}
         </div>
     )
 }

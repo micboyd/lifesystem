@@ -67,6 +67,12 @@ describe('mealDayPill', () => {
         expect(pill).toMatchObject({ when: 'All meals', what: '2 events', full: true })
     })
 
+    it('leaves out slots whose clash was accepted, and is null when none are left', () => {
+        const wedding = event({ title: 'Wedding', startPart: 'afternoon', endPart: 'evening' })
+        expect(mealDayPill([wedding], day, label, ['dinner'])).toMatchObject({ when: 'Lunch', what: 'Wedding' })
+        expect(mealDayPill([wedding], day, label, ['lunch', 'dinner'])).toBeNull()
+    })
+
     it('is null when nothing lands on a meal', () => {
         expect(mealDayPill([event({ startDate: '2026-11-24', endDate: '2026-11-24' })], day, label)).toBeNull()
     })

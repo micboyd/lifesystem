@@ -17,14 +17,17 @@ export function DayEventPill({
     events,
     date,
     weekday,
+    skip,
     onOpen,
 }: {
     events: Event[]
     date: string
     weekday: string
+    /** Slots whose clash has been accepted on the meal there. */
+    skip?: MealType[]
     onOpen: () => void
 }) {
-    const pill = mealDayPill(events, date, label)
+    const pill = mealDayPill(events, date, label, skip)
     if (!pill) return null
     return (
         <button

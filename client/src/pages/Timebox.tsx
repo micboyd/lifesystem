@@ -17,7 +17,8 @@ import type { MenuEntry } from '../components/DropdownMenu'
 import { syncMeetingsFeed, type MeetingsFeed } from '../services/ical'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import { todayKey } from '../lib/calendar'
+import { addDays, todayKey } from '../lib/calendar'
+import { buildTimeboxSnapshot, mondayOf } from '../lib/timeboxSnapshot'
 import { formatDuration, minutesToTime, timeToMinutes } from '../lib/time'
 import {
     agendaRows,
@@ -106,6 +107,38 @@ export default function Timebox() {
             toast.error('Couldn’t sync meetings.')
         } finally {
             setSyncing(false)
+        }
+    }
+
+    // ── Export: a JSON snapshot an agent can read, improve and hand back ───
+    const [exporting, setExporting] = useState(false)
+
+    async function exportSnapshot(kind: 'day' | 'week') {
+        if (exporting) return
+        setExporting(true)
+        try {
+            const first = kind === 'day' ? date : mondayOf(date)
+            const dates = kind === 'day' ? [date] : Array.from({ length: 7 }, (_, i) => addDays(first, i))
+            const days = await Promise.all(
+                dates.map(async (d) => ({
+                    date: d,
+                    items: d === date && items ? items : await listTimeboxes(d),
+                    meals: await listMealPlan(d, d).catch(() => [] as MealPlanEntry[]),
+                }))
+            )
+            const snapshot = buildTimeboxSnapshot(days, user?.settings, kind)
+            const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = kind === 'day' ? `timebox-${date}.json` : `timebox-week-${first}.json`
+            a.click()
+            setTimeout(() => URL.revokeObjectURL(url), 1000)
+            toast.show(`Saved ${snapshot.blocks.length} ${snapshot.blocks.length === 1 ? 'block' : 'blocks'} as JSON.`, 'success')
+        } catch {
+            toast.error('Couldn’t export the timebox.')
+        } finally {
+            setExporting(false)
         }
     }
 
@@ -394,6 +427,22 @@ export default function Timebox() {
                         <Button icon="fa-solid fa-plus" onClick={addNext} className="flex-1 sm:flex-none">
                             Add block
                         </Button>
+                        <DropdownMenu
+                            align="right"
+                            trigger={
+                                <span
+                                    aria-label="Export as JSON"
+                                    title="Export as JSON"
+                                    className={`grid h-11 w-11 place-items-center rounded-lg border border-neutral-300 text-neutral-900 transition-colors hover:border-neutral-900 lg:h-10 lg:w-10 ${exporting ? 'opacity-60' : ''}`}
+                                >
+                                    <i className="fa-solid fa-file-export" aria-hidden="true" />
+                                </span>
+                            }
+                            items={[
+                                { label: 'Export this day (JSON)', icon: 'fa-solid fa-calendar-day', onClick: () => void exportSnapshot('day') },
+                                { label: 'Export this week (JSON)', icon: 'fa-solid fa-calendar-week', onClick: () => void exportSnapshot('week') },
+                            ]}
+                        />
                         {meetingsFeed?.connected && (
                             <Tooltip
                                 placement="bottom"

@@ -370,6 +370,8 @@ export function carryIntoMonth(row: FinanceRow, month: string, history: Map<stri
     let carry = 0
     for (const m of monthsBeforeSinceRollingStart(month)) {
         if (!rowVisibleInMonth(row, m)) continue
+        // Not a tracked budget yet that month: nothing was logged, so its allowance isn't "left".
+        if (row.trackedFrom && m < row.trackedFrom) continue
         const data = history.get(m)
         const excluded = data?.excluded ?? new Set<string>()
         const entry = data?.entries.find((e) => e.row === row._id)

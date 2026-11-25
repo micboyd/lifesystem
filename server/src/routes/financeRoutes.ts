@@ -55,10 +55,18 @@ import {
 } from '../controllers/financeSubItemController'
 import { getSpendReview, putSpendReview } from '../controllers/spendReviewController'
 import { listEventUnlinks, setEventUnlink } from '../controllers/eventUnlinkController'
+import { importFinancePlan } from '../controllers/financeImportController'
+import { clearAllFinances } from '../controllers/financeClearController'
 import { requireAuth } from '../middleware/auth'
 
 const router = Router()
 router.use(requireAuth)
+
+// Plan import (?dryRun=1 previews without writing)
+router.post('/import', importFinancePlan)
+
+// Wipe the whole finance plan (body: { confirm: 'CLEAR' }); returns a backup of what went
+router.post('/clear-all', clearAllFinances)
 
 // Groups
 router.get('/groups', listGroups)

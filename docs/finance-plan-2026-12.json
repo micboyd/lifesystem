@@ -1,0 +1,58 @@
+{
+  "month": "2026-12",
+  "groups": [
+    {
+      "name": "Income",
+      "type": "income",
+      "rows": [
+        { "name": "Salary", "amount": 3879.90 },
+        { "name": "Katy", "amount": 644.00 }
+      ]
+    },
+    {
+      "name": "Bills",
+      "type": "expense",
+      "rows": [
+        { "name": "Rent", "amount": 650.00 },
+        { "name": "Dad", "amount": 700.00 },
+        { "name": "Zable", "amount": 146.65 },
+        { "name": "Credit Spring", "amount": 56.70 },
+        { "name": "Octopus Energy", "amount": 232.11 },
+        { "name": "Virgin Media", "amount": 90.52 },
+        { "name": "Hastings", "amount": 76.56 },
+        { "name": "Vodafone", "amount": 40.00 },
+        { "name": "DVLA", "amount": 31.50 },
+        { "name": "Residents parking", "amount": 27.63 },
+        { "name": "Wecasa", "amount": 79.60 },
+        { "name": "Nuffield", "amount": 53.50 },
+        { "name": "Rugby", "amount": 22.00 },
+        { "name": "Heroku", "amount": 30.46, "pot": "Subscriptions" },
+        { "name": "Apple", "amount": 22.98, "pot": "Subscriptions" },
+        { "name": "Netflix", "amount": 20.99, "pot": "Subscriptions" },
+        { "name": "Google Cloud", "amount": 20.00, "pot": "Subscriptions" },
+        { "name": "Claude", "amount": 18.00, "pot": "Subscriptions" },
+        { "name": "Spotify", "amount": 12.99, "pot": "Subscriptions" },
+        { "name": "Historic Environment Scotland", "amount": 9.33, "pot": "Subscriptions" },
+        { "name": "OS Maps", "amount": 7.49, "pot": "Subscriptions" },
+        { "name": "Netlify", "amount": 6.85, "pot": "Subscriptions" },
+        { "name": "Pret", "amount": 5.00, "pot": "Subscriptions" }
+      ]
+    },
+    {
+      "name": "Spending",
+      "type": "expense",
+      "rows": [
+        { "name": "Groceries", "amount": 400.00, "budget": "weekly" },
+        { "name": "Nights out", "amount": 300.00 },
+        { "name": "Transport", "amount": 100.00 },
+        { "name": "Shopping & haircut", "amount": 100.00 },
+        { "name": "Friends & gifts", "end": true }
+      ]
+    },
+    {
+      "name": "Savings",
+      "type": "savings",
+      "amount": 1163.04
+    }
+  ]
+}

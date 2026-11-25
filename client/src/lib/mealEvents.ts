@@ -51,11 +51,16 @@ export function eventsOverMeals(events: Event[], date: string): Event[] {
 export function mealDayPill(
     events: Event[],
     date: string,
-    label: (slot: MealType) => string
+    label: (slot: MealType) => string,
+    /** Slots whose clash has been accepted on the meal there — left off the pill. */
+    skip: MealType[] = []
 ): { when: string; what: string; full: boolean; events: Event[] } | null {
-    const on = eventsOverMeals(events, date)
+    const on = events.filter((e) =>
+        MEAL_TYPES.some((s) => !skip.includes(s) && eventsInMealSlot([e], date, s).length > 0)
+    )
     if (on.length === 0) return null
-    const slots = mealSlotsTaken(on, date)
+    const slots = mealSlotsTaken(on, date).filter((s) => !skip.includes(s))
+    if (slots.length === 0) return null
     const full = slots.length === 3
     const when = full ? 'All meals' : slots.map((s, i) => (i === 0 ? label(s) : label(s).toLowerCase())).join(' & ')
     return { when, what: on.length === 1 ? on[0].title : `${on.length} events`, full, events: on }

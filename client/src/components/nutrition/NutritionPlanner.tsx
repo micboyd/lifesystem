@@ -51,6 +51,7 @@ import {
     deletePlanEntry,
     listPlanEntries,
     setEntryStatus,
+    setEntryIgnoreClash,
     reorderPlanSlot,
     copyPlanWeek,
     clearPlanRange,
@@ -145,6 +146,14 @@ const isSkipped = (e: MealPlanEntry) => e.status === 'skipped'
 const isAwayNote = (e: MealPlanEntry) => !!e.away
 
 const isAwayIn = (e: MealPlanEntry, date: string, slot: MealType) => !!e.away && e.date === date && e.slot === slot
+/**
+ * A slot whose calendar clash has been accepted: it has meals, and every one of
+ * them is marked to ignore the clash. The event tag is left off that slot.
+ */
+const clashIgnored = (items: MealPlanEntry[]) => {
+    const meals = items.filter((e) => !e.away && !e.extra)
+    return meals.length > 0 && meals.every((e) => e.ignoreClash)
+}
 /**
  * An away note the calendar already explains: an event covers its slot. It's
  * drawn as an empty slot with the event's tag — like the fitness planner — and
@@ -379,6 +388,21 @@ export default function NutritionPlanner({
                               onClick: () => void handleSkip(entry),
                           },
                       ]),
+                ...(entry.away || entry.extra || (!entry.ignoreClash && eventsInMealSlot(events, entry.date, entry.slot).length === 0)
+                    ? []
+                    : [
+                          entry.ignoreClash
+                              ? {
+                                    label: 'Warn about calendar clash again',
+                                    icon: 'fa-solid fa-bell',
+                                    onClick: () => void handleIgnoreClash(entry.date, entry.slot, false),
+                                }
+                              : {
+                                    label: 'Ignore calendar clash here',
+                                    icon: 'fa-solid fa-bell-slash',
+                                    onClick: () => void handleIgnoreClash(entry.date, entry.slot, true),
+                                },
+                      ]),
                 { label: 'Remove', icon: 'fa-solid fa-trash-can', danger: true, onClick: () => void handleRemove(entry._id) },
             ],
         })
@@ -433,13 +457,40 @@ export default function NutritionPlanner({
         }
     }
 
+    // Accept (or stop accepting) the calendar clash on one day's slot: every
+    // meal in it is marked, so the event tag goes from that block only.
+    async function handleIgnoreClash(date: string, slot: MealType, ignore: boolean) {
+        const targets = entries.filter((e) => e.date === date && e.slot === slot && !e.away && !e.extra)
+        if (targets.length === 0) return
+        const ids = new Set(targets.map((e) => e._id))
+        const snapshot = entries
+        setEntries((prev) => prev.map((e) => (ids.has(e._id) ? { ...e, ignoreClash: ignore || undefined } : e)))
+        try {
+            await Promise.all(targets.map((e) => setEntryIgnoreClash(e._id, ignore)))
+        } catch {
+            setEntries(snapshot)
+            toast.show('Could not save that — please try again.', 'danger')
+        }
+    }
+
     // Reorder a slot from a drag — and, when the dragged meal came from another
     // slot or day, move it in at the chosen spot. Optimistic, reverting on failure.
     async function handleReorder(date: string, slot: MealType, ids: string[]) {
         const position = new Map(ids.map((id, i) => [id, i]))
         const snapshot = entries
         setEntries((prev) =>
-            prev.map((e) => (position.has(e._id) ? { ...e, date, slot, order: position.get(e._id)! } : e))
+            prev.map((e) =>
+                position.has(e._id)
+                    ? {
+                          ...e,
+                          date,
+                          slot,
+                          order: position.get(e._id)!,
+                          // Moved to another block: the accepted clash was for the old one.
+                          ignoreClash: e.date === date && e.slot === slot ? e.ignoreClash : undefined,
+                      }
+                    : e
+            )
         )
         try {
             await reorderPlanSlot(date, slot, ids)
@@ -778,6 +829,7 @@ export default function NutritionPlanner({
                 onAddAwayDay={handleAddAwayDay}
                 copied={copied}
                 onPaste={pasteInto}
+                onIgnoreClash={(date, slot) => handleIgnoreClash(date, slot, true)}
             />
 
             <QuickAddDrawer
@@ -1280,7 +1332,15 @@ function DayCard({
             <header className="flex flex-col gap-3">
                 {titleRow}
                 {/* What's on the calendar over meal times — a heads-up whether or not a meal is planned. */}
-                {!awayAllDay && <DayEventPill events={events} date={date} weekday={weekday} onOpen={onShowEvents} />}
+                {!awayAllDay && (
+                    <DayEventPill
+                        events={events}
+                        date={date}
+                        weekday={weekday}
+                        skip={MEAL_TYPES.filter((s) => clashIgnored(slotItems(s)))}
+                        onOpen={onShowEvents}
+                    />
+                )}
                 {awayAllDay ? (
                     <p className="text-[13px] text-neutral-500">Away all day — not counted</p>
                 ) : (
@@ -1329,7 +1389,7 @@ function DayCard({
                             onClearTarget={() => onClearTarget(slot)}
                             onDropEntry={onDropEntry}
                             tag={
-                                slot === 'snack' || shownItems(slot).some((e) => e.away) ? null : (
+                                slot === 'snack' || shownItems(slot).some((e) => e.away) || clashIgnored(slotItems(slot)) ? null : (
                                     <SlotEventTag
                                         events={eventsInMealSlot(events, date, slot)}
                                         plannedHere={shownItems(slot).filter((e) => !e.away && e.status === 'planned').length}
@@ -2288,15 +2348,18 @@ function MealGrid({
                                     className={`group/cell flex min-w-0 flex-col gap-1.5 border-l border-[#eeeeee] p-1.5 ${date === today ? 'bg-neutral-50' : ''}`}
                                 >
                                     {!row.extra && row.slot !== 'snack' && !items.some((e) => e.away) && (
+                                        // Always there (even empty) so every cell's meals start at the same height.
                                         <span className="flex min-w-0">
-                                            <SlotEventTag
-                                                events={eventsInMealSlot(events, date, row.slot)}
-                                                plannedHere={items.filter((e) => !e.away && e.status === 'planned').length}
-                                                slot={row.slot}
-                                                away={slotEntries(date, row.slot, false).some((e) => e.away)}
-                                                onAway={() => onAwaySlot(date, row.slot)}
-                                                onShow={() => onShowEvents(date)}
-                                            />
+                                            {!clashIgnored(items) && (
+                                                <SlotEventTag
+                                                    events={eventsInMealSlot(events, date, row.slot)}
+                                                    plannedHere={items.filter((e) => !e.away && e.status === 'planned').length}
+                                                    slot={row.slot}
+                                                    away={slotEntries(date, row.slot, false).some((e) => e.away)}
+                                                    onAway={() => onAwaySlot(date, row.slot)}
+                                                    onShow={() => onShowEvents(date)}
+                                                />
+                                            )}
                                         </span>
                                     )}
                                     {items.map((entry) => (

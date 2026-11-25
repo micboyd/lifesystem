@@ -114,12 +114,16 @@ export async function createAwayNote(req: AuthRequest, res: Response) {
 
 /** PATCH /api/meal-plan/:id { status } — the tick, or a skip. */
 export async function updateEntry(req: AuthRequest, res: Response) {
-    const { status } = req.body ?? {}
+    const { status, ignoreClash } = req.body ?? {}
     if (status !== undefined && !isStatus(status)) {
         res.status(400).json({ message: 'status must be planned, eaten or skipped' })
         return
     }
-    if (status === undefined) {
+    if (ignoreClash !== undefined && typeof ignoreClash !== 'boolean') {
+        res.status(400).json({ message: 'ignoreClash must be true or false' })
+        return
+    }
+    if (status === undefined && ignoreClash === undefined) {
         res.status(400).json({ message: 'Nothing to update' })
         return
     }
@@ -128,11 +132,12 @@ export async function updateEntry(req: AuthRequest, res: Response) {
         res.status(404).json({ message: 'Entry not found' })
         return
     }
-    if (entry.away && status !== 'planned') {
+    if (entry.away && status !== undefined && status !== 'planned') {
         res.status(400).json({ message: 'An away note is not ticked' })
         return
     }
-    entry.status = status
+    if (status !== undefined) entry.status = status
+    if (ignoreClash !== undefined) entry.ignoreClash = ignoreClash || undefined
     await entry.save()
     res.json({ message: 'OK', data: (await MealPlanEntry.findById(entry._id)) ?? entry })
 }
@@ -152,13 +157,21 @@ export async function reorderSlot(req: AuthRequest, res: Response) {
         res.status(400).json({ message: 'ids must be an array of entry ids' })
         return
     }
-    const owned = await MealPlanEntry.find({ user: req.userId, _id: { $in: ids }, extra: false }).select('_id')
-    const ownedIds = new Set(owned.map((e) => String(e._id)))
+    const owned = await MealPlanEntry.find({ user: req.userId, _id: { $in: ids }, extra: false }).select('_id date slot')
+    const ownedById = new Map(owned.map((e) => [String(e._id), e]))
     const ops = (ids as string[])
-        .filter((id) => ownedIds.has(id))
-        .map((id, order) => ({
-            updateOne: { filter: { _id: id, user: req.userId }, update: { $set: { date, slot, order } } },
-        }))
+        .filter((id) => ownedById.has(id))
+        .map((id, order) => {
+            // A meal moved to another slot or day drops its accepted clash — it was for the old block.
+            const was = ownedById.get(id)!
+            const moved = was.date !== date || was.slot !== slot
+            return {
+                updateOne: {
+                    filter: { _id: id, user: req.userId },
+                    update: moved ? { $set: { date, slot, order }, $unset: { ignoreClash: 1 } } : { $set: { date, slot, order } },
+                },
+            }
+        })
     if (ops.length > 0) await MealPlanEntry.bulkWrite(ops)
     res.json({ message: 'OK', data: { reordered: ops.length } })
 }

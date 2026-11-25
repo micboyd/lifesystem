@@ -55,6 +55,12 @@ export async function setEntryStatus(id: string, status: EntryStatus): Promise<M
     return res.data.data
 }
 
+/** Accept (or stop accepting) the calendar clash on this meal's slot. */
+export async function setEntryIgnoreClash(id: string, ignoreClash: boolean): Promise<MealPlanEntry> {
+    const res = await api.patch<ApiResponse<MealPlanEntry>>(`/meal-plan/${id}`, { ignoreClash })
+    return res.data.data
+}
+
 export async function deletePlanEntry(id: string): Promise<void> {
     await api.delete(`/meal-plan/${id}`)
 }

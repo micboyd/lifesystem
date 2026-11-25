@@ -267,6 +267,9 @@ export async function updateRow(req: AuthRequest, res: Response) {
     if (req.body.budgetType === 'daily' || req.body.budgetType === 'weekly')
         fields.budgetType = req.body.budgetType
     if (req.body.budgetType === null) fields.budgetType = null
+    // Switching tracking on stamps the month it starts; off clears it.
+    if (isValidMonth(req.body.trackedFrom)) fields.trackedFrom = req.body.trackedFrom
+    if (req.body.budgetType === null || req.body.trackedFrom === null) fields.trackedFrom = null
     if (typeof req.body.pot === 'string' || req.body.pot === null) fields.pot = req.body.pot ?? null
     if (typeof req.body.starlingCategoryUid === 'string' || req.body.starlingCategoryUid === null)
         fields.starlingCategoryUid = req.body.starlingCategoryUid || null
